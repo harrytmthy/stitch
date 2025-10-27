@@ -1,0 +1,45 @@
+#!/bin/bash
+
+set -e
+
+cd "$(git rev-parse --show-toplevel)" || exit
+
+# Run apiCheck
+echo "Running apiCheck..."
+if ! ./gradlew apiCheck --quiet; then
+  echo "API check failed, retrying with clean..."
+  ./gradlew clean --no-configuration-cache
+  ./gradlew apiCheck --quiet || {
+    echo "API check still failed after clean. Fix public API compatibility or update baselines:"
+    echo "./gradlew :stitch:apiDump"
+    exit 1
+  }
+fi
+
+# Run lint
+echo "Running lint..."
+if ! ./gradlew lint --quiet; then
+  echo "Lint failed, retrying with clean..."
+  ./gradlew clean --no-configuration-cache
+  ./gradlew lint --quiet || {
+    echo "Lint still failed after clean. Fix lint issues."
+    exit 1
+  }
+fi
+
+# Run spotlessCheck
+echo "Running spotless..."
+if ! ./gradlew spotlessCheck --init-script gradle/init.gradle.kts --no-configuration-cache; then
+  echo "Spotless check failed. Please run below command:"
+  echo "./gradlew spotlessCheck --init-script gradle/init.gradle.kts --no-configuration-cache"
+  exit 1
+fi
+
+# Run unit tests
+echo "Running unit tests..."
+if ! ./gradlew testDebugUnitTest --quiet; then
+  echo "Unit tests failed. Fix them before pushing."
+  exit 1
+fi
+
+exit 0

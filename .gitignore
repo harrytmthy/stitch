@@ -1,0 +1,20 @@
+# Build and IDE
+.gradle/
+.idea/
+.kotlin/
+*.iml
+build/
+out/
+captures/
+
+# Kotlin & Java
+*.class
+*.dex
+*.apk
+*.ap_
+
+# Local configs
+local.properties
+
+# macOS
+.DS_Store
