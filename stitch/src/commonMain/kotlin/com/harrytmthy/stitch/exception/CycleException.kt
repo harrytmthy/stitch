@@ -18,7 +18,6 @@ package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.engine.Signature
 
-class CycleException internal constructor(path: List<Signature>) :
-    IllegalStateException(
-        "Dependency cycle detected: " + path.joinToString(" -> ") { it.toString() },
-    )
+class CycleException internal constructor(path: List<Signature>) : IllegalStateException(
+    "Dependency cycle detected: " + path.joinToString(" -> ") { it.toString() },
+)
