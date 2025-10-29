@@ -22,7 +22,8 @@ class MissingBindingException(msg: String) : IllegalStateException(msg) {
 
     companion object {
 
-        fun missingType(type: Class<*>) = MissingBindingException("No bindings for type ${type.name}")
+        fun missingType(type: Class<*>) =
+            MissingBindingException("No bindings for type ${type.name}")
 
         fun missingQualifier(
             type: Class<*>,

@@ -55,7 +55,8 @@ object Stitch {
     }
 
     @PublishedApi
-    internal inline fun <reified T : Any> componentFor(qualifier: Qualifier? = null): Component = component(Signature(T::class.java, qualifier))
+    internal inline fun <reified T : Any> componentFor(qualifier: Qualifier? = null): Component =
+        component(Signature(T::class.java, qualifier))
 
     @PublishedApi
     internal fun component(signature: Signature): Component {

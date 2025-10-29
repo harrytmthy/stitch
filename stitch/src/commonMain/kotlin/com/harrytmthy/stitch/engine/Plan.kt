@@ -26,7 +26,8 @@ internal object PlanCache {
 
     private val cache = ConcurrentHashMap<ComponentSignature, Plan>()
 
-    fun computeIfAbsent(componentSignature: ComponentSignature, loader: () -> Plan): Plan = cache.computeIfAbsentCompat(componentSignature) { loader() }
+    fun computeIfAbsent(componentSignature: ComponentSignature, loader: () -> Plan): Plan =
+        cache.computeIfAbsentCompat(componentSignature) { loader() }
 
     fun clear() = cache.clear()
 }

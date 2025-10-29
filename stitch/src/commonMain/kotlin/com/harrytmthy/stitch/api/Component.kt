@@ -95,11 +95,14 @@ open class Component internal constructor(
         }
     }
 
-    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T = get(T::class.java, qualifier)
+    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T =
+        get(T::class.java, qualifier)
 
-    open fun <T : Any> lazyOf(type: Class<T>, qualifier: Qualifier? = null): Lazy<T> = lazy(LazyThreadSafetyMode.NONE) { get(type, qualifier) }
+    open fun <T : Any> lazyOf(type: Class<T>, qualifier: Qualifier? = null): Lazy<T> =
+        lazy(LazyThreadSafetyMode.NONE) { get(type, qualifier) }
 
-    inline fun <reified T : Any> lazyOf(qualifier: Qualifier? = null): Lazy<T> = lazyOf(T::class.java, qualifier)
+    inline fun <reified T : Any> lazyOf(qualifier: Qualifier? = null): Lazy<T> =
+        lazyOf(T::class.java, qualifier)
 
     private object DefaultQualifier
 }
