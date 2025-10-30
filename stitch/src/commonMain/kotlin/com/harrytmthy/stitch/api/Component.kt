@@ -21,40 +21,11 @@ import com.harrytmthy.stitch.internal.computeIfAbsentCompat
 import java.util.concurrent.ConcurrentHashMap
 
 open class Component internal constructor(
-    internal val planNodes: List<Node>,
     internal val nodeLookup: (Class<*>, Qualifier?) -> Node,
     internal val singletons: ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>,
 ) {
 
     private val scoped = ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>()
-
-    internal fun warmUp() {
-        for (node in planNodes) {
-            when (node.scope) {
-                Scope.Factory -> Unit // Never cached
-                Scope.Scoped -> {
-                    val qualifier = node.qualifier ?: DefaultQualifier
-                    val inner = scoped.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
-                    inner[qualifier]?.let { continue }
-                    synchronized(inner) {
-                        inner[qualifier]?.let { return@synchronized }
-                        val value = node.factory(this)
-                        inner.putIfAbsent(qualifier, value)
-                    }
-                }
-                Scope.Singleton -> {
-                    val qualifier = node.qualifier ?: DefaultQualifier
-                    val inner = singletons.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
-                    inner[qualifier]?.let { continue }
-                    synchronized(inner) {
-                        inner[qualifier]?.let { return@synchronized }
-                        val value = node.consumePrebuilt() ?: node.factory(this)
-                        inner.putIfAbsent(qualifier, value)
-                    }
-                }
-            }
-        }
-    }
 
     @Suppress("UNCHECKED_CAST")
     open fun <T : Any> get(type: Class<T>, qualifier: Qualifier? = null): T {

@@ -32,7 +32,6 @@ internal object PlanCache {
     fun clear() = cache.clear()
 }
 
-@PublishedApi
 internal data class Signature(val type: Class<*>, val qualifier: Qualifier?) {
 
     override fun toString(): String = "${type.simpleName}[${qualifier ?: "<default>"}]"

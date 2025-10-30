@@ -22,28 +22,42 @@ import com.harrytmthy.stitch.internal.Factory
 import com.harrytmthy.stitch.internal.Registry
 import com.harrytmthy.stitch.internal.TraceResult
 
-class Binder {
+class Binder(private val overrideEager: Boolean) {
+
+    private var stagedEagerDefinitions: ArrayList<Signature>? = null
 
     inline fun <reified T : Any> singleton(
         qualifier: Qualifier? = null,
+        eager: Boolean = false,
         noinline factory: Component.() -> T,
-    ) = bind(T::class.java, qualifier, Scope.Singleton, factory)
+    ) = singleton(T::class.java, qualifier, eager, factory)
+
+    fun <T : Any> singleton(
+        type: Class<T>,
+        qualifier: Qualifier?,
+        eager: Boolean,
+        factory: Component.() -> T,
+    ) {
+        bind(type, qualifier, Scope.Singleton, factory)
+        if (eager || overrideEager) {
+            val definitions = stagedEagerDefinitions ?: ArrayList<Signature>()
+                .also { stagedEagerDefinitions = it }
+            definitions += Signature(type, qualifier)
+        }
+    }
 
     inline fun <reified T : Any> factory(
         qualifier: Qualifier? = null,
         noinline factory: Component.() -> T,
-    ) = bind(T::class.java, qualifier, Scope.Factory, factory)
+    ) = factory(T::class.java, qualifier, factory)
 
-    inline fun module(block: Binder.() -> Unit) {
-        this.block()
-    }
+    fun <T : Any> factory(
+        type: Class<T>,
+        qualifier: Qualifier?,
+        factory: Component.() -> T,
+    ) = bind(type, qualifier, Scope.Factory, factory)
 
-    fun include(vararg modules: Module) {
-        modules.forEach { it.register(this) }
-    }
-
-    @PublishedApi
-    internal fun <T : Any> bind(
+    private fun <T : Any> bind(
         type: Class<T>,
         qualifier: Qualifier?,
         scope: Scope,
@@ -52,9 +66,8 @@ class Binder {
         val node = Node(
             type = type,
             qualifier = qualifier,
-            dependencies = null,
-            factory = factory as Factory,
             scope = scope,
+            factory = factory as Factory,
             tracer = this::traceDependencies,
         )
         val inner = Registry.definitions.getOrPut(type) { HashMap() }
@@ -65,6 +78,9 @@ class Binder {
         Registry.version.incrementAndGet()
     }
 
+    internal fun getStagedEagerDefinitions(): List<Signature> =
+        stagedEagerDefinitions.orEmpty().also { stagedEagerDefinitions = null }
+
     private inline fun <T : Any> traceDependencies(
         crossinline factory: Component.() -> T,
     ): TraceResult {
@@ -72,7 +88,6 @@ class Binder {
         var touched = false
         var prebuilt: Any? = null
         val proxyComponent = object : Component(
-            planNodes = emptyList(),
             nodeLookup = { _, _ -> error("noop") },
             singletons = Registry.singletons,
         ) {

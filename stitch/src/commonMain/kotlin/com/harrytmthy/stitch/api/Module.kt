@@ -16,12 +16,17 @@
 
 package com.harrytmthy.stitch.api
 
-interface Module {
-    fun register(binder: Binder)
+abstract class Module(overrideEager: Boolean) {
+
+    @PublishedApi
+    internal val binder = Binder(overrideEager)
+
+    abstract fun register()
 }
 
-inline fun module(crossinline block: Binder.() -> Unit): Module = object : Module {
-    override fun register(binder: Binder) {
-        block(binder)
+inline fun module(overrideEager: Boolean = false, crossinline block: Binder.() -> Unit): Module =
+    object : Module(overrideEager) {
+        override fun register() {
+            block(binder)
+        }
     }
-}

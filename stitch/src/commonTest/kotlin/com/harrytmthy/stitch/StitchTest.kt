@@ -34,7 +34,6 @@ class StitchTest {
     @BeforeTest
     fun setUp() {
         Stitch.unregister()
-        Stitch.eagerWarmup = false
     }
 
     @Test
@@ -208,7 +207,7 @@ class StitchTest {
         var singletonBuilds = 0
         var factoryBuilds = 0
 
-        val module = module {
+        val module = module(overrideEager = true) {
             factory {
                 factoryBuilds++
                 Bar()
@@ -220,7 +219,6 @@ class StitchTest {
             }
         }
 
-        Stitch.eagerWarmup = true
         Stitch.register(module)
 
         // Build a component (this warms singletons once)
@@ -294,5 +292,83 @@ class StitchTest {
         assertSame(firstInstance, secondInstance)
         assertNotSame(firstProdInstance, secondProdInstance)
         assertNotSame(firstInstance, firstProdInstance)
+    }
+
+    @Test
+    fun `singletons with the same type when one is eager should throw IllegalStateException`() {
+        val module = module {
+            singleton(eager = true) { Logger() }
+            singleton { Logger() }
+        }
+        assertFailsWith<IllegalStateException> { Stitch.register(module) }
+    }
+
+    @Test
+    fun `overrideEager should warm all singletons in that module`() {
+        var firstSingletonCount = 0
+        var secondSingletonCount = 0
+        var factoryCount = 0
+        val module = module(overrideEager = true) {
+            singleton {
+                firstSingletonCount++
+                Logger()
+            }
+            singleton(qualifier = named("prod")) {
+                secondSingletonCount++
+                Logger()
+            }
+            factory(qualifier = named("dev")) {
+                factoryCount++
+                Logger()
+            }
+        }
+
+        Stitch.register(module)
+
+        assertEquals(1, firstSingletonCount)
+        assertEquals(1, secondSingletonCount)
+        assertEquals(0, factoryCount)
+    }
+
+    @Test
+    fun `qualified eager should warm that qualifier only`() {
+        var firstSingletonCount = 0
+        var secondSingletonCount = 0
+        val module = module {
+            singleton(qualifier = named("prod"), eager = true) {
+                firstSingletonCount++
+                Logger()
+            }
+            singleton {
+                secondSingletonCount++
+                Logger()
+            }
+        }
+        Stitch.register(module)
+        assertEquals(1, firstSingletonCount)
+        assertEquals(0, secondSingletonCount)
+    }
+
+    @Test
+    fun `eager should not be contagious to dependencies`() {
+        var daoBuiltCount = 0
+        var loggerBuiltCount = 0
+        val module = module {
+            singleton(eager = true) {
+                loggerBuiltCount++
+                Logger()
+            }
+            singleton {
+                val logger = get<Logger>()
+                daoBuiltCount++
+                Dao(logger)
+            }
+        }
+        Stitch.register(module)
+        assertEquals(0, daoBuiltCount)
+        assertEquals(1, loggerBuiltCount)
+        Stitch.get<Dao>()
+        assertEquals(1, daoBuiltCount)
+        assertEquals(1, loggerBuiltCount)
     }
 }
