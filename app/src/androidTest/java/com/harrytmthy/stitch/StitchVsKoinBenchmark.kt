@@ -28,6 +28,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.dsl.koinApplication
+import org.koin.dsl.bind as bindKoin
 import org.koin.dsl.module as koinModule
 
 @RunWith(AndroidJUnit4::class)
@@ -302,6 +303,7 @@ class StitchVsKoinBenchmark {
             singleton { NetworkClient(get()) }
             singleton { Cache(get()) }
             singleton(named("remote")) { RemoteRepo(get(), get(), get()) }
+                .bind<IRemoteRepo>()
             singleton {
                 val local: LocalRepo = get()
                 val remote: RemoteRepo = get(named("remote"))
@@ -309,12 +311,12 @@ class StitchVsKoinBenchmark {
             }
             singleton { UseCaseA(get(), get()) }
             singleton { UseCaseB(get(), get()) }
-            singleton { DeepService(get(), get()) }
+            singleton { DeepService(get(), get()) }.bind<IService>()
             if (leafSingleton) {
                 singleton { DeepViewModel(get()) }
             } else {
                 factory { DeepViewModel(get()) }
-            }
+            }.bind<IViewModel>()
         }
 
     private fun createKoinModule(deep: Boolean, leafSingleton: Boolean, eager: Boolean = false) =
@@ -336,7 +338,7 @@ class StitchVsKoinBenchmark {
             single { Cache(get()) }
             single(org.koin.core.qualifier.named("remote")) {
                 RemoteRepo(get(), get(), get())
-            }
+            }.bindKoin<IRemoteRepo>()
             single {
                 val local: LocalRepo = get()
                 val remote: RemoteRepo = get(org.koin.core.qualifier.named("remote"))
@@ -344,12 +346,12 @@ class StitchVsKoinBenchmark {
             }
             single { UseCaseA(get(), get()) }
             single { UseCaseB(get(), get()) }
-            single { DeepService(get(), get()) }
+            single { DeepService(get(), get()) }.bindKoin<IService>()
             if (leafSingleton) {
                 single { DeepViewModel(get()) }
             } else {
                 factory { DeepViewModel(get()) }
-            }
+            }.bindKoin<IViewModel>()
         }
 
     // ----------- tiny graph (LocalRepo) -----------
@@ -363,10 +365,13 @@ class StitchVsKoinBenchmark {
     class LocalRepo(val dao: Dao, val mapper: Mapper)
 
     // ----------- deep graph (DeepViewModel) -----------
-    class RemoteRepo(val net: NetworkClient, val json: Json, val mapper: Mapper)
+    interface IRemoteRepo
+    interface IService
+    interface IViewModel
+    class RemoteRepo(val net: NetworkClient, val json: Json, val mapper: Mapper) : IRemoteRepo
     class CombinedRepo(val local: LocalRepo, val remote: RemoteRepo)
     class UseCaseA(val repo: CombinedRepo, val cache: Cache)
     class UseCaseB(val repo: CombinedRepo, val logger: Logger)
-    class DeepService(val a: UseCaseA, val b: UseCaseB)
-    class DeepViewModel(val service: DeepService)
+    class DeepService(val a: UseCaseA, val b: UseCaseB) : IService
+    class DeepViewModel(val service: DeepService) : IViewModel
 }

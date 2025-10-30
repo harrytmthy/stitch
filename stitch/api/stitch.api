@@ -1,7 +1,13 @@
 public final class com/harrytmthy/stitch/api/Binder {
 	public fun <init> (Z)V
-	public final fun factory (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;)V
-	public final fun singleton (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ZLkotlin/jvm/functions/Function1;)V
+	public final fun factory (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
+	public static synthetic fun factory$default (Lcom/harrytmthy/stitch/api/Binder;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
+	public final fun singleton (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ZLkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
+	public static synthetic fun singleton$default (Lcom/harrytmthy/stitch/api/Binder;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ZLkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
+}
+
+public final class com/harrytmthy/stitch/api/Binder$BindingChain {
+	public final fun bind (Ljava/lang/Class;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
 }
 
 public class com/harrytmthy/stitch/api/Component {

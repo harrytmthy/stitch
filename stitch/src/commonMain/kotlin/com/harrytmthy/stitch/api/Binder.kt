@@ -30,39 +30,43 @@ class Binder(private val overrideEager: Boolean) {
         qualifier: Qualifier? = null,
         eager: Boolean = false,
         noinline factory: Component.() -> T,
-    ) = singleton(T::class.java, qualifier, eager, factory)
+    ): BindingChain = singleton(T::class.java, qualifier, eager, factory)
 
     fun <T : Any> singleton(
         type: Class<T>,
-        qualifier: Qualifier?,
-        eager: Boolean,
+        qualifier: Qualifier? = null,
+        eager: Boolean = false,
         factory: Component.() -> T,
-    ) {
-        bind(type, qualifier, Scope.Singleton, factory)
+    ): BindingChain {
+        val node = createAndRegisterNode(type, qualifier, Scope.Singleton, factory)
         if (eager || overrideEager) {
             val definitions = stagedEagerDefinitions ?: ArrayList<Signature>()
                 .also { stagedEagerDefinitions = it }
             definitions += Signature(type, qualifier)
         }
+        return BindingChain(this, node)
     }
 
     inline fun <reified T : Any> factory(
         qualifier: Qualifier? = null,
         noinline factory: Component.() -> T,
-    ) = factory(T::class.java, qualifier, factory)
+    ): BindingChain = factory(T::class.java, qualifier, factory)
 
     fun <T : Any> factory(
         type: Class<T>,
-        qualifier: Qualifier?,
+        qualifier: Qualifier? = null,
         factory: Component.() -> T,
-    ) = bind(type, qualifier, Scope.Factory, factory)
+    ): BindingChain {
+        val node = createAndRegisterNode(type, qualifier, Scope.Factory, factory)
+        return BindingChain(this, node)
+    }
 
-    private fun <T : Any> bind(
+    private fun <T : Any> createAndRegisterNode(
         type: Class<T>,
         qualifier: Qualifier?,
         scope: Scope,
         factory: Component.() -> T,
-    ) {
+    ): Node {
         val node = Node(
             type = type,
             qualifier = qualifier,
@@ -76,6 +80,34 @@ class Binder(private val overrideEager: Boolean) {
         }
         inner[qualifier] = node
         Registry.version.incrementAndGet()
+        return node
+    }
+
+    private fun registerAlias(aliasType: Class<*>, target: Node) {
+        val primaryInner = Registry.definitions.getOrPut(target.type) { HashMap() }
+        val existing = Registry.definitions[aliasType]
+        check(existing == null || existing === primaryInner) {
+            "Conflicting bindings for ${aliasType.name}: already has its own family."
+        }
+        Registry.definitions[aliasType] = primaryInner
+        Registry.version.incrementAndGet()
+    }
+
+    /**
+     * Chain handle that can register aliases pointing to the same Node.
+     */
+    class BindingChain internal constructor(
+        private val binder: Binder,
+        private val node: Node,
+    ) {
+
+        inline fun <reified T : Any> bind(): BindingChain =
+            bind(T::class.java)
+
+        fun <T : Any> bind(type: Class<T>): BindingChain {
+            binder.registerAlias(type, node)
+            return this
+        }
     }
 
     internal fun getStagedEagerDefinitions(): List<Signature> =
