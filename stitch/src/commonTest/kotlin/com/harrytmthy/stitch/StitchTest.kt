@@ -28,6 +28,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class StitchTest {
 
@@ -370,5 +371,88 @@ class StitchTest {
         Stitch.get<Dao>()
         assertEquals(1, daoBuiltCount)
         assertEquals(1, loggerBuiltCount)
+    }
+
+    @Test
+    fun `bind should expose the same singleton across aliases`() {
+        val module = module {
+            singleton { DualRepo() } // primary key: DualRepo / <default>
+                .bind<Repo>() // alias: Repo / <default>
+                .bind<Auditable>() // alias: Auditable / <default>
+        }
+        Stitch.register(module)
+
+        val asImpl = Stitch.get<DualRepo>()
+        val asRepo = Stitch.get<Repo>()
+        val asAuditable = Stitch.get<Auditable>()
+
+        assertSame(asImpl, asRepo)
+        assertTrue(asRepo === asAuditable)
+    }
+
+    @Test
+    fun `bind keeps primary qualifier`() {
+        val module = module {
+            singleton(qualifier = named("prod")) { DualRepo() }
+                .bind<Repo>()
+        }
+        Stitch.register(module)
+
+        // default qualifier does not exist
+        assertFailsWith<MissingBindingException> { Stitch.get<Repo>() }
+        assertFailsWith<MissingBindingException> { Stitch.get<DualRepo>() }
+
+        // "prod" qualifier works and points to the same instance
+        val implProd = Stitch.get<DualRepo>(named("prod"))
+        val repoProd = Stitch.get<Repo>(named("prod"))
+        assertSame(implProd, repoProd)
+    }
+
+    @Test
+    fun `bind when existing binding collides should throw`() {
+        val module = module {
+            singleton<Repo> { RepoImpl() } // Repo / <default> already taken
+            singleton { DualRepo() } // DualRepo / <default>
+                .bind<Repo>() // attempts to alias into Repo / <default>
+        }
+        assertFailsWith<IllegalStateException> { Stitch.register(module) }
+    }
+
+    @Test
+    fun `factory alias produces new instances`() {
+        val module = module {
+            factory { DualRepo() } // primary key: DualRepo / <default>
+                .bind<Repo>() // alias: Repo / <default>
+        }
+        Stitch.register(module)
+
+        val r1 = Stitch.get<Repo>()
+        val r2 = Stitch.get<Repo>()
+        val i1 = Stitch.get<DualRepo>()
+        val i2 = Stitch.get<DualRepo>()
+
+        assertNotSame(r1, r2)
+        assertNotSame(i1, i2)
+    }
+
+    @Test
+    fun `eager singleton builds once even with aliases`() {
+        var builds = 0
+        val module = module {
+            singleton(eager = true) {
+                builds++
+                DualRepo()
+            }.bind<Repo>().bind<Auditable>()
+        }
+        Stitch.register(module)
+
+        // eager warming already happened
+        assertEquals(1, builds)
+
+        // resolving via any alias should not rebuild
+        Stitch.get<Repo>()
+        Stitch.get<Auditable>()
+        Stitch.get<DualRepo>()
+        assertEquals(1, builds)
     }
 }

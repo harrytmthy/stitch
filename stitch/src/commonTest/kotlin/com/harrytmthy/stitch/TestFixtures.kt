@@ -19,6 +19,10 @@ package com.harrytmthy.stitch
 interface Repo
 class RepoImpl : Repo
 
+interface Auditable
+
+class DualRepo : Repo, Auditable
+
 class Logger
 class Dao(val logger: Logger)
 

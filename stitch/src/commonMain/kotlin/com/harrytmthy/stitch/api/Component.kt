@@ -31,36 +31,38 @@ open class Component internal constructor(
     open fun <T : Any> get(type: Class<T>, qualifier: Qualifier? = null): T {
         val qualifierKey = qualifier ?: DefaultQualifier
 
-        // 1) Check scoped cache
+        // Fast-path: check caches with the requested key first
         scoped[type]?.get(qualifierKey)?.let { return it as T }
-
-        // 2) Check singleton cache
         singletons[type]?.get(qualifierKey)?.let { return it as T }
 
-        // 3) Resolve and build if needed
+        // Resolve once to learn the canonical cache key
         val node = nodeLookup(type, qualifier)
+
+        // Fast-path: If alias, recheck caches under canonical key
+        if (node.type !== type) {
+            scoped[node.type]?.get(qualifierKey)?.let { return it as T }
+            singletons[node.type]?.get(qualifierKey)?.let { return it as T }
+        }
+
+        // Build, cache under canonical key
         return when (node.scope) {
             Scope.Factory -> node.factory(this) as T
             Scope.Scoped -> {
-                val inner = scoped.computeIfAbsentCompat(type) { ConcurrentHashMap() }
+                val inner = scoped.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
                 inner[qualifierKey]?.let { return it as T }
-
                 synchronized(inner) {
                     inner[qualifierKey]?.let { return it as T }
                     val built = node.factory(this)
-                    val prev = inner.putIfAbsent(qualifierKey, built)
-                    (prev ?: built) as T
+                    (inner.putIfAbsent(qualifierKey, built) ?: built) as T
                 }
             }
             Scope.Singleton -> {
-                val inner = singletons.computeIfAbsentCompat(type) { ConcurrentHashMap() }
+                val inner = singletons.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
                 inner[qualifierKey]?.let { return it as T }
-
                 synchronized(inner) {
                     inner[qualifierKey]?.let { return it as T }
                     val built = node.consumePrebuilt() ?: node.factory(this)
-                    val prev = inner.putIfAbsent(qualifierKey, built)
-                    (prev ?: built) as T
+                    (inner.putIfAbsent(qualifierKey, built) ?: built) as T
                 }
             }
         }
