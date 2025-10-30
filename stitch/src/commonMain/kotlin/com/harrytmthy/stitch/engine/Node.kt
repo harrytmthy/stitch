@@ -24,11 +24,12 @@ import com.harrytmthy.stitch.internal.TraceResult
 internal class Node(
     val type: Class<*>,
     val qualifier: Qualifier?,
-    @Volatile private var dependencies: List<Signature>?,
-    val factory: Factory,
     val scope: Scope,
+    val factory: Factory,
     private val tracer: (Factory) -> TraceResult,
 ) {
+
+    @Volatile private var dependencies: List<Signature>? = null
 
     @Volatile
     var prebuilt: Any? = null

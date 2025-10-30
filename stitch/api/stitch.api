@@ -1,8 +1,7 @@
 public final class com/harrytmthy/stitch/api/Binder {
-	public fun <init> ()V
-	public final fun bind (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;Lkotlin/jvm/functions/Function1;)V
-	public final fun include ([Lcom/harrytmthy/stitch/api/Module;)V
-	public final fun module (Lkotlin/jvm/functions/Function1;)V
+	public fun <init> (Z)V
+	public final fun factory (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;)V
+	public final fun singleton (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ZLkotlin/jvm/functions/Function1;)V
 }
 
 public class com/harrytmthy/stitch/api/Component {
@@ -12,12 +11,15 @@ public class com/harrytmthy/stitch/api/Component {
 	public static synthetic fun lazyOf$default (Lcom/harrytmthy/stitch/api/Component;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ILjava/lang/Object;)Lkotlin/Lazy;
 }
 
-public abstract interface class com/harrytmthy/stitch/api/Module {
-	public abstract fun register (Lcom/harrytmthy/stitch/api/Binder;)V
+public abstract class com/harrytmthy/stitch/api/Module {
+	public fun <init> (Z)V
+	public final fun getBinder ()Lcom/harrytmthy/stitch/api/Binder;
+	public abstract fun register ()V
 }
 
 public final class com/harrytmthy/stitch/api/ModuleKt {
-	public static final fun module (Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Module;
+	public static final fun module (ZLkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Module;
+	public static synthetic fun module$default (ZLkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Module;
 }
 
 public final class com/harrytmthy/stitch/api/Named : com/harrytmthy/stitch/api/Qualifier {
@@ -56,26 +58,12 @@ public final class com/harrytmthy/stitch/api/Scope : java/lang/Enum {
 
 public final class com/harrytmthy/stitch/api/Stitch {
 	public static final field INSTANCE Lcom/harrytmthy/stitch/api/Stitch;
-	public final fun component (Lcom/harrytmthy/stitch/engine/Signature;)Lcom/harrytmthy/stitch/api/Component;
-	public final fun getEagerWarmup ()Z
+	public final fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Ljava/lang/Object;
+	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Stitch;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun getRoot ()Lcom/harrytmthy/stitch/api/Component;
 	public final fun register ([Lcom/harrytmthy/stitch/api/Module;)V
-	public final fun setEagerWarmup (Z)V
 	public final fun setRoot (Lcom/harrytmthy/stitch/api/Component;)V
 	public final fun unregister ()V
-}
-
-public final class com/harrytmthy/stitch/engine/Signature {
-	public fun <init> (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)V
-	public final fun component1 ()Ljava/lang/Class;
-	public final fun component2 ()Lcom/harrytmthy/stitch/api/Qualifier;
-	public final fun copy (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Lcom/harrytmthy/stitch/engine/Signature;
-	public static synthetic fun copy$default (Lcom/harrytmthy/stitch/engine/Signature;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ILjava/lang/Object;)Lcom/harrytmthy/stitch/engine/Signature;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getQualifier ()Lcom/harrytmthy/stitch/api/Qualifier;
-	public final fun getType ()Ljava/lang/Class;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/harrytmthy/stitch/exception/CycleException : java/lang/IllegalStateException {

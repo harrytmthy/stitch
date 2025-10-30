@@ -21,9 +21,9 @@ import androidx.benchmark.MicrobenchmarkConfig
 import androidx.benchmark.junit4.BenchmarkRule
 import androidx.benchmark.junit4.measureRepeated
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.harrytmthy.stitch.api.Named
 import com.harrytmthy.stitch.api.Stitch
 import com.harrytmthy.stitch.api.module
+import com.harrytmthy.stitch.api.named
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,6 +45,313 @@ class StitchVsKoinBenchmark {
     // global sink to prevent DCE
     @Volatile private var sink: Any? = null
 
+    @Test
+    fun stitchWarm() {
+        Stitch.register(createStitchModule(deep = false, leafSingleton = true))
+
+        // JIT priming
+        repeat(10) { Stitch.get<LocalRepo>() }
+
+        benchmarkRule.measureRepeated {
+            sink = Stitch.get<LocalRepo>()
+        }
+        Stitch.unregister()
+    }
+
+    @Test
+    fun stitchDeepWarm() {
+        val module = createStitchModule(deep = true, leafSingleton = true)
+        Stitch.register(module)
+
+        repeat(10) { Stitch.get<DeepViewModel>() }
+
+        benchmarkRule.measureRepeated {
+            sink = Stitch.get<DeepViewModel>()
+        }
+        Stitch.unregister()
+    }
+
+    @Test
+    fun stitchCold_e2e() {
+        benchmarkRule.measureRepeated {
+            val module = createStitchModule(deep = false, leafSingleton = false)
+            Stitch.register(module)
+            sink = Stitch.get<LocalRepo>()
+            runWithMeasurementDisabled { Stitch.unregister() }
+        }
+    }
+
+    @Test
+    fun stitchDeepCold_e2e() {
+        benchmarkRule.measureRepeated {
+            val module = createStitchModule(deep = true, leafSingleton = false)
+            Stitch.register(module)
+            sink = Stitch.get<DeepViewModel>()
+            runWithMeasurementDisabled { Stitch.unregister() }
+        }
+    }
+
+    @Test
+    fun stitchCold_engine() {
+        benchmarkRule.measureRepeated {
+            val module = runWithMeasurementDisabled {
+                createStitchModule(deep = false, leafSingleton = false)
+            }
+            runWithMeasurementDisabled { Stitch.register(module) }
+
+            sink = Stitch.get<LocalRepo>()
+
+            runWithMeasurementDisabled { Stitch.unregister() }
+        }
+    }
+
+    @Test
+    fun stitchDeepCold_engine() {
+        benchmarkRule.measureRepeated {
+            val module = runWithMeasurementDisabled {
+                createStitchModule(deep = true, leafSingleton = false)
+            }
+            runWithMeasurementDisabled { Stitch.register(module) }
+
+            sink = Stitch.get<DeepViewModel>()
+
+            runWithMeasurementDisabled { Stitch.unregister() }
+        }
+    }
+
+    @Test
+    fun stitchEager() {
+        benchmarkRule.measureRepeated {
+            val module = createStitchModule(deep = false, leafSingleton = true, eager = true)
+            Stitch.register(module)
+            sink = Stitch.get<LocalRepo>()
+            runWithMeasurementDisabled { Stitch.unregister() }
+        }
+    }
+
+    @Test
+    fun stitchDeepEager() {
+        benchmarkRule.measureRepeated {
+            val module = createStitchModule(deep = true, leafSingleton = true, eager = true)
+            Stitch.register(module)
+            sink = Stitch.get<DeepViewModel>()
+            runWithMeasurementDisabled { Stitch.unregister() }
+        }
+    }
+
+    @Test
+    fun stitch_register() {
+        benchmarkRule.measureRepeated {
+            val module = runWithMeasurementDisabled {
+                createStitchModule(deep = true, leafSingleton = true, eager = false)
+            }
+            Stitch.register(module)
+            runWithMeasurementDisabled { Stitch.unregister() }
+        }
+    }
+
+    @Test
+    fun stitchEager_register() {
+        benchmarkRule.measureRepeated {
+            val module = runWithMeasurementDisabled {
+                createStitchModule(deep = true, leafSingleton = true, eager = true)
+            }
+            Stitch.register(module)
+            runWithMeasurementDisabled { Stitch.unregister() }
+        }
+    }
+
+    @Test
+    fun koinWarm() {
+        val koinApp = koinApplication {
+            modules(createKoinModule(deep = false, leafSingleton = true))
+        }
+
+        // JIT priming
+        repeat(10) { koinApp.koin.get<LocalRepo>() }
+
+        benchmarkRule.measureRepeated {
+            sink = koinApp.koin.get<LocalRepo>()
+        }
+        koinApp.close()
+    }
+
+    @Test
+    fun koinDeepWarm() {
+        val koinApp = koinApplication {
+            modules(createKoinModule(deep = true, leafSingleton = true))
+        }
+
+        repeat(10) { koinApp.koin.get<DeepViewModel>() }
+
+        benchmarkRule.measureRepeated {
+            sink = koinApp.koin.get<DeepViewModel>()
+        }
+        koinApp.close()
+    }
+
+    @Test
+    fun koinCold_e2e() {
+        benchmarkRule.measureRepeated {
+            val koinApp = koinApplication {
+                modules(createKoinModule(deep = false, leafSingleton = false))
+            }
+            sink = koinApp.koin.get<LocalRepo>()
+            runWithMeasurementDisabled { koinApp.close() }
+        }
+    }
+
+    @Test
+    fun koinDeepCold_e2e() {
+        benchmarkRule.measureRepeated {
+            val koinApp = koinApplication {
+                modules(createKoinModule(deep = true, leafSingleton = false))
+            }
+            sink = koinApp.koin.get<DeepViewModel>()
+            runWithMeasurementDisabled { koinApp.close() }
+        }
+    }
+
+    @Test
+    fun koinCold_engine() {
+        benchmarkRule.measureRepeated {
+            val koinApp = runWithMeasurementDisabled {
+                val module = createKoinModule(deep = false, leafSingleton = false)
+                koinApplication { modules(module) }
+            }
+
+            sink = koinApp.koin.get<LocalRepo>()
+
+            runWithMeasurementDisabled { koinApp.close() }
+        }
+    }
+
+    @Test
+    fun koinDeepCold_engine() {
+        benchmarkRule.measureRepeated {
+            val koinApp = runWithMeasurementDisabled {
+                val module = createKoinModule(deep = true, leafSingleton = false)
+                koinApplication { modules(module) }
+            }
+
+            sink = koinApp.koin.get<DeepViewModel>()
+
+            runWithMeasurementDisabled { koinApp.close() }
+        }
+    }
+
+    @Test
+    fun koinEager() {
+        benchmarkRule.measureRepeated {
+            val koinApp = koinApplication {
+                modules(createKoinModule(deep = false, leafSingleton = true, eager = true))
+            }
+            sink = koinApp.koin.get<LocalRepo>()
+            runWithMeasurementDisabled { koinApp.close() }
+        }
+    }
+
+    @Test
+    fun koinDeepEager() {
+        benchmarkRule.measureRepeated {
+            val koinApp = koinApplication {
+                modules(createKoinModule(deep = true, leafSingleton = true, eager = true))
+            }
+            sink = koinApp.koin.get<DeepViewModel>()
+            runWithMeasurementDisabled { koinApp.close() }
+        }
+    }
+
+    @Test
+    fun koin_register() {
+        benchmarkRule.measureRepeated {
+            val koinModule = runWithMeasurementDisabled {
+                createKoinModule(deep = true, leafSingleton = true, eager = false)
+            }
+            val koinApp = koinApplication { modules(koinModule) }
+            runWithMeasurementDisabled { koinApp.close() }
+        }
+    }
+
+    @Test
+    fun koinEager_register() {
+        benchmarkRule.measureRepeated {
+            val koinModule = runWithMeasurementDisabled {
+                createKoinModule(deep = true, leafSingleton = true, eager = true)
+            }
+            val koinApp = koinApplication { modules(koinModule) }
+            runWithMeasurementDisabled { koinApp.close() }
+        }
+    }
+
+    private fun createStitchModule(deep: Boolean, leafSingleton: Boolean, eager: Boolean = false) =
+        module(overrideEager = eager) {
+            singleton { Logger() }
+            singleton { Dao(get()) }
+            singleton { Json() }
+            singleton { Mapper(get()) }
+            if (!deep) {
+                if (leafSingleton) {
+                    singleton { LocalRepo(get(), get()) }
+                } else {
+                    factory { LocalRepo(get(), get()) }
+                }
+                return@module
+            }
+            singleton { LocalRepo(get(), get()) }
+            singleton { NetworkClient(get()) }
+            singleton { Cache(get()) }
+            singleton(named("remote")) { RemoteRepo(get(), get(), get()) }
+            singleton {
+                val local: LocalRepo = get()
+                val remote: RemoteRepo = get(named("remote"))
+                CombinedRepo(local, remote)
+            }
+            singleton { UseCaseA(get(), get()) }
+            singleton { UseCaseB(get(), get()) }
+            singleton { DeepService(get(), get()) }
+            if (leafSingleton) {
+                singleton { DeepViewModel(get()) }
+            } else {
+                factory { DeepViewModel(get()) }
+            }
+        }
+
+    private fun createKoinModule(deep: Boolean, leafSingleton: Boolean, eager: Boolean = false) =
+        koinModule(createdAtStart = eager) {
+            single { Logger() }
+            single { Dao(get()) }
+            single { Json() }
+            single { Mapper(get()) }
+            if (!deep) {
+                if (leafSingleton) {
+                    single { LocalRepo(get(), get()) }
+                } else {
+                    factory { LocalRepo(get(), get()) }
+                }
+                return@koinModule
+            }
+            single { LocalRepo(get(), get()) }
+            single { NetworkClient(get()) }
+            single { Cache(get()) }
+            single(org.koin.core.qualifier.named("remote")) {
+                RemoteRepo(get(), get(), get())
+            }
+            single {
+                val local: LocalRepo = get()
+                val remote: RemoteRepo = get(org.koin.core.qualifier.named("remote"))
+                CombinedRepo(local, remote)
+            }
+            single { UseCaseA(get(), get()) }
+            single { UseCaseB(get(), get()) }
+            single { DeepService(get(), get()) }
+            if (leafSingleton) {
+                single { DeepViewModel(get()) }
+            } else {
+                factory { DeepViewModel(get()) }
+            }
+        }
+
     // ----------- tiny graph (LocalRepo) -----------
     data class Logger(val tag: String = "Deep")
     class Json
@@ -62,218 +369,4 @@ class StitchVsKoinBenchmark {
     class UseCaseB(val repo: CombinedRepo, val logger: Logger)
     class DeepService(val a: UseCaseA, val b: UseCaseB)
     class DeepViewModel(val service: DeepService)
-
-    // --------- module builders (mirror each other) ----------
-    private fun buildStitchTiny_cold() = module {
-        // cold fairness: factory for the leaf so first resolve always builds it
-        singleton { Logger() }
-        singleton { Dao(get()) }
-        singleton { Json() }
-        singleton { Mapper(get()) }
-        factory { LocalRepo(get(), get()) }
-    }
-
-    private fun buildStitchTiny_warm() = module {
-        // warm fairness: singleton for the leaf so resolves are cache hits
-        singleton { Logger() }
-        singleton { Dao(get()) }
-        singleton { Json() }
-        singleton { Mapper(get()) }
-        singleton { LocalRepo(get(), get()) }
-    }
-
-    private fun buildKoinTiny_cold() = koinModule {
-        single { Logger() }
-        single { Dao(get()) }
-        single { Json() }
-        single { Mapper(get()) }
-        factory { LocalRepo(get(), get()) }
-    }
-
-    private fun buildKoinTiny_warm() = koinModule {
-        single { Logger() }
-        single { Dao(get()) }
-        single { Json() }
-        single { Mapper(get()) }
-        single { LocalRepo(get(), get()) }
-    }
-
-    private fun buildStitchDeep() = module {
-        // fundamentals
-        singleton { Logger() }
-        singleton { Json() }
-        singleton { NetworkClient(get()) }
-        singleton { Dao(get()) }
-        singleton { Cache(get()) }
-        singleton { Mapper(get()) }
-
-        // repos (remote is qualified)
-        singleton { LocalRepo(get(), get()) }
-        singleton(Named.of("remote")) { RemoteRepo(get(), get(), get()) }
-
-        // combine local + remote (pull the qualified one explicitly)
-        singleton {
-            val local: LocalRepo = get()
-            val remote: RemoteRepo = get(Named.of("remote"))
-            CombinedRepo(local, remote)
-        }
-
-        // use cases + service + vm
-        singleton { UseCaseA(get(), get()) }
-        singleton { UseCaseB(get(), get()) }
-        singleton { DeepService(get(), get()) }
-        factory { DeepViewModel(get()) } // VM as factory is realistic
-    }
-
-    private fun buildKoinDeep() = koinModule {
-        // fundamentals
-        single { Logger() }
-        single { Json() }
-        single { NetworkClient(get()) }
-        single { Dao(get()) }
-        single { Cache(get()) }
-        single { Mapper(get()) }
-
-        // repos (remote is qualified)
-        single { LocalRepo(get(), get()) }
-        single(org.koin.core.qualifier.named("remote")) { RemoteRepo(get(), get(), get()) }
-
-        // combine local + remote
-        single {
-            val local: LocalRepo = get()
-            val remote: RemoteRepo = get(org.koin.core.qualifier.named("remote"))
-            CombinedRepo(local, remote)
-        }
-
-        // use cases + service + vm
-        single { UseCaseA(get(), get()) }
-        single { UseCaseB(get(), get()) }
-        single { DeepService(get(), get()) }
-        factory { DeepViewModel(get()) }
-    }
-
-    @Test
-    fun stitchWarm() {
-        Stitch.register(buildStitchTiny_warm())
-
-        // JIT priming
-        repeat(10) { Stitch.get<LocalRepo>() }
-
-        benchmarkRule.measureRepeated {
-            sink = Stitch.get<LocalRepo>()
-        }
-        Stitch.unregister()
-    }
-
-    @Test
-    fun stitchDeepWarm() {
-        val m = buildStitchDeep()
-        Stitch.register(m)
-
-        repeat(10) { Stitch.get<DeepViewModel>() }
-
-        benchmarkRule.measureRepeated {
-            sink = Stitch.get<DeepViewModel>()
-        }
-        Stitch.unregister()
-    }
-
-    @Test
-    fun stitchCold_e2e() = benchmarkRule.measureRepeated {
-        val m = buildStitchTiny_cold()
-        Stitch.register(m)
-        sink = Stitch.get<LocalRepo>()
-        runWithMeasurementDisabled { Stitch.unregister() }
-    }
-
-    @Test
-    fun stitchDeepCold_e2e() = benchmarkRule.measureRepeated {
-        val m = buildStitchDeep()
-        Stitch.register(m)
-        sink = Stitch.get<DeepViewModel>()
-        runWithMeasurementDisabled { Stitch.unregister() }
-    }
-
-    @Test
-    fun stitchCold_engine() = benchmarkRule.measureRepeated {
-        val m = runWithMeasurementDisabled { buildStitchTiny_cold() }
-        runWithMeasurementDisabled { Stitch.register(m) }
-
-        sink = Stitch.get<LocalRepo>()
-
-        runWithMeasurementDisabled { Stitch.unregister() }
-    }
-
-    @Test
-    fun stitchDeepCold_engine() = benchmarkRule.measureRepeated {
-        val m = runWithMeasurementDisabled { buildStitchDeep() }
-        runWithMeasurementDisabled { Stitch.register(m) }
-
-        sink = Stitch.get<DeepViewModel>()
-
-        runWithMeasurementDisabled { Stitch.unregister() }
-    }
-
-    @Test
-    fun koinWarm() {
-        val koinApp = koinApplication { modules(buildKoinTiny_warm()) }
-
-        // JIT priming
-        repeat(10) { koinApp.koin.get<LocalRepo>() }
-
-        benchmarkRule.measureRepeated {
-            sink = koinApp.koin.get<LocalRepo>()
-        }
-        koinApp.close()
-    }
-
-    @Test
-    fun koinDeepWarm() {
-        val koinApp = koinApplication { modules(buildKoinDeep()) }
-
-        repeat(10) { koinApp.koin.get<DeepViewModel>() }
-
-        benchmarkRule.measureRepeated {
-            sink = koinApp.koin.get<DeepViewModel>()
-        }
-        koinApp.close()
-    }
-
-    @Test
-    fun koinCold_e2e() = benchmarkRule.measureRepeated {
-        val koinApp = koinApplication { modules(buildKoinTiny_cold()) }
-        sink = koinApp.koin.get<LocalRepo>()
-        runWithMeasurementDisabled { koinApp.close() }
-    }
-
-    @Test
-    fun koinDeepCold_e2e() = benchmarkRule.measureRepeated {
-        val koinApp = koinApplication { modules(buildKoinDeep()) }
-        sink = koinApp.koin.get<DeepViewModel>()
-        runWithMeasurementDisabled { koinApp.close() }
-    }
-
-    @Test
-    fun koinCold_engine() = benchmarkRule.measureRepeated {
-        val koinApp = runWithMeasurementDisabled {
-            val module = buildKoinTiny_cold()
-            koinApplication { modules(module) }
-        }
-
-        sink = koinApp.koin.get<LocalRepo>()
-
-        runWithMeasurementDisabled { koinApp.close() }
-    }
-
-    @Test
-    fun koinDeepCold_engine() = benchmarkRule.measureRepeated {
-        val koinApp = runWithMeasurementDisabled {
-            val module = buildKoinDeep()
-            koinApplication { modules(module) }
-        }
-
-        sink = koinApp.koin.get<DeepViewModel>()
-
-        runWithMeasurementDisabled { koinApp.close() }
-    }
 }

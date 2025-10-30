@@ -28,17 +28,25 @@ import java.util.ArrayDeque
 
 object Stitch {
 
-    /** Whether to eagerly build non-factory nodes on component creation. Default: off. */
-    @Volatile var eagerWarmup: Boolean = false
-
     /** Implicit app-level component, planned on first get<T>(). */
     @Volatile var root: Component? = null
 
-    private val binder = Binder()
-
     fun register(vararg modules: Module) {
-        modules.forEach { it.register(binder) }
+        modules.forEach { module ->
+            module.register()
+            val signatures = module.binder.getStagedEagerDefinitions()
+            if (signatures.isNotEmpty()) {
+                warmUp(signatures)
+            }
+        }
         root = null // Invalidate cached component
+    }
+
+    private fun warmUp(signatures: List<Signature>) {
+        for (signature in signatures) {
+            val root = root ?: component(signature).also { root = it }
+            root.get(signature.type, signature.qualifier)
+        }
     }
 
     fun unregister() {
@@ -49,19 +57,20 @@ object Stitch {
         root = null
     }
 
-    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T {
-        val root = root ?: componentFor<T>(qualifier).also { root = it }
-        return root.get(qualifier)
+    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T =
+        get(T::class.java, qualifier)
+
+    fun <T : Any> get(type: Class<T>, qualifier: Qualifier? = null): T {
+        val root = root ?: component(Signature(type, qualifier)).also { root = it }
+        return root.get(type, qualifier)
     }
 
-    @PublishedApi
     internal inline fun <reified T : Any> componentFor(qualifier: Qualifier? = null): Component =
         component(Signature(T::class.java, qualifier))
 
-    @PublishedApi
-    internal fun component(signature: Signature): Component {
+    private fun component(signature: Signature): Component {
         val componentSignature = ComponentSignature(signature, Registry.version.get())
-        val plan = PlanCache.computeIfAbsent(componentSignature) {
+        PlanCache.computeIfAbsent(componentSignature) {
             val graph = buildSubgraph(signature)
             if (graph.size > 1) {
                 getTopologicalSortedPlan(graph)
@@ -71,14 +80,9 @@ object Stitch {
             }
         }
         return Component(
-            planNodes = plan.nodes,
             nodeLookup = ::lookupNode,
             singletons = Registry.singletons,
-        ).apply {
-            if (eagerWarmup) {
-                warmUp()
-            }
-        }
+        )
     }
 
     internal fun lookupNode(type: Class<*>, qualifier: Qualifier?): Node {
