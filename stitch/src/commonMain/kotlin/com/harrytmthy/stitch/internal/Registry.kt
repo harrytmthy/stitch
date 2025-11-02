@@ -17,7 +17,6 @@
 package com.harrytmthy.stitch.internal
 
 import com.harrytmthy.stitch.api.Qualifier
-import com.harrytmthy.stitch.engine.Node
 import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger

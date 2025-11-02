@@ -14,10 +14,14 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.exception
+package com.harrytmthy.stitch.internal
 
-import com.harrytmthy.stitch.internal.Signature
+import com.harrytmthy.stitch.api.Qualifier
+import com.harrytmthy.stitch.api.Scope
 
-class CycleException internal constructor(path: List<Signature>) : IllegalStateException(
-    "Dependency cycle detected: " + path.joinToString(" -> ") { it.toString() },
+internal class Node(
+    val type: Class<*>,
+    val qualifier: Qualifier?,
+    val scope: Scope,
+    val factory: Factory,
 )

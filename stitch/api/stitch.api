@@ -10,10 +10,9 @@ public final class com/harrytmthy/stitch/api/Binder$BindingChain {
 	public final fun bind (Ljava/lang/Class;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
 }
 
-public class com/harrytmthy/stitch/api/Component {
-	public fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Ljava/lang/Object;
-	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Component;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ILjava/lang/Object;)Ljava/lang/Object;
-	public fun lazyOf (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Lkotlin/Lazy;
+public final class com/harrytmthy/stitch/api/Component {
+	public final fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Ljava/lang/Object;
+	public final fun lazyOf (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Lkotlin/Lazy;
 	public static synthetic fun lazyOf$default (Lcom/harrytmthy/stitch/api/Component;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ILjava/lang/Object;)Lkotlin/Lazy;
 }
 
@@ -66,9 +65,7 @@ public final class com/harrytmthy/stitch/api/Stitch {
 	public static final field INSTANCE Lcom/harrytmthy/stitch/api/Stitch;
 	public final fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Ljava/lang/Object;
 	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Stitch;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ILjava/lang/Object;)Ljava/lang/Object;
-	public final fun getRoot ()Lcom/harrytmthy/stitch/api/Component;
 	public final fun register ([Lcom/harrytmthy/stitch/api/Module;)V
-	public final fun setRoot (Lcom/harrytmthy/stitch/api/Component;)V
 	public final fun unregister ()V
 }
 

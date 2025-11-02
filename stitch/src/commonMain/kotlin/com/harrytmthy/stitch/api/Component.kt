@@ -16,19 +16,23 @@
 
 package com.harrytmthy.stitch.api
 
-import com.harrytmthy.stitch.engine.Node
+import com.harrytmthy.stitch.exception.CycleException
+import com.harrytmthy.stitch.internal.Node
+import com.harrytmthy.stitch.internal.Signature
 import com.harrytmthy.stitch.internal.computeIfAbsentCompat
 import java.util.concurrent.ConcurrentHashMap
 
-open class Component internal constructor(
+class Component internal constructor(
     internal val nodeLookup: (Class<*>, Qualifier?) -> Node,
     internal val singletons: ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>,
 ) {
 
     private val scoped = ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>()
 
+    private val resolutionStack = threadLocal { ResolutionStack() }
+
     @Suppress("UNCHECKED_CAST")
-    open fun <T : Any> get(type: Class<T>, qualifier: Qualifier? = null): T {
+    fun <T : Any> get(type: Class<T>, qualifier: Qualifier?): T {
         val qualifierKey = qualifier ?: DefaultQualifier
 
         // Fast-path: check caches with the requested key first
@@ -44,38 +48,76 @@ open class Component internal constructor(
             singletons[node.type]?.get(qualifierKey)?.let { return it as T }
         }
 
-        // Build, cache under canonical key
-        return when (node.scope) {
-            Scope.Factory -> node.factory(this) as T
-            Scope.Scoped -> {
-                val inner = scoped.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
+        // Build with cycle guard, cache under canonical key
+        val resolving = resolutionStack.get()
+        resolving.enter(node.type, node.qualifier)
+        try {
+            val inner = when (node.scope) {
+                Scope.Factory -> return node.factory(this) as T
+                Scope.Scoped -> scoped
+                Scope.Singleton -> singletons
+            }.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
+            inner[qualifierKey]?.let { return it as T }
+            return synchronized(inner) {
                 inner[qualifierKey]?.let { return it as T }
-                synchronized(inner) {
-                    inner[qualifierKey]?.let { return it as T }
-                    val built = node.factory(this)
-                    (inner.putIfAbsent(qualifierKey, built) ?: built) as T
-                }
+                val built = node.factory(this)
+                (inner.putIfAbsent(qualifierKey, built) ?: built) as T
             }
-            Scope.Singleton -> {
-                val inner = singletons.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
-                inner[qualifierKey]?.let { return it as T }
-                synchronized(inner) {
-                    inner[qualifierKey]?.let { return it as T }
-                    val built = node.consumePrebuilt() ?: node.factory(this)
-                    (inner.putIfAbsent(qualifierKey, built) ?: built) as T
-                }
-            }
+        } finally {
+            resolving.exit()
         }
     }
 
     inline fun <reified T : Any> get(qualifier: Qualifier? = null): T =
         get(T::class.java, qualifier)
 
-    open fun <T : Any> lazyOf(type: Class<T>, qualifier: Qualifier? = null): Lazy<T> =
+    fun <T : Any> lazyOf(type: Class<T>, qualifier: Qualifier? = null): Lazy<T> =
         lazy(LazyThreadSafetyMode.NONE) { get(type, qualifier) }
 
     inline fun <reified T : Any> lazyOf(qualifier: Qualifier? = null): Lazy<T> =
         lazyOf(T::class.java, qualifier)
+
+    internal fun clear() {
+        scoped.clear()
+        resolutionStack.get().clear()
+    }
+
+    private inline fun <T : Any> threadLocal(crossinline supplier: () -> T): ThreadLocal<T> =
+        object : ThreadLocal<T>() {
+            override fun initialValue(): T = supplier()
+        }
+
+    private class ResolutionStack {
+
+        private val stack = ArrayDeque<Signature>()
+
+        private val indexBySignature = HashMap<Signature, Int>()
+
+        fun enter(type: Class<*>, qualifier: Qualifier?) {
+            val signature = Signature(type, qualifier)
+            val signatureIndex = indexBySignature[signature]
+            if (signatureIndex != null) {
+                val cycle = ArrayList<Signature>(stack.size - signatureIndex + 1)
+                for (index in signatureIndex until stack.size) {
+                    cycle += stack[index]
+                }
+                cycle += signature
+                throw CycleException(cycle)
+            }
+            indexBySignature[signature] = stack.size
+            stack.addLast(signature)
+        }
+
+        fun exit() {
+            val removed = stack.removeLast()
+            indexBySignature.remove(removed)
+        }
+
+        fun clear() {
+            stack.clear()
+            indexBySignature.clear()
+        }
+    }
 
     private object DefaultQualifier
 }

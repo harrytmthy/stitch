@@ -14,27 +14,11 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.engine
+package com.harrytmthy.stitch.internal
 
 import com.harrytmthy.stitch.api.Qualifier
-import com.harrytmthy.stitch.internal.computeIfAbsentCompat
-import java.util.concurrent.ConcurrentHashMap
-
-internal data class Plan(val signatures: List<Signature>, val nodes: List<Node>)
-
-internal object PlanCache {
-
-    private val cache = ConcurrentHashMap<ComponentSignature, Plan>()
-
-    fun computeIfAbsent(componentSignature: ComponentSignature, loader: () -> Plan): Plan =
-        cache.computeIfAbsentCompat(componentSignature) { loader() }
-
-    fun clear() = cache.clear()
-}
 
 internal data class Signature(val type: Class<*>, val qualifier: Qualifier?) {
 
     override fun toString(): String = "${type.simpleName}[${qualifier ?: "<default>"}]"
 }
-
-internal data class ComponentSignature(val signature: Signature, val moduleHash: Int)
