@@ -16,11 +16,10 @@
 
 package com.harrytmthy.stitch.api
 
-import com.harrytmthy.stitch.engine.Node
-import com.harrytmthy.stitch.engine.Signature
 import com.harrytmthy.stitch.internal.Factory
+import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
-import com.harrytmthy.stitch.internal.TraceResult
+import com.harrytmthy.stitch.internal.Signature
 
 class Binder(private val overrideEager: Boolean) {
 
@@ -72,7 +71,6 @@ class Binder(private val overrideEager: Boolean) {
             qualifier = qualifier,
             scope = scope,
             factory = factory as Factory,
-            tracer = this::traceDependencies,
         )
         val inner = Registry.definitions.getOrPut(type) { HashMap() }
         check(!inner.containsKey(qualifier)) {
@@ -112,44 +110,4 @@ class Binder(private val overrideEager: Boolean) {
 
     internal fun getStagedEagerDefinitions(): List<Signature> =
         stagedEagerDefinitions.orEmpty().also { stagedEagerDefinitions = null }
-
-    private inline fun <T : Any> traceDependencies(
-        crossinline factory: Component.() -> T,
-    ): TraceResult {
-        val dependencies = LinkedHashSet<Signature>(16)
-        var touched = false
-        var prebuilt: Any? = null
-        val proxyComponent = object : Component(
-            nodeLookup = { _, _ -> error("noop") },
-            singletons = Registry.singletons,
-        ) {
-            override fun <R : Any> get(type: Class<R>, qualifier: Qualifier?): R {
-                dependencies.add(Signature(type, qualifier))
-                touched = true
-                throw TraceAbort
-            }
-
-            override fun <R : Any> lazyOf(type: Class<R>, qualifier: Qualifier?): Lazy<R> {
-                dependencies.add(Signature(type, qualifier))
-                touched = true
-                throw TraceAbort
-            }
-        }
-        prebuilt = try {
-            factory(proxyComponent)
-        } catch (_: TraceAbort) {
-            null
-        } catch (_: Throwable) {
-            null
-        }
-        return TraceResult(
-            dependencies = ArrayList(dependencies),
-            prebuilt = prebuilt.takeUnless { touched },
-        )
-    }
-
-    private object TraceAbort : RuntimeException() {
-        private fun readResolve(): Any = this
-        override fun fillInStackTrace() = this
-    }
 }

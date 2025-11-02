@@ -17,15 +17,9 @@
 package com.harrytmthy.stitch.internal
 
 import com.harrytmthy.stitch.api.Component
-import com.harrytmthy.stitch.engine.Signature
 import java.util.concurrent.ConcurrentHashMap
 
 internal typealias Factory = (Component) -> Any
-
-internal data class TraceResult(
-    val dependencies: List<Signature>,
-    val prebuilt: Any?,
-)
 
 internal inline fun <K, V> ConcurrentHashMap<K, V>.computeIfAbsentCompat(
     key: K,

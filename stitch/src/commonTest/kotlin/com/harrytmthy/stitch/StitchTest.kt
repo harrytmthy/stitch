@@ -222,45 +222,42 @@ class StitchTest {
 
         Stitch.register(module)
 
-        // Build a component (this warms singletons once)
-        val component = Stitch.componentFor<UsesLazyFactory>()
+        // Warmup already ran during register
         assertEquals(1, singletonBuilds)
         assertEquals(0, factoryBuilds)
 
-        // Resolve via the same component (avoid a second eager warm)
-        val holder = component.get<UsesLazyFactory>()
+        // Resolve via public API, still no factory build
+        val holder = Stitch.get<UsesLazyFactory>()
         assertEquals(0, factoryBuilds)
 
-        // Touch the lazy -> build factory once
+        // Touch the lazy -> factory builds once
         holder.barLazy.value
         assertEquals(1, factoryBuilds)
     }
 
     @Test
-    fun `componentFor should return working component sharing the same singleton pool`() {
+    fun `singletons resolved later share the same global pool`() {
         val module = module {
             singleton { Logger() }
             singleton { Dao(get()) }
         }
         Stitch.register(module)
 
-        val component = Stitch.componentFor<Dao>()
-        val daoFromComponent = component.get<Dao>()
-        val loggerFromRoot = Stitch.get<Logger>()
+        val dao = Stitch.get<Dao>()
+        val logger = Stitch.get<Logger>()
 
-        assertSame(loggerFromRoot, daoFromComponent.logger)
+        assertSame(logger, dao.logger) // they come from the same singleton pool
     }
 
     @Test
-    fun `factory should produce new instance even via component`() {
+    fun `factory should produce new instance via public API`() {
         val module = module {
             factory { RepoImpl() as Repo }
         }
         Stitch.register(module)
 
-        val component = Stitch.componentFor<Repo>()
-        val first = component.get<Repo>()
-        val second = component.get<Repo>()
+        val first = Stitch.get<Repo>()
+        val second = Stitch.get<Repo>()
         assertNotSame(first, second)
     }
 
