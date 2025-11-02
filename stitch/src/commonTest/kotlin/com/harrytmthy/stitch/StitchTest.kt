@@ -19,8 +19,10 @@ package com.harrytmthy.stitch
 import com.harrytmthy.stitch.api.Stitch
 import com.harrytmthy.stitch.api.module
 import com.harrytmthy.stitch.api.named
+import com.harrytmthy.stitch.api.scope
 import com.harrytmthy.stitch.exception.CycleException
 import com.harrytmthy.stitch.exception.MissingBindingException
+import com.harrytmthy.stitch.exception.ScopeClosedException
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -451,5 +453,211 @@ class StitchTest {
         Stitch.get<Auditable>()
         Stitch.get<DualRepo>()
         assertEquals(1, builds)
+    }
+
+    @Test
+    fun `scoped get without scope should throw IllegalStateException`() {
+        val activityScope = scope("activity")
+        val module = module {
+            scoped(activityScope) { RepoImpl() as Repo }
+        }
+        Stitch.register(module)
+
+        assertFailsWith<IllegalStateException> {
+            Stitch.get<Repo>() // no scope provided
+        }
+    }
+
+    @Test
+    fun `scoped get with non open scope should throw ScopeClosedException`() {
+        val activityScope = scope("activity")
+        val module = module {
+            scoped(activityScope) { RepoImpl() as Repo }
+        }
+        Stitch.register(module)
+
+        val scopeInstance = activityScope.newInstance() // not opened
+        assertFailsWith<ScopeClosedException> {
+            Stitch.get<Repo>(scope = scopeInstance)
+        }
+    }
+
+    @Test
+    fun `open scope then get should work`() {
+        val activityScope = scope("activity")
+        val module = module {
+            scoped(activityScope) { RepoImpl() as Repo }
+        }
+        Stitch.register(module)
+
+        val scopeInstance = activityScope.newInstance()
+        scopeInstance.open()
+        val repo = Stitch.get<Repo>(scope = scopeInstance)
+        assertNotNull(repo)
+    }
+
+    @Test
+    fun `same scope instance returns same object`() {
+        val screenScope = scope("screen")
+        val module = module {
+            scoped(screenScope) { RepoImpl() as Repo }
+        }
+        Stitch.register(module)
+
+        val scopeInstance = screenScope.newInstance().apply { open() }
+        val firstRepo = Stitch.get<Repo>(scope = scopeInstance)
+        val secondRepo = Stitch.get<Repo>(scope = scopeInstance)
+        assertSame(firstRepo, secondRepo)
+    }
+
+    @Test
+    fun `different scope instances are isolated`() {
+        val screenScope = scope("screen")
+        val module = module {
+            scoped(screenScope) { RepoImpl() as Repo }
+        }
+        Stitch.register(module)
+
+        val firstScopeInstance = screenScope.newInstance().apply { open() }
+        val secondScopeInstance = screenScope.newInstance().apply { open() }
+
+        val firstRepo = Stitch.get<Repo>(scope = firstScopeInstance)
+        val secondRepo = Stitch.get<Repo>(scope = secondScopeInstance)
+        assertNotSame(firstRepo, secondRepo)
+    }
+
+    @Test
+    fun `close scope evicts cache and blocks further access`() {
+        val screenScope = scope("screen")
+        val module = module {
+            scoped(screenScope) { RepoImpl() as Repo }
+        }
+        Stitch.register(module)
+
+        val scopeInstance = screenScope.newInstance().apply { open() }
+        val repo = Stitch.get<Repo>(scope = scopeInstance)
+        assertNotNull(repo)
+
+        scopeInstance.close()
+        assertFailsWith<ScopeClosedException> {
+            Stitch.get<Repo>(scope = scopeInstance)
+        }
+    }
+
+    @Test
+    fun `reopen same scope id rebuilds`() {
+        val screenScope = scope("screen")
+        var builds = 0
+        val module = module {
+            scoped(screenScope) {
+                builds++
+                RepoImpl() as Repo
+            }
+        }
+        Stitch.register(module)
+
+        val scopeInstance = screenScope.newInstance()
+        scopeInstance.open()
+        val first = Stitch.get<Repo>(scope = scopeInstance)
+        scopeInstance.close()
+
+        scopeInstance.open()
+        val second = Stitch.get<Repo>(scope = scopeInstance)
+        assertNotSame(first, second)
+        assertEquals(2, builds)
+    }
+
+    @Test
+    fun `wrong scope reference should throw IllegalStateException`() {
+        val activityScope = scope("activity")
+        val fragmentScope = scope("fragment")
+        val module = module {
+            scoped(activityScope) { RepoImpl() as Repo }
+        }
+        Stitch.register(module)
+
+        val fragmentScopeInstance = fragmentScope.newInstance().apply { open() }
+        assertFailsWith<IllegalStateException> {
+            Stitch.get<Repo>(scope = fragmentScopeInstance)
+        }
+    }
+
+    @Test
+    fun `scoped respects qualifiers`() {
+        val screenScope = scope("screen")
+        val module = module {
+            scoped(screenScope, qualifier = named("prod")) { Logger() }
+            scoped(screenScope, qualifier = named("staging")) { Logger() }
+        }
+        Stitch.register(module)
+
+        val scopeInstance = screenScope.newInstance().apply { open() }
+        val firstProd = Stitch.get<Logger>(named("prod"), scope = scopeInstance)
+        val secondProd = Stitch.get<Logger>(named("prod"), scope = scopeInstance)
+        val firstStaging = Stitch.get<Logger>(named("staging"), scope = scopeInstance)
+
+        assertSame(firstProd, secondProd)
+        assertNotSame(firstProd, firstStaging)
+    }
+
+    @Test
+    fun `scoped alias resolves to same instance`() {
+        val screenScope = scope("screen")
+        val module = module {
+            scoped(screenScope) { DualRepo() }
+                .bind<Repo>()
+                .bind<Auditable>()
+        }
+        Stitch.register(module)
+
+        val scopeInstance = screenScope.newInstance().apply { open() }
+        val asImpl = Stitch.get<DualRepo>(scope = scopeInstance)
+        val asRepo = Stitch.get<Repo>(scope = scopeInstance)
+        val asAuditable = Stitch.get<Auditable>(scope = scopeInstance)
+
+        assertSame(asImpl, asRepo)
+        assertTrue(asRepo === asAuditable)
+    }
+
+    @Test
+    fun `inject lazy throws when closed and succeeds when open`() {
+        val screenScope = scope("screen")
+        val module = module {
+            scoped(screenScope) { RepoImpl() as Repo }
+        }
+        Stitch.register(module)
+
+        val scopeInstance = screenScope.newInstance()
+        val lazyRepo: Lazy<Repo> = scopeInstance.inject()
+
+        // Access while closed → ScopeClosedException
+        assertFailsWith<ScopeClosedException> { lazyRepo.value }
+
+        // Open and access → success
+        scopeInstance.open()
+        val repo = lazyRepo.value
+        assertNotNull(repo)
+        scopeInstance.close()
+
+        // New Lazy should throw on access while closed
+        val newLazy: Lazy<Repo> = scopeInstance.inject()
+        assertFailsWith<ScopeClosedException> { newLazy.value }
+        assertFailsWith<ScopeClosedException> { Stitch.get<Repo>(scope = scopeInstance) }
+    }
+
+    @Test
+    fun `unregister removes definitions even if scope is open`() {
+        val screenScope = scope("screen")
+        val module = module {
+            scoped(screenScope) { RepoImpl() as Repo }
+        }
+        Stitch.register(module)
+        val scopeInstance = screenScope.newInstance().apply { open() }
+        assertNotNull(Stitch.get<Repo>(scope = scopeInstance))
+
+        Stitch.unregister()
+        assertFailsWith<MissingBindingException> {
+            Stitch.get<Repo>(scope = scopeInstance)
+        }
     }
 }

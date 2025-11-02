@@ -16,11 +16,57 @@
 
 package com.harrytmthy.stitch.api
 
-enum class Scope {
+import com.harrytmthy.stitch.exception.ScopeClosedException
+import com.harrytmthy.stitch.internal.computeIfAbsentCompat
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
-    Singleton,
+class Scope internal constructor(internal val id: Int, internal val reference: ScopeRef) {
 
-    Scoped,
+    private val open = AtomicBoolean(false)
 
-    Factory,
+    fun open() {
+        open.set(true)
+    }
+
+    fun close() {
+        open.set(false)
+        Stitch.removeScope(id)
+    }
+
+    internal fun isOpen(): Boolean = open.get()
+
+    internal fun ensureOpen() {
+        if (!isOpen()) {
+            throw ScopeClosedException(id)
+        }
+    }
+
+    inline fun <reified T : Any> inject(qualifier: Qualifier? = null): Lazy<T> =
+        lazy(LazyThreadSafetyMode.NONE) { Stitch.get<T>(qualifier, scope = this) }
 }
+
+@JvmInline
+value class ScopeRef private constructor(val name: String) {
+
+    fun newInstance(): Scope = Scope(id = nextId(), reference = this)
+
+    companion object {
+
+        private val pool = ConcurrentHashMap<String, ScopeRef>()
+
+        private val nextId = AtomicInteger(1)
+
+        fun of(name: String): ScopeRef = pool.computeIfAbsentCompat(name) { ScopeRef(it) }
+
+        internal fun nextId(): Int = nextId.getAndIncrement()
+
+        internal fun clear() {
+            pool.clear()
+            nextId.set(1)
+        }
+    }
+}
+
+fun scope(name: String): ScopeRef = ScopeRef.of(name)

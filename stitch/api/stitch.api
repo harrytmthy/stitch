@@ -2,6 +2,8 @@ public final class com/harrytmthy/stitch/api/Binder {
 	public fun <init> (Z)V
 	public final fun factory (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
 	public static synthetic fun factory$default (Lcom/harrytmthy/stitch/api/Binder;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
+	public final fun scoped-OHUMBuI (Ljava/lang/String;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
+	public static synthetic fun scoped-OHUMBuI$default (Lcom/harrytmthy/stitch/api/Binder;Ljava/lang/String;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
 	public final fun singleton (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ZLkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
 	public static synthetic fun singleton$default (Lcom/harrytmthy/stitch/api/Binder;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ZLkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Binder$BindingChain;
 }
@@ -11,9 +13,19 @@ public final class com/harrytmthy/stitch/api/Binder$BindingChain {
 }
 
 public final class com/harrytmthy/stitch/api/Component {
-	public final fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Ljava/lang/Object;
+	public final fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
+	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Component;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun lazyOf (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Lkotlin/Lazy;
 	public static synthetic fun lazyOf$default (Lcom/harrytmthy/stitch/api/Component;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ILjava/lang/Object;)Lkotlin/Lazy;
+}
+
+public final class com/harrytmthy/stitch/api/DefinitionType : java/lang/Enum {
+	public static final field Factory Lcom/harrytmthy/stitch/api/DefinitionType;
+	public static final field Scoped Lcom/harrytmthy/stitch/api/DefinitionType;
+	public static final field Singleton Lcom/harrytmthy/stitch/api/DefinitionType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/DefinitionType;
+	public static fun values ()[Lcom/harrytmthy/stitch/api/DefinitionType;
 }
 
 public abstract class com/harrytmthy/stitch/api/Module {
@@ -52,19 +64,38 @@ public final class com/harrytmthy/stitch/api/QualifierKt {
 	public static final fun named (Ljava/lang/String;)Ljava/lang/String;
 }
 
-public final class com/harrytmthy/stitch/api/Scope : java/lang/Enum {
-	public static final field Factory Lcom/harrytmthy/stitch/api/Scope;
-	public static final field Scoped Lcom/harrytmthy/stitch/api/Scope;
-	public static final field Singleton Lcom/harrytmthy/stitch/api/Scope;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/Scope;
-	public static fun values ()[Lcom/harrytmthy/stitch/api/Scope;
+public final class com/harrytmthy/stitch/api/Scope {
+	public final fun close ()V
+	public final fun open ()V
+}
+
+public final class com/harrytmthy/stitch/api/ScopeKt {
+	public static final fun scope (Ljava/lang/String;)Ljava/lang/String;
+}
+
+public final class com/harrytmthy/stitch/api/ScopeRef {
+	public static final field Companion Lcom/harrytmthy/stitch/api/ScopeRef$Companion;
+	public static final synthetic fun box-impl (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/ScopeRef;
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
+	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public static fun hashCode-impl (Ljava/lang/String;)I
+	public static final fun newInstance-impl (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/Scope;
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()Ljava/lang/String;
+}
+
+public final class com/harrytmthy/stitch/api/ScopeRef$Companion {
+	public final fun of-jMP5GYQ (Ljava/lang/String;)Ljava/lang/String;
 }
 
 public final class com/harrytmthy/stitch/api/Stitch {
 	public static final field INSTANCE Lcom/harrytmthy/stitch/api/Stitch;
-	public final fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Ljava/lang/Object;
-	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Stitch;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
+	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Stitch;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun register ([Lcom/harrytmthy/stitch/api/Module;)V
 	public final fun unregister ()V
 }
@@ -74,11 +105,13 @@ public final class com/harrytmthy/stitch/exception/CycleException : java/lang/Il
 
 public final class com/harrytmthy/stitch/exception/MissingBindingException : java/lang/IllegalStateException {
 	public static final field Companion Lcom/harrytmthy/stitch/exception/MissingBindingException$Companion;
-	public fun <init> (Ljava/lang/String;)V
 }
 
 public final class com/harrytmthy/stitch/exception/MissingBindingException$Companion {
 	public final fun missingQualifier (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Ljava/util/Collection;)Lcom/harrytmthy/stitch/exception/MissingBindingException;
 	public final fun missingType (Ljava/lang/Class;)Lcom/harrytmthy/stitch/exception/MissingBindingException;
+}
+
+public final class com/harrytmthy/stitch/exception/ScopeClosedException : java/lang/IllegalStateException {
 }
 

@@ -37,7 +37,7 @@ class Binder(private val overrideEager: Boolean) {
         eager: Boolean = false,
         factory: Component.() -> T,
     ): BindingChain {
-        val node = createAndRegisterNode(type, qualifier, Scope.Singleton, factory)
+        val node = createAndRegisterNode(type, qualifier, null, DefinitionType.Singleton, factory)
         if (eager || overrideEager) {
             val definitions = stagedEagerDefinitions ?: ArrayList<Signature>()
                 .also { stagedEagerDefinitions = it }
@@ -56,20 +56,41 @@ class Binder(private val overrideEager: Boolean) {
         qualifier: Qualifier? = null,
         factory: Component.() -> T,
     ): BindingChain {
-        val node = createAndRegisterNode(type, qualifier, Scope.Factory, factory)
+        val node = createAndRegisterNode(type, qualifier, null, DefinitionType.Factory, factory)
         return BindingChain(this, node)
     }
+
+    inline fun <reified T : Any> scoped(
+        scopeRef: ScopeRef,
+        qualifier: Qualifier? = null,
+        noinline factory: Component.() -> T,
+    ): BindingChain = scoped(scopeRef, T::class.java, qualifier, factory)
+
+    fun <T : Any> scoped(
+        scopeRef: ScopeRef,
+        type: Class<T>,
+        qualifier: Qualifier? = null,
+        factory: Component.() -> T,
+    ): BindingChain = createAndRegisterNode(
+        type = type,
+        qualifier = qualifier,
+        scopeRef = scopeRef,
+        definitionType = DefinitionType.Scoped,
+        factory = factory,
+    ).let { BindingChain(this, it) }
 
     private fun <T : Any> createAndRegisterNode(
         type: Class<T>,
         qualifier: Qualifier?,
-        scope: Scope,
+        scopeRef: ScopeRef?,
+        definitionType: DefinitionType,
         factory: Component.() -> T,
     ): Node {
         val node = Node(
             type = type,
             qualifier = qualifier,
-            scope = scope,
+            scopeRef = scopeRef,
+            definitionType = definitionType,
             factory = factory as Factory,
         )
         val inner = Registry.definitions.getOrPut(type) { HashMap() }
