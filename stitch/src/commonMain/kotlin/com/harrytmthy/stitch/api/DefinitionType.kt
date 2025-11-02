@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.internal
+package com.harrytmthy.stitch.api
 
-import com.harrytmthy.stitch.api.DefinitionType
-import com.harrytmthy.stitch.api.Qualifier
-import com.harrytmthy.stitch.api.ScopeRef
+enum class DefinitionType {
 
-internal class Node(
-    val type: Class<*>,
-    val qualifier: Qualifier?,
-    val scopeRef: ScopeRef?,
-    val definitionType: DefinitionType,
-    val factory: Factory,
-)
+    Singleton,
+
+    Scoped,
+
+    Factory,
+}

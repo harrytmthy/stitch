@@ -47,19 +47,25 @@ object Stitch {
         Registry.definitions.clear()
         Registry.singletons.clear()
         Registry.version.set(0)
+        Named.clear()
+        ScopeRef.clear()
         component.clear()
     }
 
-    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T =
-        get(T::class.java, qualifier)
+    inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
+        get(T::class.java, qualifier, scope)
 
-    fun <T : Any> get(type: Class<T>, qualifier: Qualifier? = null): T =
-        component.get(type, qualifier)
+    fun <T : Any> get(type: Class<T>, qualifier: Qualifier? = null, scope: Scope? = null): T =
+        component.get(type, qualifier, scope)
 
     internal fun lookupNode(type: Class<*>, qualifier: Qualifier?): Node {
         val inner = Registry.definitions[type] ?: throw MissingBindingException.missingType(type)
         return inner.getOrElse(qualifier) {
             throw MissingBindingException.missingQualifier(type, qualifier, inner.keys)
         }
+    }
+
+    internal fun removeScope(id: Int) {
+        component.removeScope(id)
     }
 }

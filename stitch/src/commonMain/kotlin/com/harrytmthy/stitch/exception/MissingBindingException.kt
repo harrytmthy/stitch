@@ -18,7 +18,7 @@ package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
 
-class MissingBindingException(msg: String) : IllegalStateException(msg) {
+class MissingBindingException internal constructor(msg: String) : IllegalStateException(msg) {
 
     companion object {
 

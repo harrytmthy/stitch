@@ -32,6 +32,10 @@ value class Named private constructor(val value: String) : Qualifier {
             val interned = pool.computeIfAbsentCompat(name) { it }
             return Named(interned)
         }
+
+        internal fun clear() {
+            pool.clear()
+        }
     }
 }
 

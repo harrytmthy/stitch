@@ -27,16 +27,22 @@ class Component internal constructor(
     internal val singletons: ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>,
 ) {
 
-    private val scoped = ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>()
+    // scopeId -> (type -> (qualifier -> instance))
+    private val scoped = ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>>()
 
     private val resolutionStack = threadLocal { ResolutionStack() }
 
     @Suppress("UNCHECKED_CAST")
-    fun <T : Any> get(type: Class<T>, qualifier: Qualifier?): T {
+    fun <T : Any> get(type: Class<T>, qualifier: Qualifier?, scope: Scope? = null): T {
         val qualifierKey = qualifier ?: DefaultQualifier
 
         // Fast-path: check caches with the requested key first
-        scoped[type]?.get(qualifierKey)?.let { return it as T }
+        scope?.id?.let { scopeId ->
+            scoped[scopeId]?.get(type)?.get(qualifierKey)?.let {
+                scope.ensureOpen() // Cache-hit must respect scope's state
+                return it as T
+            }
+        }
         singletons[type]?.get(qualifierKey)?.let { return it as T }
 
         // Resolve once to learn the canonical cache key
@@ -44,7 +50,12 @@ class Component internal constructor(
 
         // Fast-path: If alias, recheck caches under canonical key
         if (node.type !== type) {
-            scoped[node.type]?.get(qualifierKey)?.let { return it as T }
+            scope?.id?.let { scopeId ->
+                scoped[scopeId]?.get(node.type)?.get(qualifierKey)?.let {
+                    scope.ensureOpen() // Cache-hit must respect scope's state
+                    return it as T
+                }
+            }
             singletons[node.type]?.get(qualifierKey)?.let { return it as T }
         }
 
@@ -52,16 +63,41 @@ class Component internal constructor(
         val resolving = resolutionStack.get()
         resolving.enter(node.type, node.qualifier)
         try {
-            val inner = when (node.scope) {
-                Scope.Factory -> return node.factory(this) as T
-                Scope.Scoped -> scoped
-                Scope.Singleton -> singletons
-            }.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
-            inner[qualifierKey]?.let { return it as T }
-            return synchronized(inner) {
-                inner[qualifierKey]?.let { return it as T }
-                val built = node.factory(this)
-                (inner.putIfAbsent(qualifierKey, built) ?: built) as T
+            return when (node.definitionType) {
+                DefinitionType.Factory -> node.factory(this) as T
+                DefinitionType.Scoped -> {
+                    check(scope != null) {
+                        "Failed to get ${type.name}: It exists in scope '${node.scopeRef?.name}'"
+                    }
+                    check(scope.reference == node.scopeRef) {
+                        "Failed to get ${type.name}: Wrong scope '${scope.reference.name}'"
+                    }
+                    val perScope = scoped.computeIfAbsentCompat(scope.id) { ConcurrentHashMap() }
+                    val inner = perScope.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
+                    inner[qualifierKey]?.let {
+                        scope.ensureOpen() // Cache-hit must respect scope's state
+                        return it as T
+                    }
+                    synchronized(inner) {
+                        inner[qualifierKey]?.let {
+                            scope.ensureOpen() // Cache-hit must respect scope's state
+                            return it as T
+                        }
+                        scope.ensureOpen() // Hot-path sanity check
+                        val built = node.factory(this)
+                        scope.ensureOpen() // Post-build sanity check
+                        (inner.putIfAbsent(qualifierKey, built) ?: built) as T
+                    }
+                }
+                DefinitionType.Singleton -> {
+                    val inner = singletons.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
+                    inner[qualifierKey]?.let { return it as T }
+                    return synchronized(inner) {
+                        inner[qualifierKey]?.let { return it as T }
+                        val built = node.factory(this)
+                        (inner.putIfAbsent(qualifierKey, built) ?: built) as T
+                    }
+                }
             }
         } finally {
             resolving.exit()
@@ -76,6 +112,10 @@ class Component internal constructor(
 
     inline fun <reified T : Any> lazyOf(qualifier: Qualifier? = null): Lazy<T> =
         lazyOf(T::class.java, qualifier)
+
+    internal fun removeScope(id: Int) {
+        scoped.remove(id)
+    }
 
     internal fun clear() {
         scoped.clear()
