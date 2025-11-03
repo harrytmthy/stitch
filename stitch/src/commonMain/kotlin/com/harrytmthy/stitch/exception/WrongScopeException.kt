@@ -17,19 +17,18 @@
 package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
+import com.harrytmthy.stitch.api.ScopeRef
 
 /**
- * Thrown when trying to resolve a scoped binding using a scope that is not open.
- *
- * This guards against using instances after a lifecycle has ended, and against
- * accessing scoped bindings before the scope is opened.
- *
- * To fix:
- * - Call `scope.open()` before resolving.
- * - Avoid holding on to references after `scope.close()`.
+ * Thrown when a scoped binding is requested from a different scope than the one it was declared in.
  */
-class ScopeClosedException internal constructor(
+class WrongScopeException internal constructor(
     type: Class<*>,
     qualifier: Qualifier?,
-    scopeId: Int,
-) : GetFailedException(type, qualifier, explanation = "Scope with id '$scopeId' is not open!")
+    actualScopeRef: ScopeRef,
+    expectedScopeRef: ScopeRef?,
+) : GetFailedException(
+    type = type,
+    qualifier = qualifier,
+    explanation = "Requesting wrong scope: $actualScopeRef. Expected: $expectedScopeRef",
+)

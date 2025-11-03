@@ -16,7 +16,6 @@
 
 package com.harrytmthy.stitch.api
 
-import com.harrytmthy.stitch.exception.ScopeClosedException
 import com.harrytmthy.stitch.internal.Registry
 import com.harrytmthy.stitch.internal.computeIfAbsentCompat
 import java.util.concurrent.ConcurrentHashMap
@@ -37,12 +36,6 @@ class Scope internal constructor(internal val id: Int, internal val reference: S
     }
 
     internal fun isOpen(): Boolean = open.get()
-
-    internal fun ensureOpen() {
-        if (!isOpen()) {
-            throw ScopeClosedException(id)
-        }
-    }
 
     inline fun <reified T : Any> inject(qualifier: Qualifier? = null): Lazy<T> =
         lazy(LazyThreadSafetyMode.NONE) { Stitch.get<T>(qualifier, scope = this) }

@@ -17,6 +17,9 @@
 package com.harrytmthy.stitch.api
 
 import com.harrytmthy.stitch.exception.CycleException
+import com.harrytmthy.stitch.exception.MissingScopeException
+import com.harrytmthy.stitch.exception.ScopeClosedException
+import com.harrytmthy.stitch.exception.WrongScopeException
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Signature
 import com.harrytmthy.stitch.internal.computeIfAbsentCompat
@@ -41,7 +44,7 @@ class Component internal constructor(
         // Fast-path: check caches with the requested key first
         effectiveScope?.id?.let { scopeId ->
             scoped[scopeId]?.get(type)?.get(qualifierKey)?.let {
-                effectiveScope.ensureOpen()
+                effectiveScope.ensureOpen(type, qualifier)
                 return it as T
             }
         }
@@ -54,7 +57,7 @@ class Component internal constructor(
         if (node.type !== type) {
             effectiveScope?.id?.let { scopeId ->
                 scoped[scopeId]?.get(node.type)?.get(qualifierKey)?.let {
-                    effectiveScope.ensureOpen()
+                    effectiveScope.ensureOpen(type, qualifier)
                     return it as T
                 }
             }
@@ -68,29 +71,27 @@ class Component internal constructor(
             return when (node.definitionType) {
                 DefinitionType.Factory -> node.factory(this) as T
                 DefinitionType.Scoped -> {
-                    val scope = effectiveScope ?: error(
-                        "Failed to get ${type.name}: It exists in scope '${node.scopeRef?.name}'",
-                    )
-                    check(scope.reference == node.scopeRef) {
-                        "Failed to get ${type.name}: Wrong scope '${scope.reference.name}'"
+                    val scope = effectiveScope ?: throw MissingScopeException(type, qualifier)
+                    if (scope.reference != node.scopeRef) {
+                        throw WrongScopeException(type, qualifier, scope.reference, node.scopeRef)
                     }
                     val perScope = scoped.computeIfAbsentCompat(scope.id) { ConcurrentHashMap() }
                     val inner = perScope.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
                     inner[qualifierKey]?.let {
-                        scope.ensureOpen()
+                        scope.ensureOpen(type, qualifier)
                         return it as T
                     }
                     synchronized(inner) {
                         inner[qualifierKey]?.let {
-                            scope.ensureOpen()
+                            scope.ensureOpen(type, qualifier)
                             return it as T
                         }
                         val previousScope = scopeContext.scope
                         scopeContext.scope = scope
                         try {
-                            scope.ensureOpen()
+                            scope.ensureOpen(type, qualifier)
                             val built = node.factory(this)
-                            scope.ensureOpen()
+                            scope.ensureOpen(type, qualifier)
                             (inner.putIfAbsent(qualifierKey, built) ?: built) as T
                         } finally {
                             scopeContext.scope = previousScope
@@ -138,6 +139,12 @@ class Component internal constructor(
             override fun initialValue(): T = supplier()
         }
 
+    private fun Scope.ensureOpen(type: Class<*>, qualifier: Qualifier?) {
+        if (!isOpen()) {
+            throw ScopeClosedException(type, qualifier, id)
+        }
+    }
+
     private class ResolutionStack {
 
         private val stack = ArrayDeque<Signature>()
@@ -153,7 +160,7 @@ class Component internal constructor(
                     cycle += stack[index]
                 }
                 cycle += signature
-                throw CycleException(cycle)
+                throw CycleException(type, qualifier, cycle)
             }
             indexBySignature[signature] = stack.size
             stack.addLast(signature)
@@ -162,11 +169,6 @@ class Component internal constructor(
         fun exit() {
             val removed = stack.removeLast()
             indexBySignature.remove(removed)
-        }
-
-        fun clear() {
-            stack.clear()
-            indexBySignature.clear()
         }
     }
 
