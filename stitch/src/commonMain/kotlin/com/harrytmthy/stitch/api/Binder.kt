@@ -23,6 +23,8 @@ import com.harrytmthy.stitch.internal.Signature
 
 class Binder(private val overrideEager: Boolean) {
 
+    private val registeredNodes = ArrayList<Node>()
+
     private var stagedEagerDefinitions: ArrayList<Signature>? = null
 
     inline fun <reified T : Any> singleton(
@@ -38,6 +40,7 @@ class Binder(private val overrideEager: Boolean) {
         factory: Component.() -> T,
     ): BindingChain {
         val node = createAndRegisterNode(type, qualifier, DefinitionType.Singleton, factory)
+        registeredNodes.add(node)
         if (eager || overrideEager) {
             val definitions = stagedEagerDefinitions ?: ArrayList<Signature>()
                 .also { stagedEagerDefinitions = it }
@@ -57,6 +60,7 @@ class Binder(private val overrideEager: Boolean) {
         factory: Component.() -> T,
     ): BindingChain {
         val node = createAndRegisterNode(type, qualifier, DefinitionType.Factory, factory)
+        registeredNodes.add(node)
         return BindingChain(this, node)
     }
 
@@ -76,7 +80,10 @@ class Binder(private val overrideEager: Boolean) {
         qualifier = qualifier,
         scopeRef = scopeRef,
         factory = factory,
-    ).let { BindingChain(this, it) }
+    ).let {
+        registeredNodes.add(it)
+        BindingChain(this, it)
+    }
 
     private fun <T : Any> createAndRegisterNode(
         type: Class<T>,
@@ -96,7 +103,6 @@ class Binder(private val overrideEager: Boolean) {
             "Duplicate binding for ${type.name} / ${qualifier ?: "<default>"}"
         }
         inner[qualifier] = node
-        Registry.version.incrementAndGet()
         return node
     }
 
@@ -119,7 +125,6 @@ class Binder(private val overrideEager: Boolean) {
             "Duplicate binding for ${type.name} / ${qualifier ?: "<default>"} / '${scopeRef.name}'"
         }
         nodeByScopeRef[scopeRef] = node
-        Registry.version.incrementAndGet()
         return node
     }
 
@@ -141,7 +146,6 @@ class Binder(private val overrideEager: Boolean) {
             }
             Registry.scopedDefinitions[aliasType] = primaryScoped
         }
-        Registry.version.incrementAndGet()
     }
 
     /**
@@ -160,6 +164,8 @@ class Binder(private val overrideEager: Boolean) {
             return this
         }
     }
+
+    internal fun getRegisteredNodes(): ArrayList<Node> = registeredNodes
 
     internal fun getStagedEagerDefinitions(): List<Signature> =
         stagedEagerDefinitions.orEmpty().also { stagedEagerDefinitions = null }

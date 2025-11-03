@@ -33,6 +33,7 @@ class Scope internal constructor(internal val id: Int, internal val reference: S
     fun close() {
         open.set(false)
         Registry.scoped.remove(id)
+        ScopeRef.getScopeIds(reference)?.remove(id)
     }
 
     internal fun isOpen(): Boolean = open.get()
@@ -44,11 +45,18 @@ class Scope internal constructor(internal val id: Int, internal val reference: S
 @JvmInline
 value class ScopeRef private constructor(val name: String) {
 
-    fun newInstance(): Scope = Scope(id = nextId(), reference = this)
+    fun newInstance(): Scope {
+        val id = nextId()
+        val inner = idsByScopeRef.computeIfAbsentCompat(this) { HashSet() }
+        inner.add(id)
+        return Scope(id, reference = this)
+    }
 
     companion object {
 
         private val pool = ConcurrentHashMap<String, ScopeRef>()
+
+        private val idsByScopeRef = ConcurrentHashMap<ScopeRef, HashSet<Int>>()
 
         private val nextId = AtomicInteger(1)
 
@@ -56,8 +64,11 @@ value class ScopeRef private constructor(val name: String) {
 
         internal fun nextId(): Int = nextId.getAndIncrement()
 
+        internal fun getScopeIds(scopeRef: ScopeRef): HashSet<Int>? = idsByScopeRef[scopeRef]
+
         internal fun clear() {
             pool.clear()
+            idsByScopeRef.clear()
             nextId.set(1)
         }
     }

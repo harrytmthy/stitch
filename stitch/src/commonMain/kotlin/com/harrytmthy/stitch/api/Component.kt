@@ -176,5 +176,5 @@ class Component internal constructor(
         var scope: Scope? = null
     }
 
-    private object DefaultQualifier
+    internal object DefaultQualifier
 }
