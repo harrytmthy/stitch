@@ -15,8 +15,8 @@ public final class com/harrytmthy/stitch/api/Binder$BindingChain {
 public final class com/harrytmthy/stitch/api/Component {
 	public final fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
 	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Component;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;ILjava/lang/Object;)Ljava/lang/Object;
-	public final fun lazyOf (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Lkotlin/Lazy;
-	public static synthetic fun lazyOf$default (Lcom/harrytmthy/stitch/api/Component;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ILjava/lang/Object;)Lkotlin/Lazy;
+	public final fun lazyOf (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Lkotlin/Lazy;
+	public static synthetic fun lazyOf$default (Lcom/harrytmthy/stitch/api/Component;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;ILjava/lang/Object;)Lkotlin/Lazy;
 }
 
 public final class com/harrytmthy/stitch/api/DefinitionType : java/lang/Enum {

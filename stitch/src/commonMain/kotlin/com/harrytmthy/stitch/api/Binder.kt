@@ -37,7 +37,7 @@ class Binder(private val overrideEager: Boolean) {
         eager: Boolean = false,
         factory: Component.() -> T,
     ): BindingChain {
-        val node = createAndRegisterNode(type, qualifier, null, DefinitionType.Singleton, factory)
+        val node = createAndRegisterNode(type, qualifier, DefinitionType.Singleton, factory)
         if (eager || overrideEager) {
             val definitions = stagedEagerDefinitions ?: ArrayList<Signature>()
                 .also { stagedEagerDefinitions = it }
@@ -56,7 +56,7 @@ class Binder(private val overrideEager: Boolean) {
         qualifier: Qualifier? = null,
         factory: Component.() -> T,
     ): BindingChain {
-        val node = createAndRegisterNode(type, qualifier, null, DefinitionType.Factory, factory)
+        val node = createAndRegisterNode(type, qualifier, DefinitionType.Factory, factory)
         return BindingChain(this, node)
     }
 
@@ -71,25 +71,23 @@ class Binder(private val overrideEager: Boolean) {
         type: Class<T>,
         qualifier: Qualifier? = null,
         factory: Component.() -> T,
-    ): BindingChain = createAndRegisterNode(
+    ): BindingChain = createAndRegisterScopedNode(
         type = type,
         qualifier = qualifier,
         scopeRef = scopeRef,
-        definitionType = DefinitionType.Scoped,
         factory = factory,
     ).let { BindingChain(this, it) }
 
     private fun <T : Any> createAndRegisterNode(
         type: Class<T>,
         qualifier: Qualifier?,
-        scopeRef: ScopeRef?,
         definitionType: DefinitionType,
         factory: Component.() -> T,
     ): Node {
         val node = Node(
             type = type,
             qualifier = qualifier,
-            scopeRef = scopeRef,
+            scopeRef = null,
             definitionType = definitionType,
             factory = factory as Factory,
         )
@@ -102,13 +100,47 @@ class Binder(private val overrideEager: Boolean) {
         return node
     }
 
-    private fun registerAlias(aliasType: Class<*>, target: Node) {
-        val primaryInner = Registry.definitions.getOrPut(target.type) { HashMap() }
-        val existing = Registry.definitions[aliasType]
-        check(existing == null || existing === primaryInner) {
-            "Conflicting bindings for ${aliasType.name}: already has its own family."
+    private fun <T : Any> createAndRegisterScopedNode(
+        type: Class<T>,
+        qualifier: Qualifier?,
+        scopeRef: ScopeRef,
+        factory: Component.() -> T,
+    ): Node {
+        val node = Node(
+            type = type,
+            qualifier = qualifier,
+            scopeRef = scopeRef,
+            definitionType = DefinitionType.Scoped,
+            factory = factory as Factory,
+        )
+        val scopeRefByQualifier = Registry.scopedDefinitions.getOrPut(type) { HashMap() }
+        val nodeByScopeRef = scopeRefByQualifier.getOrPut(qualifier) { HashMap() }
+        check(!nodeByScopeRef.containsKey(scopeRef)) {
+            "Duplicate binding for ${type.name} / ${qualifier ?: "<default>"} / '${scopeRef.name}'"
         }
-        Registry.definitions[aliasType] = primaryInner
+        nodeByScopeRef[scopeRef] = node
+        Registry.version.incrementAndGet()
+        return node
+    }
+
+    private fun registerAlias(aliasType: Class<*>, target: Node) {
+        if (target.scopeRef == null) {
+            // Alias belongs to non-scoped family
+            val primaryInner = Registry.definitions.getOrPut(target.type) { HashMap() }
+            val existing = Registry.definitions[aliasType]
+            check(existing == null || existing === primaryInner) {
+                "Conflicting bindings for ${aliasType.name}: already has its own family."
+            }
+            Registry.definitions[aliasType] = primaryInner
+        } else {
+            // Alias belongs to scoped family
+            val primaryScoped = Registry.scopedDefinitions.getOrPut(target.type) { HashMap() }
+            val existingScoped = Registry.scopedDefinitions[aliasType]
+            check(existingScoped == null || existingScoped === primaryScoped) {
+                "Conflicting scoped bindings for ${aliasType.name}: already has its own family."
+            }
+            Registry.scopedDefinitions[aliasType] = primaryScoped
+        }
         Registry.version.incrementAndGet()
     }
 

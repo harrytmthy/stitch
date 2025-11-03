@@ -18,6 +18,7 @@ package com.harrytmthy.stitch
 
 interface Repo
 class RepoImpl : Repo
+class FetchUseCase(val repo: Repo)
 
 interface Auditable
 
@@ -25,6 +26,7 @@ class DualRepo : Repo, Auditable
 
 class Logger
 class Dao(val logger: Logger)
+class LoadUseCase(val dao: Dao)
 
 class NeedsMissing(val repo: Repo) // used to trigger MissingBindingException
 

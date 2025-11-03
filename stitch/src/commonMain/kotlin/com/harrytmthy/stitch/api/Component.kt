@@ -23,36 +23,38 @@ import com.harrytmthy.stitch.internal.computeIfAbsentCompat
 import java.util.concurrent.ConcurrentHashMap
 
 class Component internal constructor(
-    internal val nodeLookup: (Class<*>, Qualifier?) -> Node,
-    internal val singletons: ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>,
+    private val nodeLookup: (Class<*>, Qualifier?, ScopeRef?) -> Node,
+    private val singletons: ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>,
+    private val scoped: ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>>,
 ) {
 
-    // scopeId -> (type -> (qualifier -> instance))
-    private val scoped = ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>>()
-
     private val resolutionStack = threadLocal { ResolutionStack() }
+
+    private val scopeContext = threadLocal { ScopeContext() }
 
     @Suppress("UNCHECKED_CAST")
     fun <T : Any> get(type: Class<T>, qualifier: Qualifier?, scope: Scope? = null): T {
         val qualifierKey = qualifier ?: DefaultQualifier
+        val scopeContext = scopeContext.get()
+        val effectiveScope = scope ?: scopeContext.scope
 
         // Fast-path: check caches with the requested key first
-        scope?.id?.let { scopeId ->
+        effectiveScope?.id?.let { scopeId ->
             scoped[scopeId]?.get(type)?.get(qualifierKey)?.let {
-                scope.ensureOpen() // Cache-hit must respect scope's state
+                effectiveScope.ensureOpen()
                 return it as T
             }
         }
         singletons[type]?.get(qualifierKey)?.let { return it as T }
 
         // Resolve once to learn the canonical cache key
-        val node = nodeLookup(type, qualifier)
+        val node = nodeLookup(type, qualifier, effectiveScope?.reference)
 
         // Fast-path: If alias, recheck caches under canonical key
         if (node.type !== type) {
-            scope?.id?.let { scopeId ->
+            effectiveScope?.id?.let { scopeId ->
                 scoped[scopeId]?.get(node.type)?.get(qualifierKey)?.let {
-                    scope.ensureOpen() // Cache-hit must respect scope's state
+                    effectiveScope.ensureOpen()
                     return it as T
                 }
             }
@@ -66,27 +68,33 @@ class Component internal constructor(
             return when (node.definitionType) {
                 DefinitionType.Factory -> node.factory(this) as T
                 DefinitionType.Scoped -> {
-                    check(scope != null) {
-                        "Failed to get ${type.name}: It exists in scope '${node.scopeRef?.name}'"
-                    }
+                    val scope = effectiveScope ?: error(
+                        "Failed to get ${type.name}: It exists in scope '${node.scopeRef?.name}'",
+                    )
                     check(scope.reference == node.scopeRef) {
                         "Failed to get ${type.name}: Wrong scope '${scope.reference.name}'"
                     }
                     val perScope = scoped.computeIfAbsentCompat(scope.id) { ConcurrentHashMap() }
                     val inner = perScope.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
                     inner[qualifierKey]?.let {
-                        scope.ensureOpen() // Cache-hit must respect scope's state
+                        scope.ensureOpen()
                         return it as T
                     }
                     synchronized(inner) {
                         inner[qualifierKey]?.let {
-                            scope.ensureOpen() // Cache-hit must respect scope's state
+                            scope.ensureOpen()
                             return it as T
                         }
-                        scope.ensureOpen() // Hot-path sanity check
-                        val built = node.factory(this)
-                        scope.ensureOpen() // Post-build sanity check
-                        (inner.putIfAbsent(qualifierKey, built) ?: built) as T
+                        val previousScope = scopeContext.scope
+                        scopeContext.scope = scope
+                        try {
+                            scope.ensureOpen()
+                            val built = node.factory(this)
+                            scope.ensureOpen()
+                            (inner.putIfAbsent(qualifierKey, built) ?: built) as T
+                        } finally {
+                            scopeContext.scope = previousScope
+                        }
                     }
                 }
                 DefinitionType.Singleton -> {
@@ -104,22 +112,25 @@ class Component internal constructor(
         }
     }
 
-    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T =
-        get(T::class.java, qualifier)
+    inline fun <reified T : Any> get(
+        qualifier: Qualifier? = null,
+        scope: Scope? = null,
+    ): T = get(T::class.java, qualifier, scope)
 
-    fun <T : Any> lazyOf(type: Class<T>, qualifier: Qualifier? = null): Lazy<T> =
-        lazy(LazyThreadSafetyMode.NONE) { get(type, qualifier) }
+    fun <T : Any> lazyOf(
+        type: Class<T>,
+        qualifier: Qualifier? = null,
+        scope: Scope? = null,
+    ): Lazy<T> = lazy(LazyThreadSafetyMode.NONE) { get(type, qualifier, scope) }
 
-    inline fun <reified T : Any> lazyOf(qualifier: Qualifier? = null): Lazy<T> =
-        lazyOf(T::class.java, qualifier)
-
-    internal fun removeScope(id: Int) {
-        scoped.remove(id)
-    }
+    inline fun <reified T : Any> lazyOf(
+        qualifier: Qualifier? = null,
+        scope: Scope? = null,
+    ): Lazy<T> = lazyOf(T::class.java, qualifier, scope)
 
     internal fun clear() {
-        scoped.clear()
-        resolutionStack.get().clear()
+        resolutionStack.remove()
+        scopeContext.remove()
     }
 
     private inline fun <T : Any> threadLocal(crossinline supplier: () -> T): ThreadLocal<T> =
@@ -157,6 +168,10 @@ class Component internal constructor(
             stack.clear()
             indexBySignature.clear()
         }
+    }
+
+    private class ScopeContext {
+        var scope: Scope? = null
     }
 
     private object DefaultQualifier
