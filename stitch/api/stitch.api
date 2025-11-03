@@ -100,18 +100,21 @@ public final class com/harrytmthy/stitch/api/Stitch {
 	public final fun unregister ()V
 }
 
-public final class com/harrytmthy/stitch/exception/CycleException : java/lang/IllegalStateException {
+public final class com/harrytmthy/stitch/exception/CycleException : com/harrytmthy/stitch/exception/GetFailedException {
 }
 
-public final class com/harrytmthy/stitch/exception/MissingBindingException : java/lang/IllegalStateException {
-	public static final field Companion Lcom/harrytmthy/stitch/exception/MissingBindingException$Companion;
+public class com/harrytmthy/stitch/exception/GetFailedException : java/lang/IllegalStateException {
 }
 
-public final class com/harrytmthy/stitch/exception/MissingBindingException$Companion {
-	public final fun missingQualifier (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Ljava/util/Collection;)Lcom/harrytmthy/stitch/exception/MissingBindingException;
-	public final fun missingType (Ljava/lang/Class;)Lcom/harrytmthy/stitch/exception/MissingBindingException;
+public final class com/harrytmthy/stitch/exception/MissingBindingException : com/harrytmthy/stitch/exception/GetFailedException {
 }
 
-public final class com/harrytmthy/stitch/exception/ScopeClosedException : java/lang/IllegalStateException {
+public final class com/harrytmthy/stitch/exception/MissingScopeException : com/harrytmthy/stitch/exception/GetFailedException {
+}
+
+public final class com/harrytmthy/stitch/exception/ScopeClosedException : com/harrytmthy/stitch/exception/GetFailedException {
+}
+
+public final class com/harrytmthy/stitch/exception/WrongScopeException : com/harrytmthy/stitch/exception/GetFailedException {
 }
 

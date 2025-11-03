@@ -19,17 +19,15 @@ package com.harrytmthy.stitch.exception
 import com.harrytmthy.stitch.api.Qualifier
 
 /**
- * Thrown when trying to resolve a scoped binding using a scope that is not open.
+ * Base class for 'get path' errors thrown by Stitch.
  *
- * This guards against using instances after a lifecycle has ended, and against
- * accessing scoped bindings before the scope is opened.
- *
- * To fix:
- * - Call `scope.open()` before resolving.
- * - Avoid holding on to references after `scope.close()`.
+ * The message always starts with the requested [type] and [qualifier], followed by [explanation].
+ * This makes debugging easier and ensures crash reports more readable.
  */
-class ScopeClosedException internal constructor(
+open class GetFailedException internal constructor(
     type: Class<*>,
     qualifier: Qualifier?,
-    scopeId: Int,
-) : GetFailedException(type, qualifier, explanation = "Scope with id '$scopeId' is not open!")
+    explanation: String,
+) : IllegalStateException(
+    "Failed to get ${type.name} (Qualifier: ${qualifier ?: "n/a"}): $explanation",
+)

@@ -18,23 +18,34 @@ package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
 
-class MissingBindingException internal constructor(msg: String) : IllegalStateException(msg) {
+/**
+ * Thrown when a binding is missing for the requested type or qualifier.
+ *
+ * Cases:
+ * - The type has no binding registered.
+ * - The requested qualifier does not exist for that type.
+ */
+class MissingBindingException internal constructor(
+    type: Class<*>,
+    qualifier: Qualifier?,
+    explanation: String,
+) : GetFailedException(type, qualifier, explanation) {
 
-    companion object {
+    internal companion object {
 
         fun missingType(type: Class<*>) =
-            MissingBindingException("No bindings for type ${type.name}")
+            MissingBindingException(type, null, "No binding for the requested type.")
 
         fun missingQualifier(
             type: Class<*>,
-            requested: Qualifier?,
-            avail: Collection<Qualifier?>,
+            qualifier: Qualifier?,
+            available: Collection<Qualifier?>,
         ): MissingBindingException {
             val message = buildString {
-                append("No binding for ${type.name} with qualifier=$requested. ")
-                append("Available: ${avail.joinToString { it?.toString() ?: "<default>" }}")
+                append("No binding for the requested qualifier. ")
+                append("Available: ${available.joinToString { it?.toString() ?: "<default>" }}")
             }
-            return MissingBindingException(message)
+            return MissingBindingException(type, qualifier, message)
         }
     }
 }

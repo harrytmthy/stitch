@@ -16,8 +16,34 @@
 
 package com.harrytmthy.stitch.exception
 
+import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.internal.Signature
 
-class CycleException internal constructor(path: List<Signature>) : IllegalStateException(
-    "Dependency cycle detected: " + path.joinToString(" -> ") { it.toString() },
+/**
+ * Thrown when Stitch detects a dependency cycle during resolution.
+ *
+ * The message includes the requested type and qualifier, followed by a human readable
+ * cycle path, for example:
+ *
+ * > "Failed to get com.example.HomeRepository (Qualifier: n/a): Dependency cycle detected:
+ *   HomeRepository[<default>] -> HomeUseCase[<default>] -> HomeRepository[<default>]"
+ *
+ * Typical causes:
+ * - Two or more singletons or scoped bindings reference each other directly or indirectly.
+ * - A factory constructs a type that eventually asks for the original type again.
+ *
+ * Fix by breaking the cycle with an interface boundary, a provider/lazy, or by
+ * moving one side to a factory that defers construction until first use.
+ */
+class CycleException internal constructor(
+    type: Class<*>,
+    qualifier: Qualifier?,
+    path: List<Signature>,
+) : GetFailedException(
+    type = type,
+    qualifier = qualifier,
+    explanation = buildString {
+        append("Dependency cycle detected: ")
+        append(path.joinToString(" -> ") { it.toString() })
+    },
 )
