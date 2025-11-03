@@ -36,7 +36,7 @@ class StitchTest {
 
     @BeforeTest
     fun setUp() {
-        Stitch.unregister()
+        Stitch.unregisterAll()
     }
 
     @Test
@@ -145,7 +145,7 @@ class StitchTest {
         val first = Stitch.get<Logger>()
         assertEquals(1, buildCount)
 
-        Stitch.unregister()
+        Stitch.unregisterAll()
         Stitch.register(module)
 
         val second = Stitch.get<Logger>()
@@ -697,9 +697,110 @@ class StitchTest {
         val scopeInstance = screenScope.newInstance().apply { open() }
         assertNotNull(Stitch.get<Repo>(scope = scopeInstance))
 
-        Stitch.unregister()
+        Stitch.unregisterAll()
         assertFailsWith<MissingBindingException> {
             Stitch.get<Repo>(scope = scopeInstance)
+        }
+    }
+
+    @Test
+    fun `unregister removes singleton bindings and instances`() {
+        val module = module {
+            singleton { Logger() }
+            singleton { Dao(get()) }
+        }
+        Stitch.register(module)
+
+        val daoBefore = Stitch.get<Dao>()
+        val loggerBefore = Stitch.get<Logger>()
+        Stitch.unregister(module)
+
+        Stitch.register(module)
+        val daoAfter = Stitch.get<Dao>()
+        val loggerAfter = Stitch.get<Logger>()
+
+        assertNotSame(daoBefore, daoAfter)
+        assertNotSame(loggerBefore, loggerAfter)
+    }
+
+    @Test
+    fun `unregister removes scoped bindings and their cached instances`() {
+        val screenScope = scope("screen")
+        val module = module {
+            scoped(screenScope) { Logger() }
+            scoped(screenScope) { Dao(get()) }
+        }
+        Stitch.register(module)
+
+        val scopeInstance = screenScope.newInstance().apply { open() }
+        val daoBefore = Stitch.get<Dao>(scope = scopeInstance)
+        val loggerBefore = Stitch.get<Logger>(scope = scopeInstance)
+        Stitch.unregister(module)
+
+        // Re-register, should build fresh instances
+        Stitch.register(module)
+        val daoAfter = Stitch.get<Dao>(scope = scopeInstance)
+        val loggerAfter = Stitch.get<Logger>(scope = scopeInstance)
+
+        assertNotSame(daoBefore, daoAfter)
+        assertNotSame(loggerBefore, loggerAfter)
+    }
+
+    @Test
+    fun `unregister one module keeps other modules intact`() {
+        val loggerModule = module { singleton { Logger() } }
+        val repoModule = module { singleton { RepoImpl() as Repo } }
+        Stitch.register(loggerModule, repoModule)
+        assertNotNull(Stitch.get<Logger>())
+
+        val repoBefore = Stitch.get<Repo>()
+        Stitch.unregister(loggerModule)
+
+        // Repo still works
+        val repoAfter = Stitch.get<Repo>()
+        assertSame(repoBefore, repoAfter)
+
+        // Logger binding is gone
+        assertFailsWith<MissingBindingException> { Stitch.get<Logger>() }
+    }
+
+    @Test
+    fun `unregister removes aliases belonging to same family`() {
+        val module = module {
+            singleton { DualRepo() }.bind<Repo>()
+        }
+        Stitch.register(module)
+
+        val repo = Stitch.get<Repo>()
+        val dual = Stitch.get<DualRepo>()
+        assertSame(dual, repo)
+
+        Stitch.unregister(module)
+
+        assertFailsWith<MissingBindingException> { Stitch.get<Repo>() }
+        assertFailsWith<MissingBindingException> { Stitch.get<DualRepo>() }
+    }
+
+    @Test
+    fun `unregister scoped module clears only its own scope`() {
+        val activityScope = scope("activity")
+        val viewModelScope = scope("vm")
+
+        val activityModule = module { scoped(activityScope) { Logger() } }
+        val viewModelModule = module { scoped(viewModelScope) { Logger() } }
+        Stitch.register(activityModule, viewModelModule)
+
+        val activityScopeInstance = activityScope.newInstance().apply { open() }
+        val viewModelScopeInstance = viewModelScope.newInstance().apply { open() }
+        assertNotNull(Stitch.get<Logger>(scope = activityScopeInstance))
+
+        val loggerBeforeUnregister = Stitch.get<Logger>(scope = viewModelScopeInstance)
+        Stitch.unregister(activityModule)
+
+        val loggerAfterUnregister = Stitch.get<Logger>(scope = viewModelScopeInstance)
+        assertSame(loggerBeforeUnregister, loggerAfterUnregister)
+        assertFailsWith<MissingBindingException> {
+            Stitch.get<Logger>(scope = activityScopeInstance)
         }
     }
 }

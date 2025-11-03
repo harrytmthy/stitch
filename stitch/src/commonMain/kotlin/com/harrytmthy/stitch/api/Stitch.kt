@@ -47,7 +47,15 @@ object Stitch {
         }
     }
 
-    fun unregister() {
+    fun unregister(vararg modules: Module) {
+        modules.forEach { module ->
+            val registeredNodes = module.binder.getRegisteredNodes()
+            Registry.remove(registeredNodes)
+            registeredNodes.clear()
+        }
+    }
+
+    fun unregisterAll() {
         Registry.clear()
         Named.clear()
         ScopeRef.clear()

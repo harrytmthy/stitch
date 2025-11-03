@@ -97,7 +97,8 @@ public final class com/harrytmthy/stitch/api/Stitch {
 	public final fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
 	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Stitch;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun register ([Lcom/harrytmthy/stitch/api/Module;)V
-	public final fun unregister ()V
+	public final fun unregister ([Lcom/harrytmthy/stitch/api/Module;)V
+	public final fun unregisterAll ()V
 }
 
 public final class com/harrytmthy/stitch/exception/CycleException : com/harrytmthy/stitch/exception/GetFailedException {

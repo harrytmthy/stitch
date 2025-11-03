@@ -16,11 +16,11 @@
 
 package com.harrytmthy.stitch.internal
 
+import com.harrytmthy.stitch.api.Component.DefaultQualifier
 import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.api.ScopeRef
 import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 
 internal object Registry {
 
@@ -32,13 +32,69 @@ internal object Registry {
 
     val scoped = ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>>()
 
-    val version = AtomicInteger(0)
+    fun remove(nodes: List<Node>) {
+        for (node in nodes) {
+            if (node.scopeRef != null) {
+                scopedDefinitions[node.type]?.let { scopeRefsByQualifier ->
+                    scopeRefsByQualifier[node.qualifier]?.let { nodeByScopeRef ->
+                        nodeByScopeRef.remove(node.scopeRef)
+                        if (nodeByScopeRef.isEmpty()) {
+                            scopeRefsByQualifier.remove(node.qualifier)
+                            if (scopeRefsByQualifier.isEmpty()) {
+                                scopedDefinitions.removeFamily(node.type)
+                            }
+                        }
+                    }
+                }
+                val scopeIds = ScopeRef.getScopeIds(node.scopeRef) ?: continue
+                val iterator = scopeIds.iterator()
+                while (iterator.hasNext()) {
+                    val scopeId = iterator.next()
+                    val qualifiersByType = scoped[scopeId] ?: continue
+                    val instanceByQualifier = qualifiersByType[node.type] ?: continue
+                    val qualifierKey = node.qualifier ?: DefaultQualifier
+                    val removed = instanceByQualifier.remove(qualifierKey)
+                    if (removed != null && instanceByQualifier.isEmpty()) {
+                        qualifiersByType.remove(node.type)
+                        if (qualifiersByType.isEmpty()) {
+                            scoped.remove(scopeId)
+                            iterator.remove()
+                        }
+                    }
+                }
+            } else {
+                definitions[node.type]?.let { nodeByQualifier ->
+                    nodeByQualifier.remove(node.qualifier)
+                    if (nodeByQualifier.isEmpty()) {
+                        definitions.removeFamily(node.type)
+                    }
+                }
+                singletons[node.type]?.let { inner ->
+                    val qualifierKey = node.qualifier ?: DefaultQualifier
+                    inner.remove(qualifierKey)
+                    if (inner.isEmpty()) {
+                        singletons.remove(node.type)
+                    }
+                }
+            }
+        }
+    }
 
     fun clear() {
         definitions.clear()
         scopedDefinitions.clear()
         singletons.clear()
         scoped.clear()
-        version.set(0)
+    }
+
+    private fun <Q, V> IdentityHashMap<Class<*>, MutableMap<Q, V>>.removeFamily(type: Class<*>) {
+        val family = this[type] ?: return
+        val iterator = this.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (entry.value === family) {
+                iterator.remove()
+            }
+        }
     }
 }

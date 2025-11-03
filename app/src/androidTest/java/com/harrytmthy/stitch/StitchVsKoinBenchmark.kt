@@ -60,7 +60,7 @@ class StitchVsKoinBenchmark {
         benchmarkRule.measureRepeated {
             sink = Stitch.get<LocalRepo>()
         }
-        Stitch.unregister()
+        Stitch.unregisterAll()
     }
 
     @Test
@@ -80,21 +80,21 @@ class StitchVsKoinBenchmark {
         benchmarkRule.measureRepeated {
             sink = Stitch.get<DeepViewModel>(scope = scope)
         }
-        Stitch.unregister()
+        Stitch.unregisterAll()
     }
 
     @Test
-    fun stitchCold_e2e() {
+    fun stitchCold_withRegister() {
         benchmarkRule.measureRepeated {
             val module = createStitchModule(deep = false, leafSingleton = false)
             Stitch.register(module)
             sink = Stitch.get<LocalRepo>()
-            runWithMeasurementDisabled { Stitch.unregister() }
+            runWithMeasurementDisabled { Stitch.unregisterAll() }
         }
     }
 
     @Test
-    fun stitchDeepCold_e2e() {
+    fun stitchDeepCold_withRegister() {
         benchmarkRule.measureRepeated {
             val screenRef = scope("screen")
             val module = createStitchModule(
@@ -107,7 +107,7 @@ class StitchVsKoinBenchmark {
 
             sink = Stitch.get<DeepViewModel>(scope = scope)
 
-            runWithMeasurementDisabled { Stitch.unregister() }
+            runWithMeasurementDisabled { Stitch.unregisterAll() }
         }
     }
 
@@ -121,7 +121,7 @@ class StitchVsKoinBenchmark {
 
             sink = Stitch.get<LocalRepo>()
 
-            runWithMeasurementDisabled { Stitch.unregister() }
+            runWithMeasurementDisabled { Stitch.unregisterAll() }
         }
     }
 
@@ -141,7 +141,7 @@ class StitchVsKoinBenchmark {
 
             sink = Stitch.get<DeepViewModel>(scope = scope)
 
-            runWithMeasurementDisabled { Stitch.unregister() }
+            runWithMeasurementDisabled { Stitch.unregisterAll() }
         }
     }
 
@@ -151,7 +151,7 @@ class StitchVsKoinBenchmark {
             val module = createStitchModule(deep = false, leafSingleton = true, eager = true)
             Stitch.register(module)
             sink = Stitch.get<LocalRepo>()
-            runWithMeasurementDisabled { Stitch.unregister() }
+            runWithMeasurementDisabled { Stitch.unregisterAll() }
         }
     }
 
@@ -170,29 +170,56 @@ class StitchVsKoinBenchmark {
 
             sink = Stitch.get<DeepViewModel>(scope = scope)
 
-            runWithMeasurementDisabled { Stitch.unregister() }
+            runWithMeasurementDisabled { Stitch.unregisterAll() }
         }
     }
 
     @Test
-    fun stitch_register() {
+    fun stitch_registerOnly() {
         benchmarkRule.measureRepeated {
             val module = runWithMeasurementDisabled {
                 createStitchModule(deep = true, leafSingleton = true, eager = false)
             }
             Stitch.register(module)
-            runWithMeasurementDisabled { Stitch.unregister() }
+            runWithMeasurementDisabled { Stitch.unregisterAll() }
         }
     }
 
     @Test
-    fun stitchEager_register() {
+    fun stitchEager_registerOnly() {
         benchmarkRule.measureRepeated {
             val module = runWithMeasurementDisabled {
                 createStitchModule(deep = true, leafSingleton = true, eager = true)
             }
             Stitch.register(module)
-            runWithMeasurementDisabled { Stitch.unregister() }
+            runWithMeasurementDisabled { Stitch.unregisterAll() }
+        }
+    }
+
+    @Test
+    fun stitch_unregisterOnly() {
+        benchmarkRule.measureRepeated {
+            runWithMeasurementDisabled {
+                val module = createStitchModule(deep = true, leafSingleton = true, eager = false)
+                Stitch.register(module)
+            }
+            Stitch.unregisterAll()
+        }
+    }
+
+    @Test
+    fun stitch_e2e() {
+        benchmarkRule.measureRepeated {
+            val screenRef = scope("screen")
+            val module = createStitchModule(
+                deep = true,
+                leafSingleton = false,
+                scopeRef = screenRef,
+            )
+            Stitch.register(module)
+            val scope = screenRef.newInstance().apply { open() }
+            sink = Stitch.get<DeepViewModel>(scope = scope)
+            Stitch.unregisterAll()
         }
     }
 
@@ -234,7 +261,7 @@ class StitchVsKoinBenchmark {
     }
 
     @Test
-    fun koinCold_e2e() {
+    fun koinCold_withRegister() {
         benchmarkRule.measureRepeated {
             val koinApp = koinApplication {
                 modules(createKoinModule(deep = false, leafSingleton = false))
@@ -245,7 +272,7 @@ class StitchVsKoinBenchmark {
     }
 
     @Test
-    fun koinDeepCold_e2e() {
+    fun koinDeepCold_withRegister() {
         benchmarkRule.measureRepeated {
             val scopeQualifier = koinNamed("screen")
             val koinApp = koinApplication {
@@ -329,7 +356,7 @@ class StitchVsKoinBenchmark {
     }
 
     @Test
-    fun koin_register() {
+    fun koin_registerOnly() {
         benchmarkRule.measureRepeated {
             val koinModule = runWithMeasurementDisabled {
                 createKoinModule(deep = true, leafSingleton = true, eager = false)
@@ -340,13 +367,41 @@ class StitchVsKoinBenchmark {
     }
 
     @Test
-    fun koinEager_register() {
+    fun koinEager_registerOnly() {
         benchmarkRule.measureRepeated {
             val koinModule = runWithMeasurementDisabled {
                 createKoinModule(deep = true, leafSingleton = true, eager = true)
             }
             val koinApp = koinApplication { modules(koinModule) }
             runWithMeasurementDisabled { koinApp.close() }
+        }
+    }
+
+    @Test
+    fun koin_unregisterOnly() {
+        benchmarkRule.measureRepeated {
+            runWithMeasurementDisabled {
+                val koinModule = createKoinModule(deep = true, leafSingleton = true, eager = false)
+                koinApplication { modules(koinModule) }
+            }.close()
+        }
+    }
+
+    @Test
+    fun koin_e2e() {
+        benchmarkRule.measureRepeated {
+            val scopeQualifier = koinNamed("screen")
+            val koinApp = koinApplication {
+                val module = createKoinModule(
+                    deep = true,
+                    leafSingleton = false,
+                    scopeQualifier = scopeQualifier,
+                )
+                modules(module)
+            }
+            val scope = koinApp.koin.createScope("screen-1", scopeQualifier)
+            sink = scope.get<DeepViewModel>()
+            koinApp.close()
         }
     }
 
