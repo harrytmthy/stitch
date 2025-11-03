@@ -24,7 +24,11 @@ import com.harrytmthy.stitch.internal.Signature
 object Stitch {
 
     private val component by lazy {
-        Component(nodeLookup = ::lookupNode, singletons = Registry.singletons)
+        Component(
+            nodeLookup = ::lookupNode,
+            singletons = Registry.singletons,
+            scoped = Registry.scoped,
+        )
     }
 
     fun register(vararg modules: Module) {
@@ -44,9 +48,7 @@ object Stitch {
     }
 
     fun unregister() {
-        Registry.definitions.clear()
-        Registry.singletons.clear()
-        Registry.version.set(0)
+        Registry.clear()
         Named.clear()
         ScopeRef.clear()
         component.clear()
@@ -58,14 +60,11 @@ object Stitch {
     fun <T : Any> get(type: Class<T>, qualifier: Qualifier? = null, scope: Scope? = null): T =
         component.get(type, qualifier, scope)
 
-    internal fun lookupNode(type: Class<*>, qualifier: Qualifier?): Node {
+    internal fun lookupNode(type: Class<*>, qualifier: Qualifier?, scopeRef: ScopeRef?): Node {
+        Registry.scopedDefinitions[type]?.get(qualifier)?.get(scopeRef)?.let { return it }
         val inner = Registry.definitions[type] ?: throw MissingBindingException.missingType(type)
         return inner.getOrElse(qualifier) {
             throw MissingBindingException.missingQualifier(type, qualifier, inner.keys)
         }
-    }
-
-    internal fun removeScope(id: Int) {
-        component.removeScope(id)
     }
 }

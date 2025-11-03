@@ -620,6 +620,48 @@ class StitchTest {
     }
 
     @Test
+    fun `scoped get during module creation should resolve dependencies`() {
+        val activityScope = scope("activity")
+        val viewModelScope = scope("viewModel")
+        val module = module {
+            scoped(activityScope) { Dao(get()) }
+            scoped(viewModelScope) { RepoImpl() }.bind<Repo>()
+            singleton { Logger() }
+            scoped(viewModelScope) { FetchUseCase(get()) }
+            scoped(activityScope) { LoadUseCase(get()) }
+        }
+        Stitch.register(module)
+
+        val activityScopeInstance = activityScope.newInstance().apply { open() }
+        val viewModelScopeInstance = viewModelScope.newInstance().apply { open() }
+        val dao = Stitch.get<Dao>(scope = activityScopeInstance)
+        val logger = Stitch.get<Logger>(scope = activityScopeInstance)
+        val fetchUseCase = Stitch.get<FetchUseCase>(scope = viewModelScopeInstance)
+        val repo = Stitch.get<Repo>(scope = viewModelScopeInstance)
+        val loadUseCase = Stitch.get<LoadUseCase>(scope = activityScopeInstance)
+
+        assertSame(logger, dao.logger)
+        assertSame(dao, loadUseCase.dao)
+        assertSame(repo, fetchUseCase.repo)
+    }
+
+    @Test
+    fun `scope should return different instance of the same type`() {
+        val activityScope = scope("activity")
+        val viewModelScope = scope("viewModel")
+        val module = module {
+            scoped(activityScope) { Logger() }
+            scoped(viewModelScope) { Logger() }
+        }
+        Stitch.register(module)
+
+        val activityScopeInstance = activityScope.newInstance().apply { open() }
+        val viewModelScopeInstance = viewModelScope.newInstance().apply { open() }
+
+        assertNotSame(Stitch.get<Logger>(scope = activityScopeInstance), Stitch.get<Logger>(scope = viewModelScopeInstance))
+    }
+
+    @Test
     fun `inject lazy throws when closed and succeeds when open`() {
         val screenScope = scope("screen")
         val module = module {

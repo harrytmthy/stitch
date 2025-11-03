@@ -17,6 +17,7 @@
 package com.harrytmthy.stitch.api
 
 import com.harrytmthy.stitch.exception.ScopeClosedException
+import com.harrytmthy.stitch.internal.Registry
 import com.harrytmthy.stitch.internal.computeIfAbsentCompat
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -32,7 +33,7 @@ class Scope internal constructor(internal val id: Int, internal val reference: S
 
     fun close() {
         open.set(false)
-        Stitch.removeScope(id)
+        Registry.scoped.remove(id)
     }
 
     internal fun isOpen(): Boolean = open.get()

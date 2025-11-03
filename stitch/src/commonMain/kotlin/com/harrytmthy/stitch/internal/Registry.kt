@@ -17,6 +17,7 @@
 package com.harrytmthy.stitch.internal
 
 import com.harrytmthy.stitch.api.Qualifier
+import com.harrytmthy.stitch.api.ScopeRef
 import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -25,7 +26,19 @@ internal object Registry {
 
     val definitions = IdentityHashMap<Class<*>, MutableMap<Qualifier?, Node>>()
 
+    val scopedDefinitions = IdentityHashMap<Class<*>, MutableMap<Qualifier?, MutableMap<ScopeRef, Node>>>()
+
     val singletons = ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>()
 
+    val scoped = ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>>()
+
     val version = AtomicInteger(0)
+
+    fun clear() {
+        definitions.clear()
+        scopedDefinitions.clear()
+        singletons.clear()
+        scoped.clear()
+        version.set(0)
+    }
 }
