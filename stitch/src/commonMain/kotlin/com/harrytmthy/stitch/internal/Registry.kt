@@ -16,7 +16,7 @@
 
 package com.harrytmthy.stitch.internal
 
-import com.harrytmthy.stitch.api.Component.DefaultQualifier
+import com.harrytmthy.stitch.api.DefaultQualifier
 import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.api.ScopeRef
 import java.util.IdentityHashMap
@@ -28,9 +28,9 @@ internal object Registry {
 
     val scopedDefinitions = IdentityHashMap<Class<*>, MutableMap<Qualifier?, MutableMap<ScopeRef, Node>>>()
 
-    val singletons = ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>()
+    val singletons = ConcurrentHashMap<Class<*>, ConcurrentHashMap<Qualifier, Any>>()
 
-    val scoped = ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>>()
+    val scoped = ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Qualifier, Any>>>()
 
     fun remove(nodes: List<Node>) {
         for (node in nodes) {

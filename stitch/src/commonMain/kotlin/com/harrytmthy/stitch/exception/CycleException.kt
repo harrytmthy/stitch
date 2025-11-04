@@ -17,7 +17,7 @@
 package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
-import com.harrytmthy.stitch.internal.Signature
+import com.harrytmthy.stitch.internal.Node
 
 /**
  * Thrown when Stitch detects a dependency cycle during resolution.
@@ -38,12 +38,16 @@ import com.harrytmthy.stitch.internal.Signature
 class CycleException internal constructor(
     type: Class<*>,
     qualifier: Qualifier?,
-    path: List<Signature>,
+    path: List<Node>,
 ) : GetFailedException(
     type = type,
     qualifier = qualifier,
     explanation = buildString {
         append("Dependency cycle detected: ")
-        append(path.joinToString(" -> ") { it.toString() })
+        append(
+            path.joinToString(" -> ") {
+                "${it.type.simpleName}[${it.qualifier ?: "<default>"}]"
+            },
+        )
     },
 )

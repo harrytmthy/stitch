@@ -19,19 +19,9 @@ public final class com/harrytmthy/stitch/api/Component {
 	public static synthetic fun lazyOf$default (Lcom/harrytmthy/stitch/api/Component;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;ILjava/lang/Object;)Lkotlin/Lazy;
 }
 
-public final class com/harrytmthy/stitch/api/DefinitionType : java/lang/Enum {
-	public static final field Factory Lcom/harrytmthy/stitch/api/DefinitionType;
-	public static final field Scoped Lcom/harrytmthy/stitch/api/DefinitionType;
-	public static final field Singleton Lcom/harrytmthy/stitch/api/DefinitionType;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/DefinitionType;
-	public static fun values ()[Lcom/harrytmthy/stitch/api/DefinitionType;
-}
-
 public abstract class com/harrytmthy/stitch/api/Module {
 	public fun <init> (Z)V
 	public final fun getBinder ()Lcom/harrytmthy/stitch/api/Binder;
-	public abstract fun register ()V
 }
 
 public final class com/harrytmthy/stitch/api/ModuleKt {

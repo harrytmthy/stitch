@@ -20,15 +20,15 @@ import com.harrytmthy.stitch.exception.CycleException
 import com.harrytmthy.stitch.exception.MissingScopeException
 import com.harrytmthy.stitch.exception.ScopeClosedException
 import com.harrytmthy.stitch.exception.WrongScopeException
+import com.harrytmthy.stitch.internal.DefinitionType
 import com.harrytmthy.stitch.internal.Node
-import com.harrytmthy.stitch.internal.Signature
 import com.harrytmthy.stitch.internal.computeIfAbsentCompat
 import java.util.concurrent.ConcurrentHashMap
 
 class Component internal constructor(
     private val nodeLookup: (Class<*>, Qualifier?, ScopeRef?) -> Node,
-    private val singletons: ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>,
-    private val scoped: ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Any, Any>>>,
+    private val singletons: ConcurrentHashMap<Class<*>, ConcurrentHashMap<Qualifier, Any>>,
+    private val scoped: ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Qualifier, Any>>>,
 ) {
 
     private val resolutionStack = threadLocal { ResolutionStack() }
@@ -66,7 +66,7 @@ class Component internal constructor(
 
         // Build with cycle guard, cache under canonical key
         val resolving = resolutionStack.get()
-        resolving.enter(node.type, node.qualifier)
+        resolving.enter(node)
         try {
             return when (node.definitionType) {
                 DefinitionType.Factory -> node.factory(this) as T
@@ -147,34 +147,31 @@ class Component internal constructor(
 
     private class ResolutionStack {
 
-        private val stack = ArrayDeque<Signature>()
+        private val stack = ArrayDeque<Node>()
 
-        private val indexBySignature = HashMap<Signature, Int>()
+        private val indexByNode = HashMap<Node, Int>()
 
-        fun enter(type: Class<*>, qualifier: Qualifier?) {
-            val signature = Signature(type, qualifier)
-            val signatureIndex = indexBySignature[signature]
-            if (signatureIndex != null) {
-                val cycle = ArrayList<Signature>(stack.size - signatureIndex + 1)
-                for (index in signatureIndex until stack.size) {
+        fun enter(node: Node) {
+            val nodeIndex = indexByNode[node]
+            if (nodeIndex != null) {
+                val cycle = ArrayList<Node>(stack.size - nodeIndex + 1)
+                for (index in nodeIndex until stack.size) {
                     cycle += stack[index]
                 }
-                cycle += signature
-                throw CycleException(type, qualifier, cycle)
+                cycle += node
+                throw CycleException(node.type, node.qualifier, cycle)
             }
-            indexBySignature[signature] = stack.size
-            stack.addLast(signature)
+            indexByNode[node] = stack.size
+            stack.addLast(node)
         }
 
         fun exit() {
             val removed = stack.removeLast()
-            indexBySignature.remove(removed)
+            indexByNode.remove(removed)
         }
     }
 
     private class ScopeContext {
         var scope: Scope? = null
     }
-
-    internal object DefaultQualifier
 }

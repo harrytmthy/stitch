@@ -40,3 +40,5 @@ value class Named private constructor(val value: String) : Qualifier {
 }
 
 fun named(value: String): Named = Named.of(value)
+
+internal object DefaultQualifier : Qualifier

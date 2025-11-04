@@ -16,9 +16,11 @@
 
 package com.harrytmthy.stitch.internal
 
-import com.harrytmthy.stitch.api.Qualifier
+internal enum class DefinitionType {
 
-internal data class Signature(val type: Class<*>, val qualifier: Qualifier?) {
+    Singleton,
 
-    override fun toString(): String = "${type.simpleName}[${qualifier ?: "<default>"}]"
+    Scoped,
+
+    Factory,
 }
