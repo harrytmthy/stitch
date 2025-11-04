@@ -17,7 +17,6 @@
 package com.harrytmthy.stitch.api
 
 import com.harrytmthy.stitch.internal.DefinitionType
-import com.harrytmthy.stitch.internal.Factory
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
 
@@ -99,7 +98,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
             qualifier = qualifier,
             scopeRef = null,
             definitionType = definitionType,
-            factory = factory as Factory,
+            factory = factory,
             onBind = ::registerAlias,
         )
         val inner = Registry.definitions.getOrPut(type) { HashMap() }
@@ -121,7 +120,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
             qualifier = qualifier,
             scopeRef = scopeRef,
             definitionType = DefinitionType.Scoped,
-            factory = factory as Factory,
+            factory = factory,
             onBind = ::registerAlias,
         )
         val scopeRefByQualifier = Registry.scopedDefinitions.getOrPut(type) { HashMap() }
@@ -156,6 +155,5 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
     internal fun getRegisteredEagerNodes(): ArrayList<Node> = registeredEagerNodes
 }
 
-fun module(forceEager: Boolean = false, onRegister: Module.() -> Unit): Module {
-    return Module(forceEager, onRegister)
-}
+fun module(forceEager: Boolean = false, onRegister: Module.() -> Unit): Module =
+    Module(forceEager, onRegister)

@@ -69,6 +69,21 @@ object Stitch {
     fun <T : Any> get(type: Class<T>, qualifier: Qualifier? = null, scope: Scope? = null): T =
         component.get(type, qualifier, scope)
 
+    inline fun <reified T : Any> inject(
+        qualifier: Qualifier? = null,
+        scope: Scope? = null,
+    ): Lazy<T> {
+        return inject(T::class.java, qualifier, scope)
+    }
+
+    fun <T : Any> inject(
+        type: Class<T>,
+        qualifier: Qualifier? = null,
+        scope: Scope? = null,
+    ): Lazy<T> {
+        return component.lazyOf(type, qualifier, scope)
+    }
+
     internal fun lookupNode(type: Class<*>, qualifier: Qualifier?, scopeRef: ScopeRef?): Node {
         Registry.scopedDefinitions[type]?.get(qualifier)?.get(scopeRef)?.let { return it }
         val inner = Registry.definitions[type] ?: throw MissingBindingException.missingType(type)

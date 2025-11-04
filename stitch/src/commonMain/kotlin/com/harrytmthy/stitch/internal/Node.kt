@@ -17,6 +17,7 @@
 package com.harrytmthy.stitch.internal
 
 import com.harrytmthy.stitch.api.Bindable
+import com.harrytmthy.stitch.api.Component
 import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.api.ScopeRef
 
@@ -25,7 +26,7 @@ internal class Node(
     val qualifier: Qualifier?,
     val scopeRef: ScopeRef?,
     val definitionType: DefinitionType,
-    val factory: Factory,
+    val factory: (Component) -> Any,
     val onBind: (Class<*>, Node) -> Unit,
 ) : Bindable {
 
