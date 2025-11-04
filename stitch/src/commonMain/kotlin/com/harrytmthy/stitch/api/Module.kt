@@ -16,17 +16,146 @@
 
 package com.harrytmthy.stitch.api
 
-abstract class Module(forceEager: Boolean) {
+import com.harrytmthy.stitch.internal.DefinitionType
+import com.harrytmthy.stitch.internal.Factory
+import com.harrytmthy.stitch.internal.Node
+import com.harrytmthy.stitch.internal.Registry
 
-    @PublishedApi
-    internal val binder = Binder(forceEager)
+class Module(private val forceEager: Boolean, private val onRegister: Module.() -> Unit) {
 
-    internal abstract fun register()
-}
+    private val registeredNodes = ArrayList<Node>()
 
-inline fun module(forceEager: Boolean = false, crossinline block: Binder.() -> Unit): Module =
-    object : Module(forceEager) {
-        override fun register() {
-            block(binder)
+    private val registeredEagerNodes = ArrayList<Node>()
+
+    internal fun register() {
+        onRegister(this)
+    }
+
+    inline fun <reified T : Any> singleton(
+        qualifier: Qualifier? = null,
+        eager: Boolean = false,
+        noinline factory: Component.() -> T,
+    ): Bindable {
+        return singleton(T::class.java, qualifier, eager, factory)
+    }
+
+    fun <T : Any> singleton(
+        type: Class<T>,
+        qualifier: Qualifier? = null,
+        eager: Boolean = false,
+        factory: Component.() -> T,
+    ): Bindable {
+        val node = createAndRegisterNode(type, qualifier, DefinitionType.Singleton, factory)
+        if (eager || forceEager) {
+            registeredEagerNodes.add(node)
+        } else {
+            registeredNodes.add(node)
+        }
+        return node
+    }
+
+    inline fun <reified T : Any> factory(
+        qualifier: Qualifier? = null,
+        noinline factory: Component.() -> T,
+    ): Bindable {
+        return factory(T::class.java, qualifier, factory)
+    }
+
+    fun <T : Any> factory(
+        type: Class<T>,
+        qualifier: Qualifier? = null,
+        factory: Component.() -> T,
+    ): Bindable {
+        return createAndRegisterNode(type, qualifier, DefinitionType.Factory, factory)
+            .also(registeredNodes::add)
+    }
+
+    inline fun <reified T : Any> scoped(
+        scopeRef: ScopeRef,
+        qualifier: Qualifier? = null,
+        noinline factory: Component.() -> T,
+    ): Bindable {
+        return scoped(scopeRef, T::class.java, qualifier, factory)
+    }
+
+    fun <T : Any> scoped(
+        scopeRef: ScopeRef,
+        type: Class<T>,
+        qualifier: Qualifier? = null,
+        factory: Component.() -> T,
+    ): Bindable {
+        return createAndRegisterScopedNode(type, qualifier, scopeRef, factory)
+            .also(registeredNodes::add)
+    }
+
+    private fun <T : Any> createAndRegisterNode(
+        type: Class<T>,
+        qualifier: Qualifier?,
+        definitionType: DefinitionType,
+        factory: Component.() -> T,
+    ): Node {
+        val node = Node(
+            type = type,
+            qualifier = qualifier,
+            scopeRef = null,
+            definitionType = definitionType,
+            factory = factory as Factory,
+            onBind = ::registerAlias,
+        )
+        val inner = Registry.definitions.getOrPut(type) { HashMap() }
+        check(!inner.containsKey(qualifier)) {
+            "Duplicate binding for ${type.name} / ${qualifier ?: "<default>"}"
+        }
+        inner[qualifier] = node
+        return node
+    }
+
+    private fun <T : Any> createAndRegisterScopedNode(
+        type: Class<T>,
+        qualifier: Qualifier?,
+        scopeRef: ScopeRef,
+        factory: Component.() -> T,
+    ): Node {
+        val node = Node(
+            type = type,
+            qualifier = qualifier,
+            scopeRef = scopeRef,
+            definitionType = DefinitionType.Scoped,
+            factory = factory as Factory,
+            onBind = ::registerAlias,
+        )
+        val scopeRefByQualifier = Registry.scopedDefinitions.getOrPut(type) { HashMap() }
+        val nodeByScopeRef = scopeRefByQualifier.getOrPut(qualifier) { HashMap() }
+        check(!nodeByScopeRef.containsKey(scopeRef)) {
+            "Duplicate binding for ${type.name} / ${qualifier ?: "<default>"} / '${scopeRef.name}'"
+        }
+        nodeByScopeRef[scopeRef] = node
+        return node
+    }
+
+    private fun registerAlias(aliasType: Class<*>, target: Node) {
+        if (target.scopeRef == null) {
+            val primary = Registry.definitions.getOrPut(target.type) { HashMap() }
+            val existing = Registry.definitions[aliasType]
+            check(existing == null || existing === primary) {
+                "Conflicting bindings for ${aliasType.name}: already has its own family."
+            }
+            Registry.definitions[aliasType] = primary
+        } else {
+            val primaryScoped = Registry.scopedDefinitions.getOrPut(target.type) { HashMap() }
+            val existingScoped = Registry.scopedDefinitions[aliasType]
+            check(existingScoped == null || existingScoped === primaryScoped) {
+                "Conflicting scoped bindings for ${aliasType.name}: already has its own family."
+            }
+            Registry.scopedDefinitions[aliasType] = primaryScoped
         }
     }
+
+    internal fun getRegisteredNodes(): ArrayList<Node> = registeredNodes
+
+    internal fun getRegisteredEagerNodes(): ArrayList<Node> = registeredEagerNodes
+}
+
+fun module(forceEager: Boolean = false, onRegister: Module.() -> Unit): Module {
+    return Module(forceEager, onRegister)
+}
