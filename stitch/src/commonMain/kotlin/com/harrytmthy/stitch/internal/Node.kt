@@ -16,7 +16,6 @@
 
 package com.harrytmthy.stitch.internal
 
-import com.harrytmthy.stitch.api.DefinitionType
 import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.api.ScopeRef
 

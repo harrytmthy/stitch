@@ -19,7 +19,6 @@ package com.harrytmthy.stitch.api
 import com.harrytmthy.stitch.exception.MissingBindingException
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
-import com.harrytmthy.stitch.internal.Signature
 
 object Stitch {
 
@@ -34,24 +33,26 @@ object Stitch {
     fun register(vararg modules: Module) {
         modules.forEach { module ->
             module.register()
-            val signatures = module.binder.getStagedEagerDefinitions()
-            if (signatures.isNotEmpty()) {
-                warmUp(signatures)
+            val eagerNodes = module.binder.getRegisteredEagerNodes()
+            if (eagerNodes.isNotEmpty()) {
+                warmUp(eagerNodes)
             }
         }
     }
 
-    private fun warmUp(signatures: List<Signature>) {
-        for (signature in signatures) {
-            component.get(signature.type, signature.qualifier)
+    private fun warmUp(nodes: List<Node>) {
+        for (node in nodes) {
+            component.get(node.type, node.qualifier)
         }
     }
 
     fun unregister(vararg modules: Module) {
         modules.forEach { module ->
             val registeredNodes = module.binder.getRegisteredNodes()
-            Registry.remove(registeredNodes)
+            val registeredEagerNodes = module.binder.getRegisteredEagerNodes()
+            Registry.remove(registeredNodes + registeredEagerNodes)
             registeredNodes.clear()
+            registeredEagerNodes.clear()
         }
     }
 

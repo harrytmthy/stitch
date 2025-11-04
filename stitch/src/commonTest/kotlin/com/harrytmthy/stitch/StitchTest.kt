@@ -210,7 +210,7 @@ class StitchTest {
         var singletonBuilds = 0
         var factoryBuilds = 0
 
-        val module = module(overrideEager = true) {
+        val module = module(forceEager = true) {
             factory {
                 factoryBuilds++
                 Bar()
@@ -308,7 +308,7 @@ class StitchTest {
         var firstSingletonCount = 0
         var secondSingletonCount = 0
         var factoryCount = 0
-        val module = module(overrideEager = true) {
+        val module = module(forceEager = true) {
             singleton {
                 firstSingletonCount++
                 Logger()

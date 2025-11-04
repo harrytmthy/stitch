@@ -208,22 +208,6 @@ class StitchVsKoinBenchmark {
     }
 
     @Test
-    fun stitch_e2e() {
-        benchmarkRule.measureRepeated {
-            val screenRef = scope("screen")
-            val module = createStitchModule(
-                deep = true,
-                leafSingleton = false,
-                scopeRef = screenRef,
-            )
-            Stitch.register(module)
-            val scope = screenRef.newInstance().apply { open() }
-            sink = Stitch.get<DeepViewModel>(scope = scope)
-            Stitch.unregisterAll()
-        }
-    }
-
-    @Test
     fun koinWarm() {
         val koinApp = koinApplication {
             modules(createKoinModule(deep = false, leafSingleton = true))
@@ -387,31 +371,13 @@ class StitchVsKoinBenchmark {
         }
     }
 
-    @Test
-    fun koin_e2e() {
-        benchmarkRule.measureRepeated {
-            val scopeQualifier = koinNamed("screen")
-            val koinApp = koinApplication {
-                val module = createKoinModule(
-                    deep = true,
-                    leafSingleton = false,
-                    scopeQualifier = scopeQualifier,
-                )
-                modules(module)
-            }
-            val scope = koinApp.koin.createScope("screen-1", scopeQualifier)
-            sink = scope.get<DeepViewModel>()
-            koinApp.close()
-        }
-    }
-
     // Change signatures to accept an optional scope handle
     private fun createStitchModule(
         deep: Boolean,
         leafSingleton: Boolean,
         eager: Boolean = false,
         scopeRef: ScopeRef? = null,
-    ) = module(overrideEager = eager) {
+    ) = module(forceEager = eager) {
         singleton { Logger() }
         singleton { Dao(get()) }
         singleton { Json() }

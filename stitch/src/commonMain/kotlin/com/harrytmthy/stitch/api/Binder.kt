@@ -16,16 +16,16 @@
 
 package com.harrytmthy.stitch.api
 
+import com.harrytmthy.stitch.internal.DefinitionType
 import com.harrytmthy.stitch.internal.Factory
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
-import com.harrytmthy.stitch.internal.Signature
 
-class Binder(private val overrideEager: Boolean) {
+class Binder(private val forceEager: Boolean) {
 
     private val registeredNodes = ArrayList<Node>()
 
-    private var stagedEagerDefinitions: ArrayList<Signature>? = null
+    private val registeredEagerNodes = ArrayList<Node>()
 
     inline fun <reified T : Any> singleton(
         qualifier: Qualifier? = null,
@@ -40,11 +40,10 @@ class Binder(private val overrideEager: Boolean) {
         factory: Component.() -> T,
     ): BindingChain {
         val node = createAndRegisterNode(type, qualifier, DefinitionType.Singleton, factory)
-        registeredNodes.add(node)
-        if (eager || overrideEager) {
-            val definitions = stagedEagerDefinitions ?: ArrayList<Signature>()
-                .also { stagedEagerDefinitions = it }
-            definitions += Signature(type, qualifier)
+        if (eager || forceEager) {
+            registeredEagerNodes.add(node)
+        } else {
+            registeredNodes.add(node)
         }
         return BindingChain(this, node)
     }
@@ -167,6 +166,5 @@ class Binder(private val overrideEager: Boolean) {
 
     internal fun getRegisteredNodes(): ArrayList<Node> = registeredNodes
 
-    internal fun getStagedEagerDefinitions(): List<Signature> =
-        stagedEagerDefinitions.orEmpty().also { stagedEagerDefinitions = null }
+    internal fun getRegisteredEagerNodes(): ArrayList<Node> = registeredEagerNodes
 }
