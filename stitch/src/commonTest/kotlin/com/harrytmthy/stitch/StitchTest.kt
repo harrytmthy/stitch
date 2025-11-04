@@ -17,6 +17,7 @@
 package com.harrytmthy.stitch
 
 import com.harrytmthy.stitch.api.Stitch
+import com.harrytmthy.stitch.api.bind
 import com.harrytmthy.stitch.api.module
 import com.harrytmthy.stitch.api.named
 import com.harrytmthy.stitch.api.scope

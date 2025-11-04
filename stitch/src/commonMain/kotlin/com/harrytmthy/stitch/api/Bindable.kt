@@ -14,20 +14,10 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.internal
+package com.harrytmthy.stitch.api
 
-import com.harrytmthy.stitch.api.Bindable
-import com.harrytmthy.stitch.api.Qualifier
-import com.harrytmthy.stitch.api.ScopeRef
-
-internal class Node(
-    val type: Class<*>,
-    val qualifier: Qualifier?,
-    val scopeRef: ScopeRef?,
-    val definitionType: DefinitionType,
-    val factory: Factory,
-    val onBind: (Class<*>, Node) -> Unit,
-) : Bindable {
-
-    override fun <T : Any> bind(type: Class<T>): Bindable = apply { onBind(type, this) }
+interface Bindable {
+    fun <T : Any> bind(type: Class<T>): Bindable
 }
+
+inline fun <reified T : Any> Bindable.bind(): Bindable = bind(T::class.java)

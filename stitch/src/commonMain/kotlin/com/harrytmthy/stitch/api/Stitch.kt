@@ -33,7 +33,7 @@ object Stitch {
     fun register(vararg modules: Module) {
         modules.forEach { module ->
             module.register()
-            val eagerNodes = module.binder.getRegisteredEagerNodes()
+            val eagerNodes = module.getRegisteredEagerNodes()
             if (eagerNodes.isNotEmpty()) {
                 warmUp(eagerNodes)
             }
@@ -48,8 +48,8 @@ object Stitch {
 
     fun unregister(vararg modules: Module) {
         modules.forEach { module ->
-            val registeredNodes = module.binder.getRegisteredNodes()
-            val registeredEagerNodes = module.binder.getRegisteredEagerNodes()
+            val registeredNodes = module.getRegisteredNodes()
+            val registeredEagerNodes = module.getRegisteredEagerNodes()
             Registry.remove(registeredNodes + registeredEagerNodes)
             registeredNodes.clear()
             registeredEagerNodes.clear()
