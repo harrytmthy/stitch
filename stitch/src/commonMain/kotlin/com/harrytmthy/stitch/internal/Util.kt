@@ -16,10 +16,7 @@
 
 package com.harrytmthy.stitch.internal
 
-import com.harrytmthy.stitch.api.Component
 import java.util.concurrent.ConcurrentHashMap
-
-internal typealias Factory = (Component) -> Any
 
 internal inline fun <K, V> ConcurrentHashMap<K, V>.computeIfAbsentCompat(
     key: K,

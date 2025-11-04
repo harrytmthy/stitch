@@ -36,10 +36,13 @@ class Scope internal constructor(internal val id: Int, internal val reference: S
         ScopeRef.getScopeIds(reference)?.remove(id)
     }
 
-    internal fun isOpen(): Boolean = open.get()
+    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T =
+        Stitch.get(qualifier, scope = this)
 
     inline fun <reified T : Any> inject(qualifier: Qualifier? = null): Lazy<T> =
-        lazy(LazyThreadSafetyMode.NONE) { Stitch.get<T>(qualifier, scope = this) }
+        Stitch.inject(qualifier, scope = this)
+
+    internal fun isOpen(): Boolean = open.get()
 }
 
 @JvmInline

@@ -113,21 +113,23 @@ class Component internal constructor(
         }
     }
 
-    inline fun <reified T : Any> get(
+    inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
+        get(T::class.java, qualifier, scope)
+
+    inline fun <reified T : Any> lazyOf(
         qualifier: Qualifier? = null,
         scope: Scope? = null,
-    ): T = get(T::class.java, qualifier, scope)
+    ): Lazy<T> {
+        return lazyOf(T::class.java, qualifier, scope)
+    }
 
     fun <T : Any> lazyOf(
         type: Class<T>,
         qualifier: Qualifier? = null,
         scope: Scope? = null,
-    ): Lazy<T> = lazy(LazyThreadSafetyMode.NONE) { get(type, qualifier, scope) }
-
-    inline fun <reified T : Any> lazyOf(
-        qualifier: Qualifier? = null,
-        scope: Scope? = null,
-    ): Lazy<T> = lazyOf(T::class.java, qualifier, scope)
+    ): Lazy<T> {
+        return lazy(LazyThreadSafetyMode.NONE) { get(type, qualifier, scope) }
+    }
 
     internal fun clear() {
         resolutionStack.remove()
