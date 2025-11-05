@@ -42,7 +42,7 @@ object Stitch {
 
     private fun warmUp(nodes: List<Node>) {
         for (node in nodes) {
-            component.get(node.type, node.qualifier)
+            component.getInternal(node.type, node.qualifier, scope = null)
         }
     }
 
@@ -64,25 +64,18 @@ object Stitch {
     }
 
     inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
-        get(T::class.java, qualifier, scope)
-
-    fun <T : Any> get(type: Class<T>, qualifier: Qualifier? = null, scope: Scope? = null): T =
-        component.get(type, qualifier, scope)
+        getInternal(T::class.java, qualifier, scope)
 
     inline fun <reified T : Any> inject(
         qualifier: Qualifier? = null,
         scope: Scope? = null,
     ): Lazy<T> {
-        return inject(T::class.java, qualifier, scope)
+        return lazy(LazyThreadSafetyMode.NONE) { getInternal(T::class.java, qualifier, scope) }
     }
 
-    fun <T : Any> inject(
-        type: Class<T>,
-        qualifier: Qualifier? = null,
-        scope: Scope? = null,
-    ): Lazy<T> {
-        return component.lazyOf(type, qualifier, scope)
-    }
+    @PublishedApi
+    internal fun <T : Any> getInternal(type: Class<T>, qualifier: Qualifier?, scope: Scope?): T =
+        component.getInternal(type, qualifier, scope)
 
     internal fun lookupNode(type: Class<*>, qualifier: Qualifier?, scopeRef: ScopeRef?): Node {
         Registry.scopedDefinitions[type]?.get(qualifier)?.get(scopeRef)?.let { return it }
@@ -92,3 +85,6 @@ object Stitch {
         }
     }
 }
+
+inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
+    Stitch.get(qualifier, scope)

@@ -17,6 +17,9 @@
 package com.harrytmthy.stitch.api
 
 import com.harrytmthy.stitch.internal.DefinitionType
+import com.harrytmthy.stitch.internal.DefinitionType.Factory
+import com.harrytmthy.stitch.internal.DefinitionType.Scoped
+import com.harrytmthy.stitch.internal.DefinitionType.Singleton
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
 
@@ -35,38 +38,14 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         eager: Boolean = false,
         noinline factory: Component.() -> T,
     ): Bindable {
-        return singleton(T::class.java, qualifier, eager, factory)
-    }
-
-    fun <T : Any> singleton(
-        type: Class<T>,
-        qualifier: Qualifier? = null,
-        eager: Boolean = false,
-        factory: Component.() -> T,
-    ): Bindable {
-        val node = createAndRegisterNode(type, qualifier, DefinitionType.Singleton, factory)
-        if (eager || forceEager) {
-            registeredEagerNodes.add(node)
-        } else {
-            registeredNodes.add(node)
-        }
-        return node
+        return define(T::class.java, qualifier, Singleton, eager, null, factory)
     }
 
     inline fun <reified T : Any> factory(
         qualifier: Qualifier? = null,
         noinline factory: Component.() -> T,
     ): Bindable {
-        return factory(T::class.java, qualifier, factory)
-    }
-
-    fun <T : Any> factory(
-        type: Class<T>,
-        qualifier: Qualifier? = null,
-        factory: Component.() -> T,
-    ): Bindable {
-        return createAndRegisterNode(type, qualifier, DefinitionType.Factory, factory)
-            .also(registeredNodes::add)
+        return define(T::class.java, qualifier, Factory, false, null, factory)
     }
 
     inline fun <reified T : Any> scoped(
@@ -74,17 +53,32 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         qualifier: Qualifier? = null,
         noinline factory: Component.() -> T,
     ): Bindable {
-        return scoped(scopeRef, T::class.java, qualifier, factory)
+        return define(T::class.java, qualifier, Scoped, false, scopeRef, factory)
     }
 
-    fun <T : Any> scoped(
-        scopeRef: ScopeRef,
+    @PublishedApi
+    internal fun <T : Any> define(
         type: Class<T>,
-        qualifier: Qualifier? = null,
+        qualifier: Qualifier?,
+        definitionType: DefinitionType,
+        eager: Boolean,
+        scopeRef: ScopeRef?,
         factory: Component.() -> T,
     ): Bindable {
-        return createAndRegisterScopedNode(type, qualifier, scopeRef, factory)
-            .also(registeredNodes::add)
+        return when (definitionType) {
+            Factory -> createAndRegisterNode(type, qualifier, definitionType, factory)
+                .also(registeredNodes::add)
+            Singleton -> createAndRegisterNode(type, qualifier, definitionType, factory)
+                .also {
+                    if (eager || forceEager) {
+                        registeredEagerNodes.add(it)
+                    } else {
+                        registeredNodes.add(it)
+                    }
+                }
+            Scoped -> createAndRegisterScopedNode(type, qualifier, scopeRef!!, factory)
+                .also(registeredNodes::add)
+        }
     }
 
     private fun <T : Any> createAndRegisterNode(
@@ -119,7 +113,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
             type = type,
             qualifier = qualifier,
             scopeRef = scopeRef,
-            definitionType = DefinitionType.Scoped,
+            definitionType = Scoped,
             factory = factory,
             onBind = ::registerAlias,
         )
