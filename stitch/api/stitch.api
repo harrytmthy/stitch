@@ -3,20 +3,12 @@ public abstract interface class com/harrytmthy/stitch/api/Bindable {
 }
 
 public final class com/harrytmthy/stitch/api/Component {
-	public final fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
-	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Component;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;ILjava/lang/Object;)Ljava/lang/Object;
-	public final fun lazyOf (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Lkotlin/Lazy;
-	public static synthetic fun lazyOf$default (Lcom/harrytmthy/stitch/api/Component;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;ILjava/lang/Object;)Lkotlin/Lazy;
+	public final fun getInternal (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
 }
 
 public final class com/harrytmthy/stitch/api/Module {
 	public fun <init> (ZLkotlin/jvm/functions/Function1;)V
-	public final fun factory (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
-	public static synthetic fun factory$default (Lcom/harrytmthy/stitch/api/Module;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Bindable;
-	public final fun scoped-OHUMBuI (Ljava/lang/String;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
-	public static synthetic fun scoped-OHUMBuI$default (Lcom/harrytmthy/stitch/api/Module;Ljava/lang/String;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Bindable;
-	public final fun singleton (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ZLkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
-	public static synthetic fun singleton$default (Lcom/harrytmthy/stitch/api/Module;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;ZLkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Bindable;
+	public final fun define-z0zhSdE (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/internal/DefinitionType;ZLjava/lang/String;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
 }
 
 public final class com/harrytmthy/stitch/api/ModuleKt {
@@ -79,10 +71,7 @@ public final class com/harrytmthy/stitch/api/ScopeRef$Companion {
 
 public final class com/harrytmthy/stitch/api/Stitch {
 	public static final field INSTANCE Lcom/harrytmthy/stitch/api/Stitch;
-	public final fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
-	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Stitch;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;ILjava/lang/Object;)Ljava/lang/Object;
-	public final fun inject (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Lkotlin/Lazy;
-	public static synthetic fun inject$default (Lcom/harrytmthy/stitch/api/Stitch;Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;ILjava/lang/Object;)Lkotlin/Lazy;
+	public final fun getInternal (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
 	public final fun register ([Lcom/harrytmthy/stitch/api/Module;)V
 	public final fun unregister ([Lcom/harrytmthy/stitch/api/Module;)V
 	public final fun unregisterAll ()V
@@ -104,5 +93,14 @@ public final class com/harrytmthy/stitch/exception/ScopeClosedException : com/ha
 }
 
 public final class com/harrytmthy/stitch/exception/WrongScopeException : com/harrytmthy/stitch/exception/GetFailedException {
+}
+
+public final class com/harrytmthy/stitch/internal/DefinitionType : java/lang/Enum {
+	public static final field Factory Lcom/harrytmthy/stitch/internal/DefinitionType;
+	public static final field Scoped Lcom/harrytmthy/stitch/internal/DefinitionType;
+	public static final field Singleton Lcom/harrytmthy/stitch/internal/DefinitionType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/harrytmthy/stitch/internal/DefinitionType;
+	public static fun values ()[Lcom/harrytmthy/stitch/internal/DefinitionType;
 }
 

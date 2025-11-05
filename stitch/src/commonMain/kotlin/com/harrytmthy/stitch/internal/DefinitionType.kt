@@ -16,6 +16,7 @@
 
 package com.harrytmthy.stitch.internal
 
+@PublishedApi
 internal enum class DefinitionType {
 
     Singleton,

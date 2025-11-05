@@ -217,7 +217,7 @@ class StitchTest {
                 Bar()
             }
             singleton {
-                val barLazy: Lazy<Bar> = lazyOf(Bar::class.java, null)
+                val barLazy: Lazy<Bar> = lazyOf(scope = null)
                 singletonBuilds++
                 UsesLazyFactory(barLazy)
             }

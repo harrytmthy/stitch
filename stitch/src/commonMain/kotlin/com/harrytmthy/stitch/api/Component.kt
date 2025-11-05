@@ -35,8 +35,19 @@ class Component internal constructor(
 
     private val scopeContext = threadLocal { ScopeContext() }
 
+    inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
+        getInternal(T::class.java, qualifier, scope)
+
+    inline fun <reified T : Any> lazyOf(
+        qualifier: Qualifier? = null,
+        scope: Scope? = null,
+    ): Lazy<T> {
+        return lazy(LazyThreadSafetyMode.NONE) { get(qualifier, scope) }
+    }
+
+    @PublishedApi
     @Suppress("UNCHECKED_CAST")
-    fun <T : Any> get(type: Class<T>, qualifier: Qualifier?, scope: Scope? = null): T {
+    internal fun <T : Any> getInternal(type: Class<T>, qualifier: Qualifier?, scope: Scope?): T {
         val qualifierKey = qualifier ?: DefaultQualifier
         val scopeContext = scopeContext.get()
         val effectiveScope = scope ?: scopeContext.scope
@@ -111,24 +122,6 @@ class Component internal constructor(
         } finally {
             resolving.exit()
         }
-    }
-
-    inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
-        get(T::class.java, qualifier, scope)
-
-    inline fun <reified T : Any> lazyOf(
-        qualifier: Qualifier? = null,
-        scope: Scope? = null,
-    ): Lazy<T> {
-        return lazyOf(T::class.java, qualifier, scope)
-    }
-
-    fun <T : Any> lazyOf(
-        type: Class<T>,
-        qualifier: Qualifier? = null,
-        scope: Scope? = null,
-    ): Lazy<T> {
-        return lazy(LazyThreadSafetyMode.NONE) { get(type, qualifier, scope) }
     }
 
     internal fun clear() {
