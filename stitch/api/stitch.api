@@ -92,9 +92,6 @@ public final class com/harrytmthy/stitch/exception/MissingScopeException : com/h
 public final class com/harrytmthy/stitch/exception/ScopeClosedException : com/harrytmthy/stitch/exception/GetFailedException {
 }
 
-public final class com/harrytmthy/stitch/exception/WrongScopeException : com/harrytmthy/stitch/exception/GetFailedException {
-}
-
 public final class com/harrytmthy/stitch/internal/DefinitionType : java/lang/Enum {
 	public static final field Factory Lcom/harrytmthy/stitch/internal/DefinitionType;
 	public static final field Scoped Lcom/harrytmthy/stitch/internal/DefinitionType;

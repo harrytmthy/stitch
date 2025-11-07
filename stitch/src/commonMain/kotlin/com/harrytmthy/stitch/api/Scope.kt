@@ -55,6 +55,9 @@ value class ScopeRef private constructor(val name: String) {
         return Scope(id, reference = this)
     }
 
+    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T =
+        Stitch.get(qualifier)
+
     companion object {
 
         private val pool = ConcurrentHashMap<String, ScopeRef>()

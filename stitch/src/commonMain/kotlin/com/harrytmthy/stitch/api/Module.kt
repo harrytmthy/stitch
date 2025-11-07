@@ -22,6 +22,7 @@ import com.harrytmthy.stitch.internal.DefinitionType.Scoped
 import com.harrytmthy.stitch.internal.DefinitionType.Singleton
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
+import java.util.IdentityHashMap
 
 class Module(private val forceEager: Boolean, private val onRegister: Module.() -> Unit) {
 
@@ -117,12 +118,12 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
             factory = factory,
             onBind = ::registerAlias,
         )
-        val scopeRefByQualifier = Registry.scopedDefinitions.getOrPut(type) { HashMap() }
-        val nodeByScopeRef = scopeRefByQualifier.getOrPut(qualifier) { HashMap() }
-        check(!nodeByScopeRef.containsKey(scopeRef)) {
+        val qualifiersByType = Registry.scopedDefinitions.getOrPut(scopeRef) { IdentityHashMap() }
+        val nodeByQualifier = qualifiersByType.getOrPut(type) { HashMap() }
+        check(!nodeByQualifier.containsKey(qualifier)) {
             "Duplicate binding for ${type.name} / ${qualifier ?: "<default>"} / '${scopeRef.name}'"
         }
-        nodeByScopeRef[scopeRef] = node
+        nodeByQualifier[qualifier] = node
         return node
     }
 
@@ -135,12 +136,12 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
             }
             Registry.definitions[aliasType] = primary
         } else {
-            val primaryScoped = Registry.scopedDefinitions.getOrPut(target.type) { HashMap() }
-            val existingScoped = Registry.scopedDefinitions[aliasType]
-            check(existingScoped == null || existingScoped === primaryScoped) {
+            val primaryScoped = Registry.scopedDefinitions[target.scopeRef]?.get(target.type)
+            val existingScoped = Registry.scopedDefinitions[target.scopeRef]?.get(aliasType)
+            check(existingScoped == null) {
                 "Conflicting scoped bindings for ${aliasType.name}: already has its own family."
             }
-            Registry.scopedDefinitions[aliasType] = primaryScoped
+            Registry.scopedDefinitions[target.scopeRef]?.put(aliasType, primaryScoped)
         }
     }
 

@@ -24,9 +24,9 @@ import java.util.concurrent.ConcurrentHashMap
 
 internal object Registry {
 
-    val definitions = IdentityHashMap<Class<*>, MutableMap<Qualifier?, Node>>()
+    val definitions = IdentityHashMap<Class<*>, HashMap<Qualifier?, Node>>()
 
-    val scopedDefinitions = IdentityHashMap<Class<*>, MutableMap<Qualifier?, MutableMap<ScopeRef, Node>>>()
+    val scopedDefinitions = HashMap<ScopeRef, IdentityHashMap<Class<*>, HashMap<Qualifier?, Node>>>()
 
     val singletons = ConcurrentHashMap<Class<*>, ConcurrentHashMap<Qualifier, Any>>()
 
@@ -35,13 +35,13 @@ internal object Registry {
     fun remove(nodes: List<Node>) {
         for (node in nodes) {
             if (node.scopeRef != null) {
-                scopedDefinitions[node.type]?.let { scopeRefsByQualifier ->
-                    scopeRefsByQualifier[node.qualifier]?.let { nodeByScopeRef ->
-                        nodeByScopeRef.remove(node.scopeRef)
-                        if (nodeByScopeRef.isEmpty()) {
-                            scopeRefsByQualifier.remove(node.qualifier)
-                            if (scopeRefsByQualifier.isEmpty()) {
-                                scopedDefinitions.removeFamily(node.type)
+                scopedDefinitions[node.scopeRef]?.let { qualifiersByType ->
+                    qualifiersByType[node.type]?.let { nodeByQualifier ->
+                        nodeByQualifier.remove(node.qualifier)
+                        if (nodeByQualifier.isEmpty()) {
+                            qualifiersByType.removeFamily(node.type)
+                            if (qualifiersByType.isEmpty()) {
+                                scopedDefinitions.remove(node.scopeRef)
                             }
                         }
                     }
@@ -87,7 +87,7 @@ internal object Registry {
         scoped.clear()
     }
 
-    private fun <Q, V> IdentityHashMap<Class<*>, MutableMap<Q, V>>.removeFamily(type: Class<*>) {
+    private fun <Q, V> IdentityHashMap<Class<*>, HashMap<Q, V>>.removeFamily(type: Class<*>) {
         val family = this[type] ?: return
         val iterator = this.entries.iterator()
         while (iterator.hasNext()) {

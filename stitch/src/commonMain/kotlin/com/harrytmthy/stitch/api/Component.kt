@@ -19,7 +19,6 @@ package com.harrytmthy.stitch.api
 import com.harrytmthy.stitch.exception.CycleException
 import com.harrytmthy.stitch.exception.MissingScopeException
 import com.harrytmthy.stitch.exception.ScopeClosedException
-import com.harrytmthy.stitch.exception.WrongScopeException
 import com.harrytmthy.stitch.internal.DefinitionType
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.computeIfAbsentCompat
@@ -83,9 +82,6 @@ class Component internal constructor(
                 DefinitionType.Factory -> node.factory(this) as T
                 DefinitionType.Scoped -> {
                     val scope = effectiveScope ?: throw MissingScopeException(type, qualifier)
-                    if (scope.reference != node.scopeRef) {
-                        throw WrongScopeException(type, qualifier, scope.reference, node.scopeRef)
-                    }
                     val perScope = scoped.computeIfAbsentCompat(scope.id) { ConcurrentHashMap() }
                     val inner = perScope.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
                     inner[qualifierKey]?.let {
