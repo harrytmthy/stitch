@@ -78,7 +78,7 @@ object Stitch {
         component.getInternal(type, qualifier, scope)
 
     internal fun lookupNode(type: Class<*>, qualifier: Qualifier?, scopeRef: ScopeRef?): Node {
-        Registry.scopedDefinitions[type]?.get(qualifier)?.get(scopeRef)?.let { return it }
+        Registry.scopedDefinitions[scopeRef]?.get(type)?.get(qualifier)?.let { return it }
         val inner = Registry.definitions[type] ?: throw MissingBindingException.missingType(type)
         return inner.getOrElse(qualifier) {
             throw MissingBindingException.missingQualifier(type, qualifier, inner.keys)

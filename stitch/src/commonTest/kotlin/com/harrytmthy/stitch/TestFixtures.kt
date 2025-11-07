@@ -35,3 +35,9 @@ class B(val a: A) // used to trigger CycleException
 
 class UsesLazyFactory(val barLazy: Lazy<Bar>)
 class Bar
+
+interface LifecycleTracker
+class ViewModelLifecycleTracker : LifecycleTracker
+class ActivityLifecycleTracker : LifecycleTracker
+class HomeFeatureConfig
+class HomeViewModel(tracker: ViewModelLifecycleTracker, config: HomeFeatureConfig)

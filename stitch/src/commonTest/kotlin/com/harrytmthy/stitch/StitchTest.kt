@@ -626,6 +626,7 @@ class StitchTest {
         val viewModelScope = scope("viewModel")
         val module = module {
             scoped(activityScope) { Dao(get()) }
+            scoped(activityScope) { RepoImpl() }.bind<Repo>()
             scoped(viewModelScope) { RepoImpl() }.bind<Repo>()
             singleton { Logger() }
             scoped(viewModelScope) { FetchUseCase(get()) }
@@ -638,7 +639,7 @@ class StitchTest {
         val dao = Stitch.get<Dao>(scope = activityScopeInstance)
         val logger = Stitch.get<Logger>(scope = activityScopeInstance)
         val fetchUseCase = Stitch.get<FetchUseCase>(scope = viewModelScopeInstance)
-        val repo = Stitch.get<Repo>(scope = viewModelScopeInstance)
+        val repo = viewModelScopeInstance.get<Repo>()
         val loadUseCase = Stitch.get<LoadUseCase>(scope = activityScopeInstance)
 
         assertSame(logger, dao.logger)
