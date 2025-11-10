@@ -31,3 +31,5 @@ dependencyResolutionManagement {
 rootProject.name = "Stitch"
 include(":app")
 include(":stitch")
+include(":stitch-annotations")
+include(":stitch-compiler")

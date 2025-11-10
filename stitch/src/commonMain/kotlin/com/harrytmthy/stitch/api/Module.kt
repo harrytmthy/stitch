@@ -16,6 +16,7 @@
 
 package com.harrytmthy.stitch.api
 
+import com.harrytmthy.stitch.exception.DuplicateBindingException
 import com.harrytmthy.stitch.internal.DefinitionType
 import com.harrytmthy.stitch.internal.DefinitionType.Factory
 import com.harrytmthy.stitch.internal.DefinitionType.Scoped
@@ -97,8 +98,8 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
             onBind = ::registerAlias,
         )
         val inner = Registry.definitions.getOrPut(type) { HashMap() }
-        check(!inner.containsKey(qualifier)) {
-            "Duplicate binding for ${type.name} / ${qualifier ?: "<default>"}"
+        if (inner.containsKey(qualifier)) {
+            throw DuplicateBindingException(type, qualifier, scopeRef = null, foundInDI = false)
         }
         inner[qualifier] = node
         return node
@@ -120,8 +121,8 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         )
         val qualifiersByType = Registry.scopedDefinitions.getOrPut(scopeRef) { IdentityHashMap() }
         val nodeByQualifier = qualifiersByType.getOrPut(type) { HashMap() }
-        check(!nodeByQualifier.containsKey(qualifier)) {
-            "Duplicate binding for ${type.name} / ${qualifier ?: "<default>"} / '${scopeRef.name}'"
+        if (nodeByQualifier.containsKey(qualifier)) {
+            throw DuplicateBindingException(type, qualifier, scopeRef, foundInDI = false)
         }
         nodeByQualifier[qualifier] = node
         return node

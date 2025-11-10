@@ -14,27 +14,27 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.internal
+package com.harrytmthy.stitch.annotations
 
 /**
- * Defines the lifecycle type of a dependency.
+ * Marks a constructor, field, or method as a dependency injection point.
  *
- * **Note**: This is a public API used by generated code. Do not use directly.
+ * This annotation is used to indicate that dependencies should be injected
+ * into the annotated element.
+ *
+ * Example:
+ * ```
+ * class UserRepository @Inject constructor(
+ *     private val database: Database,
+ *     private val api: ApiService
+ * )
+ * ```
  */
-enum class DefinitionType {
-
-    /**
-     * Single instance created and cached globally.
-     */
-    Singleton,
-
-    /**
-     * Instance scoped to a specific scope instance.
-     */
-    Scoped,
-
-    /**
-     * New instance created on each request.
-     */
-    Factory,
-}
+@Target(
+    AnnotationTarget.CONSTRUCTOR,
+    AnnotationTarget.FIELD,
+    AnnotationTarget.FUNCTION,
+    AnnotationTarget.PROPERTY,
+)
+@Retention(AnnotationRetention.BINARY)
+annotation class Inject

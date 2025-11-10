@@ -14,27 +14,24 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.internal
+package com.harrytmthy.stitch.annotations
 
 /**
- * Defines the lifecycle type of a dependency.
+ * Indicates that a single shared instance should be created.
  *
- * **Note**: This is a public API used by generated code. Do not use directly.
+ * When applied to a @Provides method, the dependency will be created only once
+ * and the same instance will be returned on subsequent requests.
+ *
+ * Example:
+ * ```
+ * @Module
+ * class AppModule {
+ *     @Provides
+ *     @Singleton
+ *     fun provideDatabase(): Database = Database()
+ * }
+ * ```
  */
-enum class DefinitionType {
-
-    /**
-     * Single instance created and cached globally.
-     */
-    Singleton,
-
-    /**
-     * Instance scoped to a specific scope instance.
-     */
-    Scoped,
-
-    /**
-     * New instance created on each request.
-     */
-    Factory,
-}
+@Target(AnnotationTarget.FUNCTION, AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.BINARY)
+annotation class Singleton

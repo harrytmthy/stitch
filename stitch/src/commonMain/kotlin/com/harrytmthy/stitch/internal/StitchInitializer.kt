@@ -17,24 +17,17 @@
 package com.harrytmthy.stitch.internal
 
 /**
- * Defines the lifecycle type of a dependency.
+ * Initializer interface implemented by KSP-generated code.
  *
- * **Note**: This is a public API used by generated code. Do not use directly.
+ * The generated implementation provides the compile-time dependency table
+ * and is automatically discovered via ServiceLoader.
+ *
+ * **Note**: This is a public API implemented by generated code. Do not implement manually.
  */
-enum class DefinitionType {
+interface StitchInitializer {
 
     /**
-     * Single instance created and cached globally.
+     * Returns the compile-time generated dependency table.
      */
-    Singleton,
-
-    /**
-     * Instance scoped to a specific scope instance.
-     */
-    Scoped,
-
-    /**
-     * New instance created on each request.
-     */
-    Factory,
+    fun getDependencyTable(): DependencyTable
 }
