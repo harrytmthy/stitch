@@ -14,27 +14,17 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.internal
+package com.harrytmthy.stitch.benchmark
 
 /**
- * Defines the lifecycle type of a dependency.
+ * Dual-annotated module for both Dagger and Stitch.
  *
- * **Note**: This is a public API used by generated code. Do not use directly.
+ * This module is processed by both:
+ * - Dagger KSP compiler (generates DaggerBenchmarkComponent)
+ * - Stitch KSP compiler (generates DI table for benchmark classes)
+ *
+ * No @Provides methods needed - all classes use @Inject constructors.
  */
-enum class DefinitionType {
-
-    /**
-     * Single instance created and cached globally.
-     */
-    Singleton,
-
-    /**
-     * Instance scoped to a specific scope instance.
-     */
-    Scoped,
-
-    /**
-     * New instance created on each request.
-     */
-    Factory,
-}
+@dagger.Module
+@com.harrytmthy.stitch.annotations.Module
+object BenchmarkModule

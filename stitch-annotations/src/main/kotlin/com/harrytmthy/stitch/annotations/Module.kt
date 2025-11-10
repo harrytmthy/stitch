@@ -14,27 +14,24 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.internal
+package com.harrytmthy.stitch.annotations
 
 /**
- * Defines the lifecycle type of a dependency.
+ * Marks a class as a Stitch module containing dependency providers.
  *
- * **Note**: This is a public API used by generated code. Do not use directly.
+ * Classes annotated with @Module can contain methods annotated with @Provides
+ * that define how to create dependencies.
+ *
+ * Example:
+ * ```
+ * @Module
+ * class NetworkModule {
+ *     @Provides
+ *     @Singleton
+ *     fun provideOkHttpClient(): OkHttpClient = OkHttpClient()
+ * }
+ * ```
  */
-enum class DefinitionType {
-
-    /**
-     * Single instance created and cached globally.
-     */
-    Singleton,
-
-    /**
-     * Instance scoped to a specific scope instance.
-     */
-    Scoped,
-
-    /**
-     * New instance created on each request.
-     */
-    Factory,
-}
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.BINARY)
+annotation class Module

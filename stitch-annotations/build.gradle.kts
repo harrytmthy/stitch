@@ -14,27 +14,14 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.internal
+plugins {
+    alias(libs.plugins.stitch.jvm)
+    alias(libs.plugins.stitch.publishing)
+}
 
-/**
- * Defines the lifecycle type of a dependency.
- *
- * **Note**: This is a public API used by generated code. Do not use directly.
- */
-enum class DefinitionType {
-
-    /**
-     * Single instance created and cached globally.
-     */
-    Singleton,
-
-    /**
-     * Instance scoped to a specific scope instance.
-     */
-    Scoped,
-
-    /**
-     * New instance created on each request.
-     */
-    Factory,
+mavenPublishing {
+    pom {
+        name.set("Stitch Annotations")
+        description.set("Annotation definitions for Stitch DI")
+    }
 }

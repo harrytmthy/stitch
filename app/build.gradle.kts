@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -61,6 +62,9 @@ android {
 
 dependencies {
     implementation(project(":stitch"))
+    implementation(project(":stitch-annotations"))
+    ksp(project(":stitch-compiler"))
+
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     debugImplementation(libs.androidx.benchmark.common)
@@ -69,4 +73,8 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.koin.android)
+
+    // Dagger for benchmarking (KSP code generation + runtime)
+    implementation(libs.dagger)
+    ksp(libs.dagger.compiler)
 }
