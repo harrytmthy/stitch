@@ -21,13 +21,16 @@ import androidx.benchmark.MicrobenchmarkConfig
 import androidx.benchmark.junit4.BenchmarkRule
 import androidx.benchmark.junit4.measureRepeated
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.harrytmthy.stitch.api.Stitch
 import com.harrytmthy.stitch.benchmark.BenchmarkComponent
 import com.harrytmthy.stitch.benchmark.DaggerBenchmarkComponent
 import com.harrytmthy.stitch.benchmark.DeepTarget
 import com.harrytmthy.stitch.benchmark.DeepTargetCold
 import com.harrytmthy.stitch.benchmark.ShallowTarget
 import com.harrytmthy.stitch.benchmark.ShallowTargetCold
+import com.harrytmthy.stitch.generated.StitchDeepTargetColdInjector
+import com.harrytmthy.stitch.generated.StitchDeepTargetInjector
+import com.harrytmthy.stitch.generated.StitchShallowTargetColdInjector
+import com.harrytmthy.stitch.generated.StitchShallowTargetInjector
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -54,15 +57,14 @@ class StitchVsDaggerBenchmark {
 
         // Stitch DI table + ServiceLoader + component is lazily instantiated (on 1st access).
         // Thus, this touch is needed for fairness.
-        Stitch.get<Logger>()
     }
 
     @Test
     fun stitchShallowWarm() {
-        ShallowTarget().also(Stitch::inject) // Warmup
+        ShallowTarget().also(StitchShallowTargetInjector::inject) // Warmup
         benchmarkRule.measureRepeated {
             runWithMeasurementDisabled { ShallowTarget() }
-                .also(Stitch::inject)
+                .also(StitchShallowTargetInjector::inject)
         }
     }
 
@@ -77,10 +79,10 @@ class StitchVsDaggerBenchmark {
 
     @Test
     fun stitchDeepWarm() {
-        DeepTarget().also(Stitch::inject) // Warmup
+        DeepTarget().also(StitchDeepTargetInjector::inject) // Warmup
         benchmarkRule.measureRepeated {
             runWithMeasurementDisabled { DeepTarget() }
-                .also(Stitch::inject)
+                .also(StitchDeepTargetInjector::inject)
         }
     }
 
@@ -97,7 +99,7 @@ class StitchVsDaggerBenchmark {
     fun stitchShallowCold() {
         benchmarkRule.measureRepeated {
             runWithMeasurementDisabled { ShallowTargetCold() }
-                .also(Stitch::inject)
+                .also(StitchShallowTargetColdInjector::inject)
         }
     }
 
@@ -113,7 +115,7 @@ class StitchVsDaggerBenchmark {
     fun stitchDeepCold() {
         benchmarkRule.measureRepeated {
             runWithMeasurementDisabled { DeepTargetCold() }
-                .also(Stitch::inject)
+                .also(StitchDeepTargetColdInjector::inject)
         }
     }
 

@@ -49,7 +49,7 @@ class DiSlDecouplingTest {
             override fun <T : Any> get(type: Class<T>, qualifier: com.harrytmthy.stitch.api.Qualifier?): T {
                 throw MissingBindingException.missingType(type)
             }
-            override fun <T : Any> injectMembers(instance: T, type: Class<T>) {
+            override fun <T : Any> injectFields(instance: T) {
                 // No-op for test
             }
         }

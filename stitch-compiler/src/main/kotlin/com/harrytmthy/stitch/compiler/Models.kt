@@ -104,7 +104,7 @@ data class InjectableFieldInfo(
 )
 
 /**
- * Represents a class annotated with @EntryPoint that needs member injection.
+ * Represents a class annotated with @EntryPoint that needs field injection.
  *
  * Entry points are classes (typically Android components) that cannot use
  * constructor injection and instead rely on field injection via Stitch.inject(this).
