@@ -16,7 +16,6 @@
 
 package com.harrytmthy.stitch.benchmark
 
-import com.harrytmthy.stitch.annotations.EntryPoint
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -196,7 +195,6 @@ class H30 @Inject constructor(val h29: H29)
  * Shallow target with 3 @Inject fields.
  * Used for benchmarking member injection on simple objects.
  */
-@EntryPoint
 class ShallowTarget {
     @Inject lateinit var a: A
     @Inject lateinit var b: B
@@ -207,7 +205,6 @@ class ShallowTarget {
  * Deep target with 30 @Inject fields.
  * Used for benchmarking member injection on complex objects with deep dependency chains.
  */
-@EntryPoint
 class DeepTarget {
     @Inject lateinit var d1: D1
     @Inject lateinit var d2: D2
@@ -245,7 +242,6 @@ class DeepTarget {
  * Shallow target with 3 @Inject fields (factory dependencies, cold path).
  * Used for benchmarking member injection on simple objects with new instances each time.
  */
-@EntryPoint
 class ShallowTargetCold {
     @Inject lateinit var e: E
     @Inject lateinit var f: F
@@ -257,7 +253,6 @@ class ShallowTargetCold {
  * Used for benchmarking member injection on complex objects with deep dependency chains
  * where new instances are created each time.
  */
-@EntryPoint
 class DeepTargetCold {
     @Inject lateinit var h1: H1
     @Inject lateinit var h2: H2

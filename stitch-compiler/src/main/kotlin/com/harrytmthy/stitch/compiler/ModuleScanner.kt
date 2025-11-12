@@ -23,6 +23,7 @@ import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.Modifier
 
 /**
@@ -45,7 +46,6 @@ class ModuleScanner(private val logger: KSPLogger) {
         const val STITCH_SINGLETON = "com.harrytmthy.stitch.annotations.Singleton"
         const val STITCH_NAMED = "com.harrytmthy.stitch.annotations.Named"
         const val STITCH_QUALIFIER = "com.harrytmthy.stitch.annotations.Qualifier"
-        const val STITCH_ENTRY_POINT = "com.harrytmthy.stitch.annotations.EntryPoint"
 
         // Dagger/javax.inject annotations
         const val DAGGER_MODULE = "dagger.Module"
@@ -57,8 +57,11 @@ class ModuleScanner(private val logger: KSPLogger) {
     }
 
     /**
-     * Scans for @Module classes, @Inject constructors, and @EntryPoint classes.
+     * Scans for @Module classes, @Inject constructors, and classes with field injection.
      * Returns a ScanResult containing all three types of bindings.
+     *
+     * Field injection classes are auto-detected by scanning for @Inject annotated fields,
+     * no explicit @EntryPoint annotation required.
      */
     fun scanAll(resolver: Resolver): ScanResult {
         val modules = scanModules(resolver)
@@ -117,41 +120,62 @@ class ModuleScanner(private val logger: KSPLogger) {
     }
 
     /**
-     * Scans for @EntryPoint annotated classes.
+     * Auto-detects classes with field injection by scanning for @Inject annotated fields.
      *
-     * Entry points are classes that cannot use constructor injection (e.g. Activities,
-     * Fragments) but need field injection via Stitch.inject(this).
+     * Unlike constructor injection classes, field injection classes are auto-detected
+     * without requiring explicit @EntryPoint annotation. This simplifies migration from
+     * other DI frameworks and reduces boilerplate.
+     *
+     * Classes that have field-level @Inject annotations are considered entry points
+     * (e.g. Activities, Fragments) that need field injection via Stitch.inject(this).
      */
     private fun scanEntryPoints(resolver: Resolver): List<EntryPointInfo> {
-        val entryPoints = mutableListOf<EntryPointInfo>()
+        val entryPointsByClass = mutableMapOf<KSClassDeclaration, MutableList<InjectableFieldInfo>>()
 
-        val entryPointClasses = resolver.getSymbolsWithAnnotation(STITCH_ENTRY_POINT)
-            .filterIsInstance<KSClassDeclaration>()
+        // Find all @Inject annotated properties
+        val injectProperties = (
+            resolver.getSymbolsWithAnnotation(STITCH_INJECT) +
+                resolver.getSymbolsWithAnnotation(JAVAX_INJECT)
+            )
+            .filterIsInstance<KSPropertyDeclaration>()
+            .filter { !it.modifiers.contains(Modifier.ABSTRACT) } // Skip abstract properties
 
-        entryPointClasses.forEach { classDecl ->
-            val entryPointInfo = scanEntryPointClass(classDecl)
-            if (entryPointInfo != null) {
-                entryPoints.add(entryPointInfo)
+        // Group by parent class
+        injectProperties.forEach { property ->
+            val parentClass = property.parentDeclaration as? KSClassDeclaration ?: return@forEach
+
+            // Skip if parent has @Inject constructor (those use constructor injection path)
+            val hasInjectConstructor = parentClass.getAllFunctions()
+                .filter { it.isConstructor() }
+                .any { it.hasAnnotation(STITCH_INJECT) || it.hasAnnotation(JAVAX_INJECT) }
+
+            if (hasInjectConstructor) {
+                return@forEach // This class uses constructor injection, not field injection
             }
+
+            entryPointsByClass.getOrPut(parentClass) { mutableListOf() }
         }
 
-        return entryPoints
+        // For each class with @Inject fields, scan and validate
+        return entryPointsByClass.keys.mapNotNull { classDecl ->
+            scanEntryPointClass(classDecl)
+        }
     }
 
     /**
-     * Scans a single @EntryPoint class and extracts injectable fields.
+     * Scans a class with field injection and extracts injectable fields.
      */
     private fun scanEntryPointClass(classDecl: KSClassDeclaration): EntryPointInfo? {
         val className = classDecl.qualifiedName?.asString() ?: classDecl.simpleName.asString()
-        logger.info("Stitch: Scanning @EntryPoint class $className")
+        logger.info("Stitch: Auto-detected field injection class $className")
 
         // Validation: Check class kind
         if (classDecl.classKind == ClassKind.INTERFACE) {
-            logger.error("@EntryPoint cannot be used on interfaces: $className", classDecl)
+            logger.error("Field injection cannot be used on interfaces: $className", classDecl)
             return null
         }
         if (classDecl.classKind == ClassKind.ANNOTATION_CLASS) {
-            logger.error("@EntryPoint cannot be used on annotation classes: $className", classDecl)
+            logger.error("Field injection cannot be used on annotation classes: $className", classDecl)
             return null
         }
 
@@ -162,8 +186,8 @@ class ModuleScanner(private val logger: KSPLogger) {
 
         if (hasInjectConstructor) {
             logger.error(
-                "@EntryPoint class $className has @Inject constructor. " +
-                    "Use either @Inject constructor OR @EntryPoint, not both.",
+                "Class $className has both @Inject constructor and @Inject fields. " +
+                    "Use either constructor injection OR field injection, not both.",
                 classDecl,
             )
             return null
@@ -181,7 +205,7 @@ class ModuleScanner(private val logger: KSPLogger) {
             // Validation: Field must be mutable
             if (property.isMutable == false) {
                 logger.error(
-                    "@Inject field '$fieldName' in @EntryPoint class must be mutable (var or lateinit var).",
+                    "@Inject field '$fieldName' must be mutable (var or lateinit var).",
                     property,
                 )
                 return@forEach
@@ -190,7 +214,7 @@ class ModuleScanner(private val logger: KSPLogger) {
             // Validation: Field must be accessible (not private)
             if (property.modifiers.contains(Modifier.PRIVATE)) {
                 logger.error(
-                    "@Inject field '$fieldName' in @EntryPoint class cannot be private. " +
+                    "@Inject field '$fieldName' cannot be private. " +
                         "Generated code needs to access this field.",
                     property,
                 )
@@ -210,7 +234,9 @@ class ModuleScanner(private val logger: KSPLogger) {
         }
 
         if (injectableFields.isEmpty()) {
-            logger.warn("@EntryPoint class $className has no @Inject fields. @EntryPoint annotation is unnecessary.")
+            // This shouldn't happen since we filter by @Inject fields, but log for safety
+            logger.warn("Auto-detected class $className ended up with no @Inject fields (likely validation errors).")
+            return null
         }
 
         return EntryPointInfo(

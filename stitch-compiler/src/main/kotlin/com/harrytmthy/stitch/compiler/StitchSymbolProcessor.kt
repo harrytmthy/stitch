@@ -29,7 +29,7 @@ import com.google.devtools.ksp.symbol.KSAnnotated
  * then generates dependency lookup tables for compile-time dependency resolution.
  */
 class StitchSymbolProcessor(
-    private val codeGenerator: CodeGenerator,
+    codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
 ) : SymbolProcessor {
 
@@ -54,7 +54,7 @@ class StitchSymbolProcessor(
             return emptyList()
         }
 
-        logger.info("Stitch: Found ${scanResult.modules.size} module(s), ${scanResult.injectables.size} @Inject class(es), ${scanResult.entryPoints.size} @EntryPoint class(es)")
+        logger.info("Stitch: Found ${scanResult.modules.size} module(s), ${scanResult.injectables.size} @Inject class(es), ${scanResult.entryPoints.size} field injection class(es)")
 
         // Build dependency graph and validate
         val graph = graphBuilder.buildGraph(scanResult)

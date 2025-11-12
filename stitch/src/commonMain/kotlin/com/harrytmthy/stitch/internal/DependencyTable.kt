@@ -44,14 +44,16 @@ interface DependencyTable {
     fun <T : Any> get(type: Class<T>, qualifier: Qualifier?): T
 
     /**
-     * Injects dependencies into @Inject annotated fields of an @EntryPoint instance.
+     * Injects dependencies into @Inject annotated fields of instances.
      *
      * This method is used for field injection in classes that cannot use constructor
-     * injection (e.g. Android Activities, Fragments). The class must be annotated
-     * with @EntryPoint for member injection to be generated.
+     * injection (e.g. Android Activities, Fragments). Classes with field-level @Inject
+     * annotations are auto-detected and field injection is generated automatically.
+     *
+     * Implementation uses `when (instance)` with `instanceof` checks for optimal performance
+     * and JIT optimization via type guard chains.
      *
      * @param instance The object instance to inject dependencies into
-     * @param type The class type of the instance (used for lookup in member injector map)
      */
-    fun <T : Any> injectMembers(instance: T, type: Class<T>)
+    fun <T : Any> injectFields(instance: T)
 }

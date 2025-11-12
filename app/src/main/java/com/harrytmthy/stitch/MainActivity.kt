@@ -5,12 +5,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.harrytmthy.stitch.annotations.EntryPoint
 import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.api.Stitch
 import com.harrytmthy.stitch.api.named
 
-@EntryPoint
 class MainActivity : AppCompatActivity() {
 
     @Inject

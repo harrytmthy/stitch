@@ -45,15 +45,15 @@ object Stitch {
     }
 
     inline fun <reified T : Any> inject(instance: T) {
-        injectInternal(instance, T::class.java)
+        injectInternal(instance)
     }
 
     @PublishedApi
-    internal fun <T : Any> injectInternal(instance: T, type: Class<T>) {
-        dependencyTable?.injectMembers(instance, type)
+    internal fun <T : Any> injectInternal(instance: T) {
+        dependencyTable?.injectFields(instance)
             ?: throw IllegalStateException(
-                "Member injection requires compile-time dependency table. " +
-                    "Ensure @EntryPoint is used and KSP is properly configured.",
+                "Field injection requires compile-time dependency table. " +
+                    "Ensure field-level @Inject annotations are used and KSP is properly configured.",
             )
     }
 
