@@ -16,383 +16,230 @@
 
 package com.harrytmthy.stitch.compiler
 
+import com.google.devtools.ksp.isConstructor
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
-import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.Modifier
 
 /**
- * Extension to check if a KSFunctionDeclaration is a constructor.
- */
-private fun KSFunctionDeclaration.isConstructor(): Boolean {
-    return this.simpleName.asString() == "<init>"
-}
-
-/**
  * Scans for @Module annotated classes and extracts dependency information.
  */
 class ModuleScanner(private val logger: KSPLogger) {
 
-    private companion object {
-        // Stitch annotations
-        const val STITCH_MODULE = "com.harrytmthy.stitch.annotations.Module"
-        const val STITCH_PROVIDES = "com.harrytmthy.stitch.annotations.Provides"
-        const val STITCH_INJECT = "com.harrytmthy.stitch.annotations.Inject"
-        const val STITCH_SINGLETON = "com.harrytmthy.stitch.annotations.Singleton"
-        const val STITCH_NAMED = "com.harrytmthy.stitch.annotations.Named"
-        const val STITCH_QUALIFIER = "com.harrytmthy.stitch.annotations.Qualifier"
-
-        // Dagger/javax.inject annotations
-        const val DAGGER_MODULE = "dagger.Module"
-        const val DAGGER_PROVIDES = "dagger.Provides"
-        const val JAVAX_INJECT = "javax.inject.Inject"
-        const val JAVAX_SINGLETON = "javax.inject.Singleton"
-        const val JAVAX_NAMED = "javax.inject.Named"
-        const val JAVAX_QUALIFIER = "javax.inject.Qualifier"
-    }
+    private val namedQualifierCache = HashMap<KSAnnotated, QualifierInfo.Named>()
 
     /**
      * Scans for @Module classes, @Inject constructors, and classes with field injection.
-     * Returns a ScanResult containing all three types of bindings.
-     *
-     * Field injection classes are auto-detected by scanning for @Inject annotated fields,
-     * no explicit @EntryPoint annotation required.
      */
     fun scanAll(resolver: Resolver): ScanResult {
+        cacheQualifiers(resolver)
+
         val modules = scanModules(resolver)
-        val injectables = scanInjectConstructors(resolver)
-        val entryPoints = scanEntryPoints(resolver)
-        return ScanResult(modules, injectables, entryPoints)
-    }
+        val injectScan = scanInjectables(resolver)
 
-    fun scanModules(resolver: Resolver): List<ModuleInfo> {
-        val modules = mutableListOf<ModuleInfo>()
-
-        // Scan for Stitch @Module
-        val stitchModules = resolver.getSymbolsWithAnnotation(STITCH_MODULE)
-            .filterIsInstance<KSClassDeclaration>()
-
-        // Scan for Dagger @Module
-        val daggerModules = resolver.getSymbolsWithAnnotation(DAGGER_MODULE)
-            .filterIsInstance<KSClassDeclaration>()
-
-        // Process both types
-        (stitchModules + daggerModules).forEach { moduleClass ->
-            val moduleInfo = scanModule(moduleClass)
-            if (moduleInfo != null) {
-                modules.add(moduleInfo)
-            }
-        }
-
-        return modules
-    }
-
-    /**
-     * Scans for @Inject annotated constructors across all classes.
-     */
-    private fun scanInjectConstructors(resolver: Resolver): List<InjectableClassInfo> {
-        val injectables = mutableListOf<InjectableClassInfo>()
-
-        // Scan for Stitch @Inject
-        val stitchInject = resolver.getSymbolsWithAnnotation(STITCH_INJECT)
-            .filterIsInstance<KSFunctionDeclaration>()
-            .filter { it.isConstructor() }
-
-        // Scan for javax.inject.Inject
-        val javaxInject = resolver.getSymbolsWithAnnotation(JAVAX_INJECT)
-            .filterIsInstance<KSFunctionDeclaration>()
-            .filter { it.isConstructor() }
-
-        // Process both types
-        (stitchInject + javaxInject).forEach { constructor ->
-            val injectableInfo = scanInjectableClass(constructor)
-            if (injectableInfo != null) {
-                injectables.add(injectableInfo)
-            }
-        }
-
-        return injectables
-    }
-
-    /**
-     * Auto-detects classes with field injection by scanning for @Inject annotated fields.
-     *
-     * Unlike constructor injection classes, field injection classes are auto-detected
-     * without requiring explicit @EntryPoint annotation. This simplifies migration from
-     * other DI frameworks and reduces boilerplate.
-     *
-     * Classes that have field-level @Inject annotations are considered entry points
-     * (e.g. Activities, Fragments) that need field injection via Stitch.inject(this).
-     */
-    private fun scanEntryPoints(resolver: Resolver): List<EntryPointInfo> {
-        val entryPointsByClass = mutableMapOf<KSClassDeclaration, MutableList<InjectableFieldInfo>>()
-
-        // Find all @Inject annotated properties
-        val injectProperties = (
-            resolver.getSymbolsWithAnnotation(STITCH_INJECT) +
-                resolver.getSymbolsWithAnnotation(JAVAX_INJECT)
-            )
-            .filterIsInstance<KSPropertyDeclaration>()
-            .filter { !it.modifiers.contains(Modifier.ABSTRACT) } // Skip abstract properties
-
-        // Group by parent class
-        injectProperties.forEach { property ->
-            val parentClass = property.parentDeclaration as? KSClassDeclaration ?: return@forEach
-
-            // Skip if parent has @Inject constructor (those use constructor injection path)
-            val hasInjectConstructor = parentClass.getAllFunctions()
-                .filter { it.isConstructor() }
-                .any { it.hasAnnotation(STITCH_INJECT) || it.hasAnnotation(JAVAX_INJECT) }
-
-            if (hasInjectConstructor) {
-                return@forEach // This class uses constructor injection, not field injection
-            }
-
-            entryPointsByClass.getOrPut(parentClass) { mutableListOf() }
-        }
-
-        // For each class with @Inject fields, scan and validate
-        return entryPointsByClass.keys.mapNotNull { classDecl ->
-            scanEntryPointClass(classDecl)
-        }
-    }
-
-    /**
-     * Scans a class with field injection and extracts injectable fields.
-     */
-    private fun scanEntryPointClass(classDecl: KSClassDeclaration): EntryPointInfo? {
-        val className = classDecl.qualifiedName?.asString() ?: classDecl.simpleName.asString()
-        logger.info("Stitch: Auto-detected field injection class $className")
-
-        // Validation: Check class kind
-        if (classDecl.classKind == ClassKind.INTERFACE) {
-            logger.error("Field injection cannot be used on interfaces: $className", classDecl)
-            return null
-        }
-        if (classDecl.classKind == ClassKind.ANNOTATION_CLASS) {
-            logger.error("Field injection cannot be used on annotation classes: $className", classDecl)
-            return null
-        }
-
-        // Validation: Ensure class doesn't have @Inject constructor
-        val hasInjectConstructor = classDecl.getAllFunctions()
-            .filter { it.isConstructor() }
-            .any { it.hasAnnotation(STITCH_INJECT) || it.hasAnnotation(JAVAX_INJECT) }
-
-        if (hasInjectConstructor) {
-            logger.error(
-                "Class $className has both @Inject constructor and @Inject fields. " +
-                    "Use either constructor injection OR field injection, not both.",
-                classDecl,
-            )
-            return null
-        }
-
-        // Scan for @Inject fields
-        val injectableFields = mutableListOf<InjectableFieldInfo>()
-
-        classDecl.getAllProperties().forEach { property ->
-            val hasInject = property.hasAnnotation(STITCH_INJECT) || property.hasAnnotation(JAVAX_INJECT)
-            if (!hasInject) return@forEach
-
-            val fieldName = property.simpleName.asString()
-
-            // Validation: Field must be mutable
-            if (property.isMutable == false) {
-                logger.error(
-                    "@Inject field '$fieldName' must be mutable (var or lateinit var).",
-                    property,
-                )
-                return@forEach
-            }
-
-            // Validation: Field must be accessible (not private)
-            if (property.modifiers.contains(Modifier.PRIVATE)) {
-                logger.error(
-                    "@Inject field '$fieldName' cannot be private. " +
-                        "Generated code needs to access this field.",
-                    property,
-                )
-                return@forEach
-            }
-
-            val fieldType = property.type.resolve()
-            val qualifier = extractQualifier(property)
-
-            injectableFields.add(
-                InjectableFieldInfo(
-                    name = fieldName,
-                    type = fieldType,
-                    qualifier = qualifier,
-                ),
-            )
-        }
-
-        if (injectableFields.isEmpty()) {
-            // This shouldn't happen since we filter by @Inject fields, but log for safety
-            logger.warn("Auto-detected class $className ended up with no @Inject fields (likely validation errors).")
-            return null
-        }
-
-        return EntryPointInfo(
-            classDeclaration = classDecl,
-            injectableFields = injectableFields,
+        return ScanResult(
+            modules = modules,
+            injectables = injectScan.injectables,
+            fieldInjectors = injectScan.fieldInjectors,
         )
     }
 
-    /**
-     * Scans a single class with @Inject constructor.
-     * Performs validation and extracts constructor params and injectable fields.
-     */
-    private fun scanInjectableClass(constructor: KSFunctionDeclaration): InjectableClassInfo? {
-        val classDecl = constructor.parentDeclaration as? KSClassDeclaration
-        if (classDecl == null) {
-            logger.error("@Inject found on non-class constructor", constructor)
-            return null
+    private fun cacheQualifiers(resolver: Resolver) {
+        fun collectNamed(annotationName: String) {
+            resolver.getSymbolsWithAnnotation(annotationName).forEach { symbol ->
+                for (annotation in symbol.annotations) {
+                    annotation.annotationType.resolve().declaration.qualifiedName?.asString()
+                        ?.takeIf { it == annotationName }
+                        ?.let {
+                            val value = annotation.arguments.first().value as String
+                            namedQualifierCache[symbol] = QualifierInfo.Named(value)
+                            break
+                        }
+                }
+            }
         }
 
-        val className = classDecl.qualifiedName?.asString() ?: classDecl.simpleName.asString()
-        logger.info("Stitch: Scanning @Inject class $className")
-
-        // Validation: Check class kind
-        if (classDecl.classKind == ClassKind.INTERFACE) {
-            logger.error("@Inject cannot be used on interfaces: $className", classDecl)
-            return null
-        }
-        if (classDecl.classKind == ClassKind.ANNOTATION_CLASS) {
-            logger.error("@Inject cannot be used on annotation classes: $className", classDecl)
-            return null
-        }
-        if (classDecl.modifiers.contains(Modifier.ABSTRACT)) {
-            logger.error("@Inject cannot be used on abstract classes: $className", classDecl)
-            return null
-        }
-
-        // Validation: Check for multiple @Inject constructors
-        val injectConstructors = classDecl.getAllFunctions()
-            .filter { it.isConstructor() }
-            .filter { it.hasAnnotation(STITCH_INJECT) || it.hasAnnotation(JAVAX_INJECT) }
-            .toList()
-
-        if (injectConstructors.size > 1) {
-            logger.error(
-                "Multiple @Inject constructors found in $className. Only one @Inject constructor is allowed.",
-                classDecl,
-            )
-            return null
-        }
-
-        // Extract constructor parameters
-        val constructorParameters = constructor.parameters.map { param ->
-            ParameterInfo(
-                name = param.name?.asString() ?: "",
-                type = param.type.resolve(),
-                qualifier = extractQualifier(param),
-            )
-        }
-
-        // Scan for @Inject fields
-        val injectableFields = scanInjectableFields(classDecl, constructor)
-
-        // Check for @Singleton on class
-        val isSingleton = classDecl.hasAnnotation(STITCH_SINGLETON) ||
-            classDecl.hasAnnotation(JAVAX_SINGLETON)
-
-        // Check for @Named on class
-        val qualifier = extractQualifier(classDecl)
-
-        val returnType = classDecl.asStarProjectedType()
-
-        return InjectableClassInfo(
-            classDeclaration = classDecl,
-            constructor = constructor,
-            returnType = returnType,
-            constructorParameters = constructorParameters,
-            injectableFields = injectableFields,
-            isSingleton = isSingleton,
-            qualifier = qualifier,
-        )
+        collectNamed(STITCH_NAMED)
+        collectNamed(JAVAX_NAMED)
     }
 
     /**
-     * Scans for @Inject annotated fields within a class.
-     * Validates field accessibility and mutability.
+     * Scans for @Module classes and their @Provides methods.
      */
-    private fun scanInjectableFields(classDecl: KSClassDeclaration, constructor: KSFunctionDeclaration): List<InjectableFieldInfo> {
-        val fields = mutableListOf<InjectableFieldInfo>()
+    private fun scanModules(resolver: Resolver): List<ModuleInfo> =
+        resolver.getSymbolsWithAnnotation(STITCH_MODULE)
+            .mapNotNull {
+                if (it !is KSClassDeclaration) {
+                    return@mapNotNull null
+                }
+                scanModule(it)
+            }.toList()
 
-        classDecl.getAllProperties().forEach { property ->
-            val hasInject = property.hasAnnotation(STITCH_INJECT) || property.hasAnnotation(JAVAX_INJECT)
-            if (!hasInject) return@forEach
+    /**
+     * Single combined scan for all @Inject usage (Stitch + javax.inject).
+     */
+    private fun scanInjectables(resolver: Resolver): InjectScanResult {
+        val accByClass = LinkedHashMap<KSClassDeclaration, ConstructorInjectionAccumulator>()
+        val seenSymbols = HashSet<KSAnnotated>()
 
-            val fieldName = property.simpleName.asString()
+        fun recordInjectAnnotations(qualifiedName: String) {
+            resolver.getSymbolsWithAnnotation(qualifiedName).forEach { symbol ->
+                // Avoid processing the same symbol twice if it somehow carries both annotations.
+                if (!seenSymbols.add(symbol)) {
+                    return@forEach
+                }
 
-            // Validation: Field must be mutable
-            if (property.isMutable == false) {
-                logger.error(
-                    "@Inject field '$fieldName' must be mutable (var or lateinit var). " +
-                        "Use constructor injection for immutable fields.",
-                    property,
-                )
-                return@forEach
+                when (symbol) {
+                    is KSFunctionDeclaration -> {
+                        if (!symbol.isConstructor()) return@forEach
+                        val classDeclaration = symbol.parentDeclaration as? KSClassDeclaration ?: return@forEach
+                        val acc = accByClass.getOrPut(classDeclaration) {
+                            ConstructorInjectionAccumulator(classDeclaration)
+                        }
+                        val existing = acc.injectConstructor
+                        if (existing != null && existing != symbol) {
+                            val className = classDeclaration.qualifiedName?.asString()
+                                ?: classDeclaration.simpleName.asString()
+                            logger.error(
+                                "Multiple @Inject constructors found in $className. Only one @Inject constructor is allowed.",
+                                classDeclaration,
+                            )
+                            acc.hasConstructorError = true
+                        } else {
+                            acc.injectConstructor = symbol
+                        }
+                    }
+                    is KSPropertyDeclaration -> {
+                        val classDeclaration = symbol.parentDeclaration as? KSClassDeclaration ?: return@forEach
+                        accByClass.getOrPut(classDeclaration) {
+                            ConstructorInjectionAccumulator(classDeclaration)
+                        }.fieldProps.add(symbol)
+                    }
+                }
             }
-
-            // Validation: Field must be accessible (not private)
-            if (property.modifiers.contains(Modifier.PRIVATE)) {
-                logger.error(
-                    "@Inject field '$fieldName' cannot be private. " +
-                        "Generated code needs to access this field.",
-                    property,
-                )
-                return@forEach
-            }
-
-            // Warning: Prefer constructor injection
-            if (constructor.parameters.isNotEmpty()) {
-                logger.warn(
-                    "Class ${classDecl.simpleName.asString()} uses both constructor and field injection. " +
-                        "Consider using constructor injection only for better immutability.",
-                    property,
-                )
-            }
-
-            val fieldType = property.type.resolve()
-            val qualifier = extractQualifier(property)
-
-            fields.add(
-                InjectableFieldInfo(
-                    name = fieldName,
-                    type = fieldType,
-                    qualifier = qualifier,
-                ),
-            )
         }
 
-        return fields
+        // Collect both Stitch and javax @Inject usage.
+        recordInjectAnnotations(STITCH_INJECT)
+        recordInjectAnnotations(JAVAX_INJECT)
+
+        val injectables = ArrayList<InjectableClassInfo>()
+        val fieldInjectors = ArrayList<FieldInjectorInfo>()
+
+        accByClass.values.forEach { accumulator ->
+            val classDeclaration = accumulator.classDeclaration
+            val className = classDeclaration.qualifiedName?.asString() ?: classDeclaration.simpleName.asString()
+            val ctor = accumulator.injectConstructor
+            val fields = accumulator.fieldProps
+
+            // If this class has no ctor and no fields, nothing to do.
+            if (ctor == null && fields.isEmpty()) {
+                return@forEach
+            }
+
+            // Interfaces and annotation classes cannot participate in injection.
+            if (classDeclaration.classKind == ClassKind.INTERFACE) {
+                logger.error("@Inject cannot be used on interfaces: $className", classDeclaration)
+                return@forEach
+            }
+            if (classDeclaration.classKind == ClassKind.ANNOTATION_CLASS) {
+                logger.error("@Inject cannot be used on annotation classes: $className", classDeclaration)
+                return@forEach
+            }
+
+            // Abstract classes cannot have @Inject constructors (no instantiation).
+            if (ctor != null && classDeclaration.modifiers.contains(Modifier.ABSTRACT)) {
+                logger.error("@Inject cannot be used on abstract classes: $className", classDeclaration)
+                return@forEach
+            }
+
+            // If constructor already marked invalid, skip this class entirely.
+            if (accumulator.hasConstructorError) {
+                return@forEach
+            }
+
+            // Single validation pass for all @Inject fields in this class.
+            val injectableFields = ArrayList<InjectableFieldInfo>()
+            fields.forEach { property ->
+                val fieldName = property.simpleName.asString()
+
+                // Field must be mutable
+                if (!property.isMutable) {
+                    logger.error(
+                        "@Inject field '$fieldName' must be mutable (var or lateinit var).",
+                        property,
+                    )
+                    return@forEach
+                }
+
+                // Field must be accessible (not private)
+                if (property.modifiers.contains(Modifier.PRIVATE)) {
+                    logger.error(
+                        "@Inject field '$fieldName' cannot be private. " +
+                            "Generated code needs to access this field.",
+                        property,
+                    )
+                    return@forEach
+                }
+
+                val fieldType = property.type.resolve()
+                val qualifier = namedQualifierCache[property]
+                injectableFields += InjectableFieldInfo(fieldName, fieldType, qualifier)
+            }
+
+            // 1) Build InjectableClassInfo for constructor-injected classes (if any).
+            if (ctor != null) {
+                val constructorParameters = ctor.parameters.map { param ->
+                    ParameterInfo(
+                        name = param.name?.asString() ?: "",
+                        type = param.type.resolve(),
+                        qualifier = namedQualifierCache[param],
+                    )
+                }
+
+                val isSingleton = classDeclaration.hasAnnotation(STITCH_SINGLETON) ||
+                    classDeclaration.hasAnnotation(JAVAX_SINGLETON)
+
+                val qualifier = namedQualifierCache[classDeclaration]
+                injectables += InjectableClassInfo(
+                    classDeclaration = classDeclaration,
+                    constructor = ctor,
+                    constructorParameters = constructorParameters,
+                    injectableFields = injectableFields,
+                    isSingleton = isSingleton,
+                    qualifier = qualifier,
+                )
+            }
+
+            // 2) Build FieldInjectorInfo for field injection, independent from ctor presence.
+            if (injectableFields.isNotEmpty()) {
+                fieldInjectors += FieldInjectorInfo(classDeclaration, injectableFields)
+            }
+        }
+
+        return InjectScanResult(injectables, fieldInjectors)
     }
 
     private fun scanModule(moduleClass: KSClassDeclaration): ModuleInfo? {
-        logger.info("Stitch: Scanning module ${moduleClass.qualifiedName?.asString()}")
-
         val provides = moduleClass.getAllFunctions()
-            .filter { it.hasAnnotation(STITCH_PROVIDES) || it.hasAnnotation(DAGGER_PROVIDES) }
-            .mapNotNull { scanProvider(it) }
-            .toList()
+            .mapNotNull {
+                if (!it.hasAnnotation(STITCH_PROVIDES)) {
+                    return@mapNotNull null
+                }
+                scanProvider(it)
+            }.toList()
 
         if (provides.isEmpty()) {
             logger.warn("Stitch: Module ${moduleClass.simpleName.asString()} has no @Provides methods")
             return null
         }
 
-        return ModuleInfo(
-            declaration = moduleClass,
-            provides = provides,
-        )
+        return ModuleInfo(moduleClass, provides)
     }
 
     private fun scanProvider(function: KSFunctionDeclaration): ProvidesInfo? {
@@ -405,13 +252,13 @@ class ModuleScanner(private val logger: KSPLogger) {
         val isSingleton = function.hasAnnotation(STITCH_SINGLETON) ||
             function.hasAnnotation(JAVAX_SINGLETON)
 
-        val qualifier = extractQualifier(function)
+        val qualifier = namedQualifierCache[function]
 
         val parameters = function.parameters.map { param ->
             ParameterInfo(
                 name = param.name?.asString() ?: "",
                 type = param.type.resolve(),
-                qualifier = extractQualifier(param),
+                qualifier = namedQualifierCache[param],
             )
         }
 
@@ -424,33 +271,37 @@ class ModuleScanner(private val logger: KSPLogger) {
         )
     }
 
-    private fun extractQualifier(annotated: KSAnnotated): QualifierInfo? {
-        annotated.findAnnotation(STITCH_NAMED)?.let { return extractNamedValue(it) }
-        annotated.findAnnotation(JAVAX_NAMED)?.let { return extractNamedValue(it) }
-        annotated.annotations.forEach { annotation ->
-            val qualifierDeclaration = annotation.annotationType.resolve().declaration
-            if (qualifierDeclaration.hasAnnotation(STITCH_QUALIFIER) || qualifierDeclaration.hasAnnotation(JAVAX_QUALIFIER)) {
-                logger.error(
-                    "Custom qualifiers are not supported in v1.0. Use @Named(\"...\") instead.",
-                    annotated,
-                )
-            }
-        }
-        return null
-    }
-
-    private fun extractNamedValue(annotation: KSAnnotation): QualifierInfo.Named? {
-        val value = annotation.arguments.firstOrNull()?.value as? String
-        return if (value != null) {
-            QualifierInfo.Named(value)
-        } else {
-            null
-        }
-    }
-
     private fun KSAnnotated.hasAnnotation(qualifiedName: String): Boolean =
-        annotations.any { it.annotationType.resolve().declaration.qualifiedName?.asString() == qualifiedName }
+        annotations.any {
+            it.annotationType.resolve().declaration.qualifiedName?.asString() == qualifiedName
+        }
 
-    private fun KSAnnotated.findAnnotation(qualifiedName: String): KSAnnotation? =
-        annotations.firstOrNull { it.annotationType.resolve().declaration.qualifiedName?.asString() == qualifiedName }
+    /**
+     * Aggregated scan result for all @Inject usage.
+     */
+    private data class InjectScanResult(
+        val injectables: List<InjectableClassInfo>,
+        val fieldInjectors: List<FieldInjectorInfo>,
+    )
+
+    /**
+     * Internal accumulator for all injection-related info per class.
+     */
+    private data class ConstructorInjectionAccumulator(
+        val classDeclaration: KSClassDeclaration,
+        var injectConstructor: KSFunctionDeclaration? = null,
+        val fieldProps: ArrayList<KSPropertyDeclaration> = ArrayList(),
+        var hasConstructorError: Boolean = false,
+    )
+
+    private companion object {
+        const val STITCH_MODULE = "com.harrytmthy.stitch.annotations.Module"
+        const val STITCH_PROVIDES = "com.harrytmthy.stitch.annotations.Provides"
+        const val STITCH_INJECT = "com.harrytmthy.stitch.annotations.Inject"
+        const val STITCH_SINGLETON = "com.harrytmthy.stitch.annotations.Singleton"
+        const val STITCH_NAMED = "com.harrytmthy.stitch.annotations.Named"
+        const val JAVAX_INJECT = "javax.inject.Inject"
+        const val JAVAX_SINGLETON = "javax.inject.Singleton"
+        const val JAVAX_NAMED = "javax.inject.Named"
+    }
 }

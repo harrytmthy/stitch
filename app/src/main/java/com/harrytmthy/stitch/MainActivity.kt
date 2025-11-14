@@ -6,13 +6,39 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.harrytmthy.stitch.annotations.Inject
+import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.api.Stitch
 import com.harrytmthy.stitch.api.named
 
+/**
+ * Only for testing convenience. Please ignore the weird architecture 😄
+ */
 class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var logger: Logger
+
+    @Inject
+    lateinit var userRepository: UserRepository
+
+    @Inject
+    lateinit var userRepositoryImpl: UserRepositoryImpl
+
+    @Inject
+    @Named("baseUrl")
+    lateinit var baseUrl: String
+
+    @Inject
+    lateinit var cacheService: CacheService
+
+    @javax.inject.Inject
+    lateinit var complexService: ComplexService
+
+    @Inject
+    lateinit var apiService: ApiService
+
+    @Inject
+    lateinit var viewModel: ViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Stitch.inject(this)
@@ -25,32 +51,24 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        demonstrateStitch()
+        assertStitch()
     }
 
-    private fun demonstrateStitch() {
-        println("\n=== Stitch DI-SL Hybrid Demo ===\n")
+    private fun assertStitch() {
+        // Singleton objects
+        check(logger === Stitch.get<Logger>())
+        check(userRepository === userRepositoryImpl)
+        check(userRepositoryImpl.logger === logger)
+        check(viewModel.repository === Stitch.get<UserRepository>())
+        check(viewModel.cache === cacheService)
+        check(cacheService === Stitch.get<CacheService>())
+        check(complexService.cache === cacheService)
+        check(baseUrl === Stitch.get<String>(named("baseUrl")))
 
-        // Get singleton logger (from DI path - compile-time generated)
-        val logger2 = Stitch.get<Logger>()
-        println("✓ Singleton test: logger === logger2 = ${logger === logger2}")
-
-        // Get repository with injected dependencies (from DI path)
-        val repo = Stitch.get<UserRepositoryImpl>()
-        println("✓ Repository test: ${repo.getUser(42)}")
-
-        // Get factory instance - new object each time
-        val api1 = Stitch.get<ApiService>()
-        val api2 = Stitch.get<ApiService>()
-        println("✓ Factory test: api1 === api2 = ${api1 === api2} (should be false)")
-
-        // Get qualified dependency
-        val baseUrl = Stitch.get<String>(named("baseUrl"))
-        println("✓ Qualified dependency: baseUrl = $baseUrl")
-
-        println("\n🚀 Stitch DI-SL Hybrid: Zero manual initialization!")
-        println("   - Compile-time safety via @Module/@Provides")
-        println("   - O(1) dependency lookup via generated code")
-        println("   - Auto-discovery via ServiceLoader\n")
+        // Factory objects
+        check(apiService !== Stitch.get<ApiService>())
+        check(Stitch.get<ApiService>() !== Stitch.get<ApiService>())
+        check(apiService.logger === logger)
+        check(Stitch.get<ApiService>().baseUrl === baseUrl)
     }
 }

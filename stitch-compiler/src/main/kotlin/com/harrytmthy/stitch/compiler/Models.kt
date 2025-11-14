@@ -87,7 +87,6 @@ data class DependencyRef(
 data class InjectableClassInfo(
     val classDeclaration: KSClassDeclaration,
     val constructor: KSFunctionDeclaration,
-    val returnType: KSType,
     val constructorParameters: List<ParameterInfo>,
     val injectableFields: List<InjectableFieldInfo>,
     val isSingleton: Boolean,
@@ -104,21 +103,19 @@ data class InjectableFieldInfo(
 )
 
 /**
- * Represents a class annotated with @EntryPoint that needs field injection.
- *
- * Entry points are classes (typically Android components) that cannot use
- * constructor injection and instead rely on field injection via Stitch.inject(this).
+ * Represents an injector for a class that contains @Inject-annotated fields.
+ * Generates a `Stitch<ClassName>Injector.kt`.
  */
-data class EntryPointInfo(
+data class FieldInjectorInfo(
     val classDeclaration: KSClassDeclaration,
     val injectableFields: List<InjectableFieldInfo>,
 )
 
 /**
- * Result of scanning modules, injectable classes, and entry points.
+ * Result of scanning modules, injectable classes, and field injection targets.
  */
 data class ScanResult(
     val modules: List<ModuleInfo>,
     val injectables: List<InjectableClassInfo>,
-    val entryPoints: List<EntryPointInfo>,
+    val fieldInjectors: List<FieldInjectorInfo>,
 )
