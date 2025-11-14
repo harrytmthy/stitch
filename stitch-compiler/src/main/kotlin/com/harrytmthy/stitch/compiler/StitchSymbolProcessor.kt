@@ -54,13 +54,13 @@ class StitchSymbolProcessor(
             return emptyList()
         }
 
-        logger.info("Stitch: Found ${scanResult.modules.size} module(s), ${scanResult.injectables.size} @Inject class(es), ${scanResult.entryPoints.size} field injection class(es)")
+        logger.info("Stitch: Found ${scanResult.modules.size} module(s), ${scanResult.injectables.size} @Inject class(es), ${scanResult.fieldInjectors.size} field injection class(es)")
 
         // Build dependency graph and validate
         val graph = graphBuilder.buildGraph(scanResult)
 
         // Generate DependencyTable implementation
-        codeGen.generateDependencyTable(graph, scanResult.entryPoints)
+        codeGen.generateDependencyTable(graph, scanResult.fieldInjectors)
 
         logger.info("Stitch: Code generation completed successfully")
 

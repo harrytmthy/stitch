@@ -16,16 +16,9 @@
 
 package com.harrytmthy.stitch.compiler
 
+import com.google.devtools.ksp.isConstructor
 import com.google.devtools.ksp.processing.KSPLogger
-import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSType
-
-/**
- * Extension to check if a KSFunctionDeclaration is a constructor.
- */
-private fun KSFunctionDeclaration.isConstructor(): Boolean {
-    return this.simpleName.asString() == "<init>"
-}
 
 /**
  * Builds and validates the dependency graph.
@@ -78,7 +71,8 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
 
         // Second pass: Create nodes from @Inject classes
         scanResult.injectables.forEach { injectable ->
-            val key = DependencyKey(injectable.returnType, injectable.qualifier)
+            val returnType = injectable.classDeclaration.asStarProjectedType()
+            val key = DependencyKey(returnType, injectable.qualifier)
 
             // Dependencies include both constructor params AND injectable fields
             val allDependencies = injectable.constructorParameters.map { param ->
@@ -90,7 +84,7 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
             val node = DependencyNode(
                 providerModule = injectable.classDeclaration,
                 providerFunction = injectable.constructor,
-                type = injectable.returnType,
+                type = returnType,
                 qualifier = injectable.qualifier,
                 isSingleton = injectable.isSingleton,
                 dependencies = allDependencies,
@@ -139,17 +133,17 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
             }
         }
 
-        // Fourth pass: Validate entry point field dependencies
-        scanResult.entryPoints.forEach { entryPoint ->
-            entryPoint.injectableFields.forEach { field ->
+        // Fourth pass: Validate field injection dependencies
+        scanResult.fieldInjectors.forEach { injector ->
+            injector.injectableFields.forEach { field ->
                 val depKey = DependencyKey(field.type, field.qualifier)
                 if (!registry.containsKey(depKey)) {
-                    val className = entryPoint.classDeclaration.qualifiedName?.asString()
+                    val className = injector.classDeclaration.qualifiedName?.asString()
                     logger.error(
                         "Missing binding for ${field.type.declaration.qualifiedName?.asString()} " +
                             "with qualifier ${field.qualifier}.\n" +
-                            "Required by: $className @EntryPoint field '${field.name}'",
-                        entryPoint.classDeclaration,
+                            "Required by: $className @Inject field '${field.name}'",
+                        injector.classDeclaration,
                     )
                 }
             }

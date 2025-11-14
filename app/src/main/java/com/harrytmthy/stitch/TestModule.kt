@@ -29,11 +29,13 @@ class Logger @Inject constructor() {
     }
 }
 
+interface UserRepository {
+    fun getUser(id: Int): String
+}
+
 @Singleton
-class UserRepositoryImpl @Inject constructor(
-    private val logger: Logger,
-) {
-    fun getUser(id: Int): String {
+class UserRepositoryImpl @Inject constructor(internal val logger: Logger) : UserRepository {
+    override fun getUser(id: Int): String {
         logger.log("Fetching user $id")
         return "User#$id"
     }
@@ -41,8 +43,8 @@ class UserRepositoryImpl @Inject constructor(
 
 // Factory (unscoped) - new instance each time
 class ApiService @Inject constructor(
-    private val logger: Logger,
-    @param:Named("baseUrl") private val baseUrl: String
+    internal val logger: Logger,
+    @param:Named("baseUrl") internal val baseUrl: String
 ) {
     fun fetch(endpoint: String): String {
         logger.log("Fetching $baseUrl$endpoint")
@@ -91,12 +93,12 @@ class ComplexService @Inject constructor(
 @Module
 object AppModule {
 
-    // Provide base URL configuration (simple value)
-    @Provides
     @Named("baseUrl")
     @Singleton
+    @Provides
     fun provideBaseUrl(): String = "https://api.example.com/"
 
-    // Note: Logger, UserRepositoryImpl, ApiService, CacheService, ViewModel, ComplexService
-    // are all auto-provided via @Inject - no @Provides methods needed!
+    @Singleton
+    @Provides
+    fun provideUserRepo(repository: UserRepositoryImpl): UserRepository = repository
 }
