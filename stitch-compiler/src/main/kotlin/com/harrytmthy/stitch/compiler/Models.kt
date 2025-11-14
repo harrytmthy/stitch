@@ -26,6 +26,7 @@ import com.google.devtools.ksp.symbol.KSType
 data class ModuleInfo(
     val declaration: KSClassDeclaration,
     val provides: List<ProvidesInfo>,
+    val binds: List<BindsInfo>,
 )
 
 /**
@@ -35,6 +36,22 @@ data class ProvidesInfo(
     val declaration: KSFunctionDeclaration,
     val returnType: KSType,
     val parameters: List<ParameterInfo>,
+    val isSingleton: Boolean,
+    val qualifier: QualifierInfo?,
+    val aliases: List<KSType> = emptyList(),
+)
+
+/**
+ * Represents a @Binds method in an interface/abstract module.
+ *
+ * @Binds methods declare type bindings without providing implementation.
+ * They must be abstract, take exactly one parameter (the implementation),
+ * and return a supertype (the alias).
+ */
+data class BindsInfo(
+    val declaration: KSFunctionDeclaration,
+    val implementationType: KSType,
+    val aliasType: KSType,
     val isSingleton: Boolean,
     val qualifier: QualifierInfo?,
 )
@@ -62,6 +79,7 @@ sealed class QualifierInfo {
  * For @Provides methods: all dependencies are in [dependencies]
  * For @Inject constructors: [dependencies] = constructor params + injectable fields,
  *                            [injectableFields] contains field-specific info for code generation
+ * For @Binds: [type] is the canonical implementation type, [aliases] contains supertypes
  */
 data class DependencyNode(
     val providerModule: KSClassDeclaration,
@@ -71,6 +89,7 @@ data class DependencyNode(
     val isSingleton: Boolean,
     val dependencies: List<DependencyRef>,
     val injectableFields: List<InjectableFieldInfo> = emptyList(),
+    val aliases: MutableList<KSType> = mutableListOf(),
 )
 
 /**
@@ -91,6 +110,7 @@ data class InjectableClassInfo(
     val injectableFields: List<InjectableFieldInfo>,
     val isSingleton: Boolean,
     val qualifier: QualifierInfo?,
+    val aliases: List<KSType> = emptyList(),
 )
 
 /**

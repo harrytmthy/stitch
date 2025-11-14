@@ -24,6 +24,7 @@ import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.Modifier
 
 /**
@@ -206,6 +207,10 @@ class ModuleScanner(private val logger: KSPLogger) {
                     classDeclaration.hasAnnotation(JAVAX_SINGLETON)
 
                 val qualifier = namedQualifierCache[classDeclaration]
+
+                // Extract @Binds(aliases = [...]) from class
+                val aliases = extractAliases(classDeclaration)
+
                 injectables += InjectableClassInfo(
                     classDeclaration = classDeclaration,
                     constructor = ctor,
@@ -213,6 +218,7 @@ class ModuleScanner(private val logger: KSPLogger) {
                     injectableFields = injectableFields,
                     isSingleton = isSingleton,
                     qualifier = qualifier,
+                    aliases = aliases,
                 )
             }
 
@@ -226,7 +232,11 @@ class ModuleScanner(private val logger: KSPLogger) {
     }
 
     private fun scanModule(moduleClass: KSClassDeclaration): ModuleInfo? {
-        val provides = moduleClass.getAllFunctions()
+        // Get functions from both declarations (for interfaces) and getAllFunctions (for classes)
+        val declaredFunctions = moduleClass.declarations.filterIsInstance<KSFunctionDeclaration>()
+        val allFunctions = (declaredFunctions + moduleClass.getAllFunctions()).distinct()
+
+        val provides = allFunctions
             .mapNotNull {
                 if (!it.hasAnnotation(STITCH_PROVIDES)) {
                     return@mapNotNull null
@@ -234,12 +244,20 @@ class ModuleScanner(private val logger: KSPLogger) {
                 scanProvider(it)
             }.toList()
 
-        if (provides.isEmpty()) {
-            logger.warn("Stitch: Module ${moduleClass.simpleName.asString()} has no @Provides methods")
+        val binds = allFunctions
+            .mapNotNull {
+                if (!it.hasAnnotation(STITCH_BINDS)) {
+                    return@mapNotNull null
+                }
+                scanBinds(it)
+            }.toList()
+
+        if (provides.isEmpty() && binds.isEmpty()) {
+            logger.warn("Stitch: Module ${moduleClass.simpleName.asString()} has no @Provides or @Binds methods")
             return null
         }
 
-        return ModuleInfo(moduleClass, provides)
+        return ModuleInfo(moduleClass, provides, binds)
     }
 
     private fun scanProvider(function: KSFunctionDeclaration): ProvidesInfo? {
@@ -262,19 +280,97 @@ class ModuleScanner(private val logger: KSPLogger) {
             )
         }
 
+        // Extract @Binds(aliases = [...]) from @Provides method
+        val aliases = extractAliases(function)
+
         return ProvidesInfo(
             declaration = function,
             returnType = returnType,
             parameters = parameters,
             isSingleton = isSingleton,
             qualifier = qualifier,
+            aliases = aliases,
         )
     }
 
-    private fun KSAnnotated.hasAnnotation(qualifiedName: String): Boolean =
-        annotations.any {
-            it.annotationType.resolve().declaration.qualifiedName?.asString() == qualifiedName
+    private fun scanBinds(function: KSFunctionDeclaration): BindsInfo? {
+        val functionName = function.simpleName.asString()
+
+        // Validate: @Binds methods must be abstract
+        if (!function.isAbstract) {
+            logger.error("@Binds method $functionName must be abstract", function)
+            return null
         }
+
+        // Validate: Must have exactly one parameter (implementation type)
+        if (function.parameters.size != 1) {
+            logger.error(
+                "@Binds method $functionName must have exactly one parameter (the implementation type). " +
+                    "Found ${function.parameters.size} parameters.",
+                function,
+            )
+            return null
+        }
+
+        // Get return type (alias type)
+        val aliasType = function.returnType?.resolve()
+        if (aliasType == null) {
+            logger.error("@Binds method $functionName has no return type", function)
+            return null
+        }
+
+        // Get implementation type (parameter type)
+        val implementationType = function.parameters.first().type.resolve()
+
+        // TODO: Validate that alias type is a supertype of implementation type
+        // KSP doesn't have a reliable isAssignableTo API, so we skip validation for now
+
+        val isSingleton = function.hasAnnotation(STITCH_SINGLETON) ||
+            function.hasAnnotation(JAVAX_SINGLETON)
+
+        val qualifier = namedQualifierCache[function]
+
+        return BindsInfo(
+            declaration = function,
+            implementationType = implementationType,
+            aliasType = aliasType,
+            isSingleton = isSingleton,
+            qualifier = qualifier,
+        )
+    }
+
+    /**
+     * Extracts aliases from @Binds(aliases = [...]) annotation.
+     */
+    private fun extractAliases(annotated: KSAnnotated): List<KSType> {
+        // Find @Binds annotation
+        val bindsAnnotation = annotated.annotations.find { annotation ->
+            val qualifiedName = annotation.annotationType.resolve().declaration.qualifiedName?.asString()
+            val shortName = annotation.shortName.asString()
+            qualifiedName == STITCH_BINDS || (qualifiedName == null && shortName == "Binds")
+        } ?: return emptyList()
+
+        // Find the "aliases" argument
+        val aliasesArg = bindsAnnotation.arguments.find { it.name?.asString() == "aliases" }
+            ?: return emptyList()
+
+        // The value is an ArrayList<KSType> (KSP has already resolved the class references)
+        @Suppress("UNCHECKED_CAST")
+        val aliasesList = aliasesArg.value as? ArrayList<*> ?: return emptyList()
+
+        // Each element is a KSType
+        return aliasesList.mapNotNull { it as? KSType }
+    }
+
+    private fun KSAnnotated.hasAnnotation(qualifiedName: String): Boolean {
+        val shortName = qualifiedName.substringAfterLast('.')
+        return annotations.any {
+            val resolved = it.annotationType.resolve()
+            val qual = resolved.declaration.qualifiedName?.asString()
+            // Try qualified name first, fallback to short name if qual name is null
+            qual == qualifiedName || (qual == null && it.shortName.asString() == shortName)
+        }
+    }
 
     /**
      * Aggregated scan result for all @Inject usage.
@@ -297,6 +393,7 @@ class ModuleScanner(private val logger: KSPLogger) {
     private companion object {
         const val STITCH_MODULE = "com.harrytmthy.stitch.annotations.Module"
         const val STITCH_PROVIDES = "com.harrytmthy.stitch.annotations.Provides"
+        const val STITCH_BINDS = "com.harrytmthy.stitch.annotations.Binds"
         const val STITCH_INJECT = "com.harrytmthy.stitch.annotations.Inject"
         const val STITCH_SINGLETON = "com.harrytmthy.stitch.annotations.Singleton"
         const val STITCH_NAMED = "com.harrytmthy.stitch.annotations.Named"

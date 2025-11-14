@@ -22,11 +22,17 @@ class MainActivity : AppCompatActivity() {
     lateinit var userRepository: UserRepository
 
     @Inject
+    lateinit var userReader: UserReader
+
+    @Inject
     lateinit var userRepositoryImpl: UserRepositoryImpl
 
     @Inject
     @Named("baseUrl")
     lateinit var baseUrl: String
+
+    @Inject
+    lateinit var processor: Processor
 
     @Inject
     lateinit var cacheService: CacheService
@@ -58,11 +64,16 @@ class MainActivity : AppCompatActivity() {
         // Singleton objects
         check(logger === Stitch.get<Logger>())
         check(userRepository === userRepositoryImpl)
+        check(userReader === userRepository)
+        check(userReader === userRepositoryImpl)
+        check(Stitch.get<UserReader>() === Stitch.get<UserRepository>())
         check(userRepositoryImpl.logger === logger)
         check(viewModel.repository === Stitch.get<UserRepository>())
         check(viewModel.cache === cacheService)
         check(cacheService === Stitch.get<CacheService>())
+        check(processor === complexService)
         check(complexService.cache === cacheService)
+        check(Stitch.get<Processor>() === Stitch.get<ComplexService>())
         check(baseUrl === Stitch.get<String>(named("baseUrl")))
 
         // Factory objects
