@@ -34,6 +34,7 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.buildCodeBlock
+import com.squareup.kotlinpoet.ksp.toTypeName
 import java.io.OutputStreamWriter
 import com.google.devtools.ksp.processing.CodeGenerator as KspCodeGenerator
 
@@ -254,6 +255,7 @@ class StitchCodeGenerator(
             // Add field and lock for singletons (only for canonical type, not aliases)
             if (node.isSingleton) {
                 component.addProperty(generateSingletonField(node))
+                component.addProperty(generateInitializedFlag(node))
                 component.addProperty(generateLockField(node))
             }
 
@@ -280,13 +282,26 @@ class StitchCodeGenerator(
      * Generates a @Volatile field for a singleton dependency.
      */
     private fun generateSingletonField(node: DependencyNode): PropertySpec {
-        val typeCls = node.type.toClassName()
+        val typeCls = node.type.toTypeName()
         val fieldName = "_${generateMethodName(node)}"
 
         return PropertySpec.builder(fieldName, typeCls.copy(nullable = true), KModifier.PRIVATE)
             .addAnnotation(Volatile::class)
             .mutable(true)
             .initializer("null")
+            .build()
+    }
+
+    /**
+     * Generates an initialized flag for singleton dependencies.
+     */
+    private fun generateInitializedFlag(node: DependencyNode): PropertySpec {
+        val flagName = "_${generateMethodName(node)}_initialized"
+
+        return PropertySpec.builder(flagName, Boolean::class, KModifier.PRIVATE)
+            .addAnnotation(Volatile::class)
+            .mutable(true)
+            .initializer("false")
             .build()
     }
 
@@ -305,7 +320,7 @@ class StitchCodeGenerator(
      * Generates an alias provider method that delegates to the canonical provider.
      */
     private fun generateAliasProviderMethod(node: DependencyNode, aliasType: KSType): FunSpec {
-        val aliasTypeCls = aliasType.toClassName()
+        val aliasTypeCls = aliasType.toTypeName()
         val canonicalMethodName = generateMethodName(node)
         val aliasMethodName = generateMethodName(aliasType, node.qualifier)
 
@@ -319,24 +334,28 @@ class StitchCodeGenerator(
      * Generates a provider method for a dependency.
      */
     private fun generateProviderMethod(node: DependencyNode): FunSpec {
-        val typeCls = node.type.toClassName()
+        val typeCls = node.type.toTypeName()
         val methodName = generateMethodName(node)
         val method = FunSpec.builder(methodName)
             .returns(typeCls)
 
         if (node.isSingleton) {
-            // Singleton: double-checked locking pattern with per-binding lock
+            // Singleton: double-checked locking pattern with initialized flag
             val fieldName = "_$methodName"
+            val initFlagName = "${fieldName}_initialized"
             val lockName = "_lock_$methodName"
+            // Field is stored as nullable, need !! for non-nullable return types
+            val fieldReturn = if (node.type.isMarkedNullable) fieldName else "$fieldName!!"
             method.addCode(
                 buildCodeBlock {
-                    addStatement("$fieldName?.let { return it }")
+                    addStatement("if ($initFlagName) return $fieldReturn")
                     addStatement("synchronized($lockName) {")
                     indent()
-                    addStatement("$fieldName?.let { return it }")
+                    addStatement("if ($initFlagName) return $fieldReturn")
                     add("val v = ")
                     addProviderCall(node)
                     addStatement("$fieldName = v")
+                    addStatement("$initFlagName = true")
                     addStatement("return v")
                     unindent()
                     addStatement("}")

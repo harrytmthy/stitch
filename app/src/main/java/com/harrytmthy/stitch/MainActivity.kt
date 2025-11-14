@@ -43,6 +43,10 @@ class MainActivity : AppCompatActivity() {
     @Inject
     lateinit var apiService: ApiService
 
+    @Named("null")
+    @Inject
+    var nullableInt: Int? = Int.MIN_VALUE // Should be replaced by null
+
     @Inject
     lateinit var viewModel: ViewModel
 
@@ -75,6 +79,7 @@ class MainActivity : AppCompatActivity() {
         check(complexService.cache === cacheService)
         check(Stitch.get<Processor>() === Stitch.get<ComplexService>())
         check(baseUrl === Stitch.get<String>(named("baseUrl")))
+        check(nullableInt == null)
 
         // Factory objects
         check(apiService !== Stitch.get<ApiService>())

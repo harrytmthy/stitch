@@ -113,6 +113,11 @@ object AppModule {
     @Provides
     fun provideBaseUrl(): String = "https://api.example.com/"
 
+    @Named("null")
+    @Singleton
+    @Provides
+    fun provideNullInt(): Int? = null
+
     @Module
     interface Inner {
 
