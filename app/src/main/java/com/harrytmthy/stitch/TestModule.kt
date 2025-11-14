@@ -16,6 +16,7 @@
 
 package com.harrytmthy.stitch
 
+import com.harrytmthy.stitch.annotations.Binds
 import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.annotations.Module
 import com.harrytmthy.stitch.annotations.Named
@@ -33,12 +34,22 @@ interface UserRepository {
     fun getUser(id: Int): String
 }
 
+interface UserReader {
+    fun readUser(id: Int): String
+}
+
+@Binds(aliases = [UserRepository::class, UserReader::class])
 @Singleton
-class UserRepositoryImpl @Inject constructor(internal val logger: Logger) : UserRepository {
+class UserRepositoryImpl @Inject constructor(
+    internal val logger: Logger
+) : UserRepository, UserReader {
+
     override fun getUser(id: Int): String {
         logger.log("Fetching user $id")
         return "User#$id"
     }
+
+    override fun readUser(id: Int): String = getUser(id)
 }
 
 // Factory (unscoped) - new instance each time
@@ -72,11 +83,15 @@ class ViewModel @Inject constructor() {
     }
 }
 
+interface Processor {
+    fun process(): String
+}
+
 // Mixed: Constructor + Field injection
 @Singleton
 class ComplexService @Inject constructor(
     private val logger: Logger
-) {
+) : Processor {
     @Inject
     lateinit var cache: CacheService
 
@@ -84,7 +99,7 @@ class ComplexService @Inject constructor(
     @Named("baseUrl")
     var baseUrl: String = ""
 
-    fun process(): String {
+    override fun process(): String {
         logger.log("Processing with cache and baseUrl: $baseUrl")
         return cache.get("key") ?: "default"
     }
@@ -98,7 +113,10 @@ object AppModule {
     @Provides
     fun provideBaseUrl(): String = "https://api.example.com/"
 
-    @Singleton
-    @Provides
-    fun provideUserRepo(repository: UserRepositoryImpl): UserRepository = repository
+    @Module
+    interface Inner {
+
+        @Binds
+        fun bindProcessor(service: ComplexService): Processor
+    }
 }

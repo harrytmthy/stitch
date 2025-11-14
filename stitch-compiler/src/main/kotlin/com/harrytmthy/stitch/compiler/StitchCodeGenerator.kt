@@ -251,12 +251,19 @@ class StitchCodeGenerator(
 
         // Generate fields and methods for each dependency
         nodes.forEach { node ->
-            // Add field and lock for singletons
+            // Add field and lock for singletons (only for canonical type, not aliases)
             if (node.isSingleton) {
                 component.addProperty(generateSingletonField(node))
                 component.addProperty(generateLockField(node))
             }
+
+            // Generate canonical provider method
             component.addFunction(generateProviderMethod(node))
+
+            // Generate alias provider methods that delegate to canonical method
+            node.aliases.forEach { aliasType ->
+                component.addFunction(generateAliasProviderMethod(node, aliasType))
+            }
         }
 
         // Generate field injectors
@@ -291,6 +298,20 @@ class StitchCodeGenerator(
 
         return PropertySpec.builder(lockFieldName, Any::class, KModifier.PRIVATE)
             .initializer("Any()")
+            .build()
+    }
+
+    /**
+     * Generates an alias provider method that delegates to the canonical provider.
+     */
+    private fun generateAliasProviderMethod(node: DependencyNode, aliasType: KSType): FunSpec {
+        val aliasTypeCls = aliasType.toClassName()
+        val canonicalMethodName = generateMethodName(node)
+        val aliasMethodName = generateMethodName(aliasType, node.qualifier)
+
+        return FunSpec.builder(aliasMethodName)
+            .returns(aliasTypeCls)
+            .addStatement("return $canonicalMethodName()")
             .build()
     }
 
@@ -444,7 +465,23 @@ class StitchCodeGenerator(
         val missingBindingException = ClassName("com.harrytmthy.stitch.exception", "MissingBindingException")
 
         // Group nodes by type for efficient when generation
-        val nodesByType = nodes.groupBy { it.type.declaration.qualifiedName?.asString() }
+        // Include both canonical types and alias types
+        val nodesByType = mutableMapOf<String, MutableList<Pair<KSType, DependencyNode>>>()
+        nodes.forEach { node ->
+            // Add canonical type
+            val canonicalTypeName = node.type.declaration.qualifiedName?.asString()
+            if (canonicalTypeName != null) {
+                nodesByType.getOrPut(canonicalTypeName) { mutableListOf() }.add(node.type to node)
+            }
+
+            // Add alias types
+            node.aliases.forEach { aliasType ->
+                val aliasTypeName = aliasType.declaration.qualifiedName?.asString()
+                if (aliasTypeName != null) {
+                    nodesByType.getOrPut(aliasTypeName) { mutableListOf() }.add(aliasType to node)
+                }
+            }
+        }
 
         return TypeSpec.objectBuilder(GENERATED_CLASS_NAME)
             .addSuperinterface(dependencyTableType)
@@ -457,7 +494,7 @@ class StitchCodeGenerator(
      * Generates the get() method with when expressions.
      */
     private fun generateGetMethod(
-        nodesByType: Map<String?, List<DependencyNode>>,
+        nodesByType: Map<String, List<Pair<KSType, DependencyNode>>>,
         qualifierType: ClassName,
         missingBindingException: ClassName,
     ): FunSpec {
@@ -475,15 +512,13 @@ class StitchCodeGenerator(
                     addStatement("return when (type) {")
                     indent()
 
-                    nodesByType.entries.sortedBy { it.key }.forEach { (typeName, nodesForType) ->
-                        if (typeName == null) return@forEach
+                    nodesByType.entries.sortedBy { it.key }.forEach { (typeName, typesAndNodes) ->
+                        val (lookupType, firstNode) = typesAndNodes.first()
+                        val typeCls = lookupType.toClassName()
 
-                        val firstNode = nodesForType.first()
-                        val typeCls = firstNode.type.toClassName()
-
-                        if (nodesForType.size == 1 && firstNode.qualifier == null) {
+                        if (typesAndNodes.size == 1 && firstNode.qualifier == null) {
                             // Simple case: single unqualified binding
-                            val methodName = generateMethodName(firstNode)
+                            val methodName = generateMethodName(lookupType, firstNode.qualifier)
                             addStatement("%T::class.java -> $DI_COMPONENT_NAME.$methodName() as %T", typeCls, typeVar)
                         } else {
                             // Multiple qualifiers for this type
@@ -492,8 +527,8 @@ class StitchCodeGenerator(
                             addStatement("when (qualifier) {")
                             indent()
 
-                            nodesForType.sortedBy { it.qualifier?.toString() }.forEach { node ->
-                                val methodName = generateMethodName(node)
+                            typesAndNodes.sortedBy { it.second.qualifier?.toString() }.forEach { (lookupType, node) ->
+                                val methodName = generateMethodName(lookupType, node.qualifier)
                                 if (node.qualifier == null) {
                                     addStatement("null -> $DI_COMPONENT_NAME.$methodName() as %T", typeVar)
                                 } else {
@@ -504,13 +539,13 @@ class StitchCodeGenerator(
 
                             // Missing qualifier case
                             add("else -> throw %T.missingQualifier(type, qualifier, listOf(", missingBindingException)
-                            nodesForType.forEachIndexed { i, node ->
+                            typesAndNodes.forEachIndexed { i, (_, node) ->
                                 if (node.qualifier == null) {
                                     add("null")
                                 } else {
                                     add(node.qualifier.toCode())
                                 }
-                                if (i < nodesForType.size - 1) add(", ")
+                                if (i < typesAndNodes.size - 1) add(", ")
                             }
                             addStatement("))")
 
