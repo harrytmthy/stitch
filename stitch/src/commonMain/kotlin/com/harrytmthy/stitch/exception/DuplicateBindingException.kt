@@ -21,29 +21,17 @@ import com.harrytmthy.stitch.api.ScopeRef
 
 /**
  * Thrown when duplicate bindings are detected for the same type and qualifier.
- *
- * Duplicate bindings can occur in several scenarios:
- * - Same binding registered multiple times in SL path
- * - Same type has both @Inject and @Provides
- * - Multiple @Provides methods or @Inject classes with same type+qualifier
- * - Both DI path (@Module/@Provides/@Inject) and SL path (module {}) register same binding
- *
- * This exception provides helpful messages showing all conflicting locations.
  */
 class DuplicateBindingException internal constructor(
     type: Class<*>,
     qualifier: Qualifier?,
     scopeRef: ScopeRef?,
-    foundInDI: Boolean,
 ) : IllegalStateException(
     buildString {
         val qualStr = qualifier?.toString() ?: "<default>"
         append("Duplicate binding for ${type.name} / $qualStr")
         if (scopeRef != null) {
             append(" / '${scopeRef.name}'")
-        }
-        if (foundInDI) {
-            append(". The binding is also present in DI path!")
         }
     },
 )

@@ -17,23 +17,17 @@
 package com.harrytmthy.stitch.api
 
 import com.harrytmthy.stitch.exception.CycleException
-import com.harrytmthy.stitch.exception.DuplicateBindingException
-import com.harrytmthy.stitch.exception.MissingBindingException
 import com.harrytmthy.stitch.exception.MissingScopeException
 import com.harrytmthy.stitch.exception.ScopeClosedException
 import com.harrytmthy.stitch.internal.DefinitionType
-import com.harrytmthy.stitch.internal.DependencyTable
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.computeIfAbsentCompat
-import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
 
 class Component internal constructor(
     private val nodeLookup: (Class<*>, Qualifier?, ScopeRef?) -> Node,
-    private val definitions: IdentityHashMap<Class<*>, HashMap<Qualifier?, Node>>,
     private val singletons: ConcurrentHashMap<Class<*>, ConcurrentHashMap<Qualifier, Any>>,
     private val scoped: ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Qualifier, Any>>>,
-    private val dependencyTable: DependencyTable?,
 ) {
 
     private val resolutionStack = threadLocal { ResolutionStack() }
@@ -53,28 +47,6 @@ class Component internal constructor(
     @PublishedApi
     @Suppress("UNCHECKED_CAST")
     internal fun <T : Any> getInternal(type: Class<T>, qualifier: Qualifier?, scope: Scope?): T {
-        // DI path: Check compile-time generated dependency table
-        dependencyTable?.let { table ->
-            try {
-                val instance = table.get(type, qualifier)
-
-                // Duplicate detection: check if SL path has registered the same binding
-                if (definitions[type]?.get(qualifier) != null) {
-                    throw DuplicateBindingException(
-                        type = type,
-                        qualifier = qualifier,
-                        scopeRef = scope?.reference,
-                        foundInDI = true,
-                    )
-                }
-
-                return instance
-            } catch (_: MissingBindingException) {
-                // Not found in DI path, fall through to SL path
-            }
-        }
-
-        // SL path
         val qualifierKey = qualifier ?: DefaultQualifier
         val scopeContext = scopeContext.get()
         val effectiveScope = scope ?: scopeContext.scope

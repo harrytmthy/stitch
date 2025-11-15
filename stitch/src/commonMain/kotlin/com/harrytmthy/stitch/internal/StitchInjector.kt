@@ -20,16 +20,11 @@ package com.harrytmthy.stitch.internal
  * Type-safe injector interface for field injection.
  *
  * This interface is implemented by generated injector objects for each class
- * that has field-level @Inject annotations. Using generated injectors directly
- * provides zero-overhead injection by bypassing runtime type checking.
+ * that has field-level @Inject annotations, ensuring zero-overhead injection.
  *
  * Example:
  * ```
- * // Performance path: Direct injection (zero overhead)
  * StitchMainActivityInjector.inject(this)
- *
- * // Flexible path: Generic injection (small overhead)
- * Stitch.inject(this)
  * ```
  *
  * **Note**: This is a public API implemented by generated code. Do not implement manually.
