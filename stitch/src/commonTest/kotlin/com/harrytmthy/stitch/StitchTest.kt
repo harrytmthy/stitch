@@ -664,6 +664,23 @@ class StitchTest {
     }
 
     @Test
+    fun `scope should return different instance of the same type (with singleton)`() {
+        val activityScope = scope("activity")
+        val homeModule = module {
+            singleton { Logger() }
+            scoped(activityScope) { Logger() }
+        }
+        Stitch.register(homeModule)
+        val activityScopeInstance = activityScope.newInstance().apply { open() }
+
+        val singletonLogger = Stitch.get<Logger>()
+        val scopedLogger = Stitch.get<Logger>(scope = activityScopeInstance)
+
+        assertSame(scopedLogger, activityScopeInstance.get())
+        assertNotSame(singletonLogger, scopedLogger)
+    }
+
+    @Test
     fun `inject lazy throws when closed and succeeds when open`() {
         val screenScope = scope("screen")
         val module = module {
