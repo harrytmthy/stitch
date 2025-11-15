@@ -16,19 +16,12 @@
 
 package com.harrytmthy.stitch.api
 
-import com.harrytmthy.stitch.exception.MissingBindingException
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
 
 object Stitch {
 
-    private val component by lazy {
-        Component(
-            nodeLookup = ::lookupNode,
-            singletons = Registry.singletons,
-            scoped = Registry.scoped,
-        )
-    }
+    private val component by lazy { Component() }
 
     fun register(vararg modules: Module) {
         modules.forEach { module ->
@@ -76,14 +69,6 @@ object Stitch {
     @PublishedApi
     internal fun <T : Any> getInternal(type: Class<T>, qualifier: Qualifier?, scope: Scope?): T =
         component.getInternal(type, qualifier, scope)
-
-    internal fun lookupNode(type: Class<*>, qualifier: Qualifier?, scopeRef: ScopeRef?): Node {
-        Registry.scopedDefinitions[scopeRef]?.get(type)?.get(qualifier)?.let { return it }
-        val inner = Registry.definitions[type] ?: throw MissingBindingException.missingType(type)
-        return inner.getOrElse(qualifier) {
-            throw MissingBindingException.missingQualifier(type, qualifier, inner.keys)
-        }
-    }
 }
 
 inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =

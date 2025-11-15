@@ -17,18 +17,16 @@
 package com.harrytmthy.stitch.api
 
 import com.harrytmthy.stitch.exception.CycleException
+import com.harrytmthy.stitch.exception.MissingBindingException
 import com.harrytmthy.stitch.exception.MissingScopeException
 import com.harrytmthy.stitch.exception.ScopeClosedException
 import com.harrytmthy.stitch.internal.DefinitionType
 import com.harrytmthy.stitch.internal.Node
+import com.harrytmthy.stitch.internal.Registry
 import com.harrytmthy.stitch.internal.computeIfAbsentCompat
 import java.util.concurrent.ConcurrentHashMap
 
-class Component internal constructor(
-    private val nodeLookup: (Class<*>, Qualifier?, ScopeRef?) -> Node,
-    private val singletons: ConcurrentHashMap<Class<*>, ConcurrentHashMap<Qualifier, Any>>,
-    private val scoped: ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Qualifier, Any>>>,
-) {
+class Component internal constructor() {
 
     private val resolutionStack = threadLocal { ResolutionStack() }
 
@@ -53,25 +51,29 @@ class Component internal constructor(
 
         // Fast-path: check caches with the requested key first
         effectiveScope?.id?.let { scopeId ->
-            scoped[scopeId]?.get(type)?.get(qualifierKey)?.let {
+            Registry.scoped[scopeId]?.get(type)?.get(qualifierKey)?.let {
                 effectiveScope.ensureOpen(type, qualifier)
                 return it as T
             }
         }
-        singletons[type]?.get(qualifierKey)?.let { return it as T }
+        if (effectiveScope == null) {
+            Registry.singletons[type]?.get(qualifierKey)?.let { return it as T }
+        }
 
         // Resolve once to learn the canonical cache key
-        val node = nodeLookup(type, qualifier, effectiveScope?.reference)
+        val node = lookupNode(type, qualifier, effectiveScope?.reference)
 
         // Fast-path: If alias, recheck caches under canonical key
         if (node.type !== type) {
             effectiveScope?.id?.let { scopeId ->
-                scoped[scopeId]?.get(node.type)?.get(qualifierKey)?.let {
+                Registry.scoped[scopeId]?.get(node.type)?.get(qualifierKey)?.let {
                     effectiveScope.ensureOpen(type, qualifier)
                     return it as T
                 }
             }
-            singletons[node.type]?.get(qualifierKey)?.let { return it as T }
+            if (effectiveScope == null) {
+                Registry.singletons[node.type]?.get(qualifierKey)?.let { return it as T }
+            }
         }
 
         // Build with cycle guard, cache under canonical key
@@ -82,7 +84,7 @@ class Component internal constructor(
                 DefinitionType.Factory -> node.factory(this) as T
                 DefinitionType.Scoped -> {
                     val scope = effectiveScope ?: throw MissingScopeException(type, qualifier)
-                    val perScope = scoped.computeIfAbsentCompat(scope.id) { ConcurrentHashMap() }
+                    val perScope = Registry.scoped.computeIfAbsentCompat(scope.id) { ConcurrentHashMap() }
                     val inner = perScope.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
                     inner[qualifierKey]?.let {
                         scope.ensureOpen(type, qualifier)
@@ -106,7 +108,9 @@ class Component internal constructor(
                     }
                 }
                 DefinitionType.Singleton -> {
-                    val inner = singletons.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
+                    val inner = Registry.singletons.computeIfAbsentCompat(node.type) {
+                        ConcurrentHashMap()
+                    }
                     inner[qualifierKey]?.let { return it as T }
                     return synchronized(inner) {
                         inner[qualifierKey]?.let { return it as T }
@@ -123,6 +127,14 @@ class Component internal constructor(
     internal fun clear() {
         resolutionStack.remove()
         scopeContext.remove()
+    }
+
+    private fun lookupNode(type: Class<*>, qualifier: Qualifier?, scopeRef: ScopeRef?): Node {
+        Registry.scopedDefinitions[scopeRef]?.get(type)?.get(qualifier)?.let { return it }
+        val inner = Registry.definitions[type] ?: throw MissingBindingException.missingType(type)
+        return inner.getOrElse(qualifier) {
+            throw MissingBindingException.missingQualifier(type, qualifier, inner.keys)
+        }
     }
 
     private inline fun <T : Any> threadLocal(crossinline supplier: () -> T): ThreadLocal<T> =
