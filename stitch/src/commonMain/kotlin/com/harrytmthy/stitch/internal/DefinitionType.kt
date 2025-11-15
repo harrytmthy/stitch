@@ -18,10 +18,9 @@ package com.harrytmthy.stitch.internal
 
 /**
  * Defines the lifecycle type of a dependency.
- *
- * **Note**: This is a public API used by generated code. Do not use directly.
  */
-enum class DefinitionType {
+@PublishedApi
+internal enum class DefinitionType {
 
     /**
      * Single instance created and cached globally.

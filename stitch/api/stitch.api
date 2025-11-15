@@ -72,7 +72,6 @@ public final class com/harrytmthy/stitch/api/ScopeRef$Companion {
 public final class com/harrytmthy/stitch/api/Stitch {
 	public static final field INSTANCE Lcom/harrytmthy/stitch/api/Stitch;
 	public final fun getInternal (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
-	public final fun injectInternal (Ljava/lang/Object;)V
 	public final fun register ([Lcom/harrytmthy/stitch/api/Module;)V
 	public final fun unregister ([Lcom/harrytmthy/stitch/api/Module;)V
 	public final fun unregisterAll ()V
@@ -109,20 +108,6 @@ public final class com/harrytmthy/stitch/internal/DefinitionType : java/lang/Enu
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lcom/harrytmthy/stitch/internal/DefinitionType;
 	public static fun values ()[Lcom/harrytmthy/stitch/internal/DefinitionType;
-}
-
-public abstract interface class com/harrytmthy/stitch/internal/DependencyTable {
-	public abstract fun get (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;)Ljava/lang/Object;
-	public abstract fun injectFields (Ljava/lang/Object;)V
-}
-
-public final class com/harrytmthy/stitch/internal/Provider {
-	public fun <init> (Lcom/harrytmthy/stitch/internal/DefinitionType;Lkotlin/jvm/functions/Function0;)V
-	public final fun get ()Ljava/lang/Object;
-}
-
-public abstract interface class com/harrytmthy/stitch/internal/StitchInitializer {
-	public abstract fun getDependencyTable ()Lcom/harrytmthy/stitch/internal/DependencyTable;
 }
 
 public abstract interface class com/harrytmthy/stitch/internal/StitchInjector {

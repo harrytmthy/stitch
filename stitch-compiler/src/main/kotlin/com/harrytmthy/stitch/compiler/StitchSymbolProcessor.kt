@@ -26,7 +26,7 @@ import com.google.devtools.ksp.symbol.KSAnnotated
  * KSP symbol processor for Stitch dependency injection code generation.
  *
  * This processor scans for @Module classes, @Provides methods, and @Inject constructors/fields,
- * then generates dependency lookup tables for compile-time dependency resolution.
+ * then generates DI component and injector objects for compile-time dependency resolution.
  */
 class StitchSymbolProcessor(
     codeGenerator: CodeGenerator,
@@ -59,8 +59,8 @@ class StitchSymbolProcessor(
         // Build dependency graph and validate
         val graph = graphBuilder.buildGraph(scanResult)
 
-        // Generate DependencyTable implementation
-        codeGen.generateDependencyTable(graph, scanResult.fieldInjectors)
+        // Generate DI component and injector objects
+        codeGen.generateComponentAndInjector(graph, scanResult.fieldInjectors)
 
         logger.info("Stitch: Code generation completed successfully")
 

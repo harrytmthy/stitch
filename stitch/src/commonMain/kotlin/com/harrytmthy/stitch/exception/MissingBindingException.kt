@@ -35,16 +35,12 @@ class MissingBindingException internal constructor(
 
         /**
          * Creates a MissingBindingException for a type that has no binding registered.
-         *
-         * **Note**: This is a public API used by generated code. Do not use directly.
          */
         fun missingType(type: Class<*>) =
             MissingBindingException(type, null, "No binding for the requested type.")
 
         /**
          * Creates a MissingBindingException for a qualifier that doesn't exist for a type.
-         *
-         * **Note**: This is a public API used by generated code. Do not use directly.
          */
         fun missingQualifier(
             type: Class<*>,

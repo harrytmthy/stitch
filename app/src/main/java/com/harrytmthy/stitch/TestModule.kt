@@ -41,7 +41,8 @@ interface UserReader {
 @Binds(aliases = [UserRepository::class, UserReader::class])
 @Singleton
 class UserRepositoryImpl @Inject constructor(
-    internal val logger: Logger
+    internal val logger: Logger,
+    internal val apiService: ApiService,
 ) : UserRepository, UserReader {
 
     override fun getUser(id: Int): String {
@@ -108,10 +109,12 @@ class ComplexService @Inject constructor(
 @Module
 object AppModule {
 
+    internal const val BASE_URL = "https://api.example.com/"
+
     @Named("baseUrl")
     @Singleton
     @Provides
-    fun provideBaseUrl(): String = "https://api.example.com/"
+    fun provideBaseUrl(): String = BASE_URL
 
     @Named("null")
     @Singleton

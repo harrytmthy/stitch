@@ -99,7 +99,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         )
         val inner = Registry.definitions.getOrPut(type) { HashMap() }
         if (inner.containsKey(qualifier)) {
-            throw DuplicateBindingException(type, qualifier, scopeRef = null, foundInDI = false)
+            throw DuplicateBindingException(type, qualifier, scopeRef = null)
         }
         inner[qualifier] = node
         return node
@@ -122,7 +122,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         val qualifiersByType = Registry.scopedDefinitions.getOrPut(scopeRef) { IdentityHashMap() }
         val nodeByQualifier = qualifiersByType.getOrPut(type) { HashMap() }
         if (nodeByQualifier.containsKey(qualifier)) {
-            throw DuplicateBindingException(type, qualifier, scopeRef, foundInDI = false)
+            throw DuplicateBindingException(type, qualifier, scopeRef)
         }
         nodeByQualifier[qualifier] = node
         return node

@@ -19,42 +19,15 @@ package com.harrytmthy.stitch.api
 import com.harrytmthy.stitch.exception.MissingBindingException
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
-import com.harrytmthy.stitch.internal.StitchInitializer
-import java.util.ServiceLoader
 
 object Stitch {
-
-    private val dependencyTable by lazy {
-        try {
-            ServiceLoader.load(StitchInitializer::class.java)
-                .firstOrNull()
-                ?.getDependencyTable()
-        } catch (_: Exception) {
-            null // No generated table found, DI path not used
-        }
-    }
 
     private val component by lazy {
         Component(
             nodeLookup = ::lookupNode,
-            definitions = Registry.definitions,
             singletons = Registry.singletons,
             scoped = Registry.scoped,
-            dependencyTable = dependencyTable,
         )
-    }
-
-    inline fun <reified T : Any> inject(instance: T) {
-        injectInternal(instance)
-    }
-
-    @PublishedApi
-    internal fun <T : Any> injectInternal(instance: T) {
-        dependencyTable?.injectFields(instance)
-            ?: throw IllegalStateException(
-                "Field injection requires compile-time dependency table. " +
-                    "Ensure field-level @Inject annotations are used and KSP is properly configured.",
-            )
     }
 
     fun register(vararg modules: Module) {
