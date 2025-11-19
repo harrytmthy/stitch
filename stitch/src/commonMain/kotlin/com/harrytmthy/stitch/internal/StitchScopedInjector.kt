@@ -17,23 +17,30 @@
 package com.harrytmthy.stitch.internal
 
 /**
- * Type-safe injector interface for field injection.
+ * Type-safe scoped injector interface for field injection with custom scopes.
  *
  * This interface is implemented by generated injector objects for each class
- * that has field-level @Inject annotations, ensuring zero-overhead injection.
+ * that has scoped field-level @Inject annotations, ensuring zero-overhead injection
+ * with compile-time type safety for scope components.
  *
  * Example:
  * ```
- * StitchMainActivityInjector.inject(this)
+ * val activityComponent = StitchActivityScopeComponentFactory.create()
+ * StitchMainActivityInjector.inject(this, activityComponent)
  * ```
  *
  * **Note**: This is a public API implemented by generated code. Do not implement manually.
+ *
+ * @param T The type to inject fields into
+ * @param C The scope component type required for injection
  */
-interface StitchInjector<in T> {
+interface StitchScopedInjector<in T, in C> {
+
     /**
-     * Injects fields into the target instance.
+     * Injects fields into the target instance using the provided scope component.
      *
      * @param target The instance to inject fields into
+     * @param scopeComponent The scope component providing scoped dependencies
      */
-    fun inject(target: T)
+    fun inject(target: T, scopeComponent: C)
 }

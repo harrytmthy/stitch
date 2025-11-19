@@ -39,6 +39,7 @@ data class ProvidesInfo(
     val isSingleton: Boolean,
     val qualifier: QualifierInfo?,
     val aliases: List<KSType> = emptyList(),
+    val scopeAnnotation: KSType? = null,
 )
 
 /**
@@ -90,6 +91,7 @@ data class DependencyNode(
     val dependencies: List<DependencyRef>,
     val injectableFields: List<InjectableFieldInfo> = emptyList(),
     val aliases: MutableList<KSType> = mutableListOf(),
+    val scopeAnnotation: KSType? = null,
 )
 
 /**
@@ -111,6 +113,7 @@ data class InjectableClassInfo(
     val isSingleton: Boolean,
     val qualifier: QualifierInfo?,
     val aliases: List<KSType> = emptyList(),
+    val scopeAnnotation: KSType? = null,
 )
 
 /**
@@ -120,6 +123,7 @@ data class InjectableFieldInfo(
     val name: String,
     val type: KSType,
     val qualifier: QualifierInfo?,
+    val scopeAnnotation: KSType? = null,
 )
 
 /**
@@ -129,6 +133,33 @@ data class InjectableFieldInfo(
 data class FieldInjectorInfo(
     val classDeclaration: KSClassDeclaration,
     val injectableFields: List<InjectableFieldInfo>,
+    val scopeUsage: ClassScopeUsage = ClassScopeUsage(null, emptySet(), emptyList()),
+)
+
+/**
+ * Represents information about a scope annotation.
+ */
+data class ScopeInfo(
+    val annotation: KSType, // The scope annotation type (e.g. ActivityScope)
+    val dependsOn: KSType?, // Upstream scope (null if depends on Singleton)
+    val depth: Int, // Distance from Singleton (0 = root custom scope, 1+ = downstream)
+)
+
+/**
+ * Represents the complete scope dependency graph.
+ */
+data class ScopeGraph(
+    val scopes: Map<KSType, ScopeInfo>, // All discovered custom scopes
+    val rootScopes: Set<KSType>, // Scopes that depend directly on Singleton
+)
+
+/**
+ * Represents scope usage analysis for a class with field injection.
+ */
+data class ClassScopeUsage(
+    val deepestScope: KSType?, // Deepest scope used in fields (null if only Singleton/unscoped)
+    val usedScopes: Set<KSType>, // All custom scopes used in fields (excludes Singleton)
+    val ancestorPath: List<KSType>, // Ordered path from deepest to Singleton (excludes Singleton)
 )
 
 /**

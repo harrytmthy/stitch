@@ -21,7 +21,20 @@ import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.annotations.Module
 import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.annotations.Provides
+import com.harrytmthy.stitch.annotations.Scope
 import com.harrytmthy.stitch.annotations.Singleton
+
+@Scope(dependsOn = Singleton::class)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ActivityScope
+
+@Scope(dependsOn = ActivityScope::class)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class FragmentScope
+
+@Scope(dependsOn = FragmentScope::class)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ViewWithFragmentScope
 
 @Singleton
 class Logger @Inject constructor() {
@@ -64,24 +77,20 @@ class ApiService @Inject constructor(
     }
 }
 
-@Singleton
-class CacheService @Inject constructor() {
+class CacheService {
     fun get(key: String): String? {
         return "cached_$key"
     }
 }
 
-// Field injection only (no-arg constructor)
-@Singleton
-class ViewModel @Inject constructor() {
-    @Inject lateinit var repository: UserRepositoryImpl
-    @Inject lateinit var cache: CacheService
+@ActivityScope
+class ViewModel @Inject constructor(
+    internal val repository: UserRepository,
+    @param:Named("activity") internal val cacheService: CacheService,
+) {
 
-    fun loadData(): String {
-        val user = repository.getUser(1)
-        val cached = cache.get("data")
-        return "$user - $cached"
-    }
+    @Inject
+    lateinit var logger: Logger
 }
 
 interface Processor {
@@ -120,6 +129,20 @@ object AppModule {
     @Singleton
     @Provides
     fun provideNullInt(): Int? = null
+
+    @Singleton
+    @Provides
+    fun provideSingletonCacheService(): CacheService = CacheService()
+
+    @ActivityScope
+    @Named("activity")
+    @Provides
+    fun provideActivityScopedCacheService(): CacheService = CacheService()
+
+    @FragmentScope
+    @Named("fragment")
+    @Provides
+    fun provideFragmentScopedCacheService(): CacheService = CacheService()
 
     @Module
     interface Inner {
