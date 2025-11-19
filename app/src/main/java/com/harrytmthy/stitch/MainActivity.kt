@@ -10,12 +10,14 @@ import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.api.Stitch
 import com.harrytmthy.stitch.exception.MissingBindingException
-import com.harrytmthy.stitch.generated.StitchMainActivityInjector
+import com.harrytmthy.stitch.generated.StitchDiComponent
 
 /**
  * Only for testing convenience. Please ignore the weird architecture 😄
  */
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), ActivityComponentProvider {
+
+    override val activityComponent = StitchDiComponent.createActivityScopeComponent()
 
     @Inject
     lateinit var logger: Logger
@@ -37,7 +39,12 @@ class MainActivity : AppCompatActivity() {
     lateinit var processor: Processor
 
     @Inject
-    lateinit var cacheService: CacheService
+    @Named("activity")
+    lateinit var activityCacheService: CacheService
+
+    @Inject
+    @Named("activity")
+    lateinit var activityCacheService2: CacheService
 
     @javax.inject.Inject
     lateinit var complexService: ComplexService
@@ -53,7 +60,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var viewModel: ViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        StitchMainActivityInjector.inject(this)
+        activityComponent.inject(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
@@ -62,8 +69,15 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-
+        renderFragment()
         assertStitch()
+    }
+
+    private fun renderFragment() {
+        val fragment = MainFragment()
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, fragment)
+            .commit()
     }
 
     private fun assertStitch() {
@@ -74,9 +88,10 @@ class MainActivity : AppCompatActivity() {
         check(userReader === userRepositoryImpl)
         check(userRepositoryImpl.logger === logger)
         check(viewModel.repository === userRepository)
-        check(viewModel.cache === cacheService)
+        check(viewModel.cacheService === activityCacheService)
+        check(activityCacheService === activityCacheService2)
         check(processor === complexService)
-        check(complexService.cache === cacheService)
+        check(complexService.cache !== activityCacheService)
         check(baseUrl === BASE_URL)
         check(nullableInt == null)
 

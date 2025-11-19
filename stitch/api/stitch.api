@@ -110,7 +110,12 @@ public final class com/harrytmthy/stitch/internal/DefinitionType : java/lang/Enu
 	public static fun values ()[Lcom/harrytmthy/stitch/internal/DefinitionType;
 }
 
-public abstract interface class com/harrytmthy/stitch/internal/StitchInjector {
-	public abstract fun inject (Ljava/lang/Object;)V
+public abstract class com/harrytmthy/stitch/internal/StitchComponent {
+	public fun <init> ()V
+	public final fun inject (Ljava/lang/Object;)V
+}
+
+public abstract interface class com/harrytmthy/stitch/internal/StitchScopedInjector {
+	public abstract fun inject (Ljava/lang/Object;Ljava/lang/Object;)V
 }
 
