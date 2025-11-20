@@ -16,8 +16,10 @@
 
 package com.harrytmthy.stitch.api
 
+import kotlin.reflect.KClass
+
 interface Bindable {
-    fun <T : Any> bind(type: Class<T>): Bindable
+    fun <T : Any> bind(type: KClass<T>): Bindable
 }
 
-inline fun <reified T : Any> Bindable.bind(): Bindable = bind(T::class.java)
+inline fun <reified T : Any> Bindable.bind(): Bindable = bind(T::class)

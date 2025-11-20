@@ -18,6 +18,7 @@ package com.harrytmthy.stitch.api
 
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
+import kotlin.reflect.KClass
 
 object Stitch {
 
@@ -57,17 +58,17 @@ object Stitch {
     }
 
     inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
-        getInternal(T::class.java, qualifier, scope)
+        getInternal(T::class, qualifier, scope)
 
     inline fun <reified T : Any> inject(
         qualifier: Qualifier? = null,
         scope: Scope? = null,
     ): Lazy<T> {
-        return lazy(LazyThreadSafetyMode.NONE) { getInternal(T::class.java, qualifier, scope) }
+        return lazy(LazyThreadSafetyMode.NONE) { getInternal(T::class, qualifier, scope) }
     }
 
     @PublishedApi
-    internal fun <T : Any> getInternal(type: Class<T>, qualifier: Qualifier?, scope: Scope?): T =
+    internal fun <T : Any> getInternal(type: KClass<T>, qualifier: Qualifier?, scope: Scope?): T =
         component.getInternal(type, qualifier, scope)
 }
 

@@ -25,6 +25,7 @@ import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
 import com.harrytmthy.stitch.internal.computeIfAbsentCompat
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.reflect.KClass
 
 class Component internal constructor() {
 
@@ -33,7 +34,7 @@ class Component internal constructor() {
     private val scopeContext = threadLocal { ScopeContext() }
 
     inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
-        getInternal(T::class.java, qualifier, scope)
+        getInternal(T::class, qualifier, scope)
 
     inline fun <reified T : Any> lazyOf(
         qualifier: Qualifier? = null,
@@ -44,7 +45,7 @@ class Component internal constructor() {
 
     @PublishedApi
     @Suppress("UNCHECKED_CAST")
-    internal fun <T : Any> getInternal(type: Class<T>, qualifier: Qualifier?, scope: Scope?): T {
+    internal fun <T : Any> getInternal(type: KClass<T>, qualifier: Qualifier?, scope: Scope?): T {
         val qualifierKey = qualifier ?: DefaultQualifier
         val scopeContext = scopeContext.get()
         val effectiveScope = scope ?: scopeContext.scope
@@ -129,7 +130,7 @@ class Component internal constructor() {
         scopeContext.remove()
     }
 
-    private fun lookupNode(type: Class<*>, qualifier: Qualifier?, scopeRef: ScopeRef?): Node {
+    private fun lookupNode(type: KClass<*>, qualifier: Qualifier?, scopeRef: ScopeRef?): Node {
         Registry.scopedDefinitions[scopeRef]?.get(type)?.get(qualifier)?.let { return it }
         val inner = Registry.definitions[type] ?: throw MissingBindingException.missingType(type)
         return inner.getOrElse(qualifier) {
@@ -142,7 +143,7 @@ class Component internal constructor() {
             override fun initialValue(): T = supplier()
         }
 
-    private fun Scope.ensureOpen(type: Class<*>, qualifier: Qualifier?) {
+    private fun Scope.ensureOpen(type: KClass<*>, qualifier: Qualifier?) {
         if (!isOpen()) {
             throw ScopeClosedException(type, qualifier, id)
         }

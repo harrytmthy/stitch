@@ -17,6 +17,7 @@
 package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
+import kotlin.reflect.KClass
 
 /**
  * Base class for 'get path' errors thrown by Stitch.
@@ -25,9 +26,9 @@ import com.harrytmthy.stitch.api.Qualifier
  * This makes debugging easier and ensures crash reports more readable.
  */
 open class GetFailedException internal constructor(
-    type: Class<*>,
+    type: KClass<*>,
     qualifier: Qualifier?,
     explanation: String,
 ) : IllegalStateException(
-    "Failed to get ${type.name} (Qualifier: ${qualifier ?: "n/a"}): $explanation",
+    "Failed to get ${type.qualifiedName} (Qualifier: ${qualifier ?: "n/a"}): $explanation",
 )

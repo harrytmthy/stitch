@@ -19,18 +19,18 @@ package com.harrytmthy.stitch.internal
 import com.harrytmthy.stitch.api.DefaultQualifier
 import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.api.ScopeRef
-import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.reflect.KClass
 
 internal object Registry {
 
-    val definitions = IdentityHashMap<Class<*>, HashMap<Qualifier?, Node>>()
+    val definitions = HashMap<KClass<*>, HashMap<Qualifier?, Node>>()
 
-    val scopedDefinitions = HashMap<ScopeRef, IdentityHashMap<Class<*>, HashMap<Qualifier?, Node>>>()
+    val scopedDefinitions = HashMap<ScopeRef, HashMap<KClass<*>, HashMap<Qualifier?, Node>>>()
 
-    val singletons = ConcurrentHashMap<Class<*>, ConcurrentHashMap<Qualifier, Any>>()
+    val singletons = ConcurrentHashMap<KClass<*>, ConcurrentHashMap<Qualifier, Any>>()
 
-    val scoped = ConcurrentHashMap<Int, ConcurrentHashMap<Class<*>, ConcurrentHashMap<Qualifier, Any>>>()
+    val scoped = ConcurrentHashMap<Int, ConcurrentHashMap<KClass<*>, ConcurrentHashMap<Qualifier, Any>>>()
 
     fun remove(nodes: List<Node>) {
         for (node in nodes) {
@@ -87,7 +87,7 @@ internal object Registry {
         scoped.clear()
     }
 
-    private fun <Q, V> IdentityHashMap<Class<*>, HashMap<Q, V>>.removeFamily(type: Class<*>) {
+    private fun <Q, V> HashMap<KClass<*>, HashMap<Q, V>>.removeFamily(type: KClass<*>) {
         val family = this[type] ?: return
         val iterator = this.entries.iterator()
         while (iterator.hasNext()) {
