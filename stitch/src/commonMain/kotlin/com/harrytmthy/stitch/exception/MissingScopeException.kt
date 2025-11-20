@@ -17,11 +17,12 @@
 package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
+import kotlin.reflect.KClass
 
 /**
  * Thrown when a scoped binding is requested without providing a scope.
  */
 class MissingScopeException internal constructor(
-    type: Class<*>,
+    type: KClass<*>,
     qualifier: Qualifier?,
 ) : GetFailedException(type, qualifier, "The requested type is scoped, but no scope provided.")

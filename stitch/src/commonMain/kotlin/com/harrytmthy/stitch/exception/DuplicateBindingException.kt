@@ -18,18 +18,19 @@ package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.api.ScopeRef
+import kotlin.reflect.KClass
 
 /**
  * Thrown when duplicate bindings are detected for the same type and qualifier.
  */
 class DuplicateBindingException internal constructor(
-    type: Class<*>,
+    type: KClass<*>,
     qualifier: Qualifier?,
     scopeRef: ScopeRef?,
 ) : IllegalStateException(
     buildString {
         val qualStr = qualifier?.toString() ?: "<default>"
-        append("Duplicate binding for ${type.name} / $qualStr")
+        append("Duplicate binding for ${type.qualifiedName} / $qualStr")
         if (scopeRef != null) {
             append(" / '${scopeRef.name}'")
         }

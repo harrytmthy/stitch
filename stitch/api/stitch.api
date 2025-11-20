@@ -1,14 +1,14 @@
 public abstract interface class com/harrytmthy/stitch/api/Bindable {
-	public abstract fun bind (Ljava/lang/Class;)Lcom/harrytmthy/stitch/api/Bindable;
+	public abstract fun bind (Lkotlin/reflect/KClass;)Lcom/harrytmthy/stitch/api/Bindable;
 }
 
 public final class com/harrytmthy/stitch/api/Component {
-	public final fun getInternal (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
+	public final fun getInternal (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
 }
 
 public final class com/harrytmthy/stitch/api/Module {
 	public fun <init> (ZLkotlin/jvm/functions/Function1;)V
-	public final fun define-z0zhSdE (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/internal/DefinitionType;ZLjava/lang/String;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
+	public final fun define-z0zhSdE (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/internal/DefinitionType;ZLjava/lang/String;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
 }
 
 public final class com/harrytmthy/stitch/api/ModuleKt {
@@ -71,7 +71,7 @@ public final class com/harrytmthy/stitch/api/ScopeRef$Companion {
 
 public final class com/harrytmthy/stitch/api/Stitch {
 	public static final field INSTANCE Lcom/harrytmthy/stitch/api/Stitch;
-	public final fun getInternal (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
+	public final fun getInternal (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
 	public final fun register ([Lcom/harrytmthy/stitch/api/Module;)V
 	public final fun unregister ([Lcom/harrytmthy/stitch/api/Module;)V
 	public final fun unregisterAll ()V
@@ -91,8 +91,8 @@ public final class com/harrytmthy/stitch/exception/MissingBindingException : com
 }
 
 public final class com/harrytmthy/stitch/exception/MissingBindingException$Companion {
-	public final fun missingQualifier (Ljava/lang/Class;Lcom/harrytmthy/stitch/api/Qualifier;Ljava/util/Collection;)Lcom/harrytmthy/stitch/exception/MissingBindingException;
-	public final fun missingType (Ljava/lang/Class;)Lcom/harrytmthy/stitch/exception/MissingBindingException;
+	public final fun missingQualifier (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Ljava/util/Collection;)Lcom/harrytmthy/stitch/exception/MissingBindingException;
+	public final fun missingType (Lkotlin/reflect/KClass;)Lcom/harrytmthy/stitch/exception/MissingBindingException;
 }
 
 public final class com/harrytmthy/stitch/exception/MissingScopeException : com/harrytmthy/stitch/exception/GetFailedException {

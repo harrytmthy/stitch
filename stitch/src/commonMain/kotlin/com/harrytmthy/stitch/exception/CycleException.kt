@@ -18,6 +18,7 @@ package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.internal.Node
+import kotlin.reflect.KClass
 
 /**
  * Thrown when Stitch detects a dependency cycle during resolution.
@@ -36,7 +37,7 @@ import com.harrytmthy.stitch.internal.Node
  * moving one side to a factory that defers construction until first use.
  */
 class CycleException internal constructor(
-    type: Class<*>,
+    type: KClass<*>,
     qualifier: Qualifier?,
     path: List<Node>,
 ) : GetFailedException(

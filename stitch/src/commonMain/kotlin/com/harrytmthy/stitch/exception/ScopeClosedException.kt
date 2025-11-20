@@ -17,6 +17,7 @@
 package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
+import kotlin.reflect.KClass
 
 /**
  * Thrown when trying to resolve a scoped binding using a scope that is not open.
@@ -29,7 +30,7 @@ import com.harrytmthy.stitch.api.Qualifier
  * - Avoid holding on to references after `scope.close()`.
  */
 class ScopeClosedException internal constructor(
-    type: Class<*>,
+    type: KClass<*>,
     qualifier: Qualifier?,
     scopeId: Int,
 ) : GetFailedException(type, qualifier, explanation = "Scope with id '$scopeId' is not open!")

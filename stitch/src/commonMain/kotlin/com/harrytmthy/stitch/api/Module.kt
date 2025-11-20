@@ -23,7 +23,7 @@ import com.harrytmthy.stitch.internal.DefinitionType.Scoped
 import com.harrytmthy.stitch.internal.DefinitionType.Singleton
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
-import java.util.IdentityHashMap
+import kotlin.reflect.KClass
 
 class Module(private val forceEager: Boolean, private val onRegister: Module.() -> Unit) {
 
@@ -40,14 +40,14 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         eager: Boolean = false,
         noinline factory: Component.() -> T,
     ): Bindable {
-        return define(T::class.java, qualifier, Singleton, eager, null, factory)
+        return define(T::class, qualifier, Singleton, eager, null, factory)
     }
 
     inline fun <reified T : Any> factory(
         qualifier: Qualifier? = null,
         noinline factory: Component.() -> T,
     ): Bindable {
-        return define(T::class.java, qualifier, Factory, false, null, factory)
+        return define(T::class, qualifier, Factory, false, null, factory)
     }
 
     inline fun <reified T : Any> scoped(
@@ -55,12 +55,12 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         qualifier: Qualifier? = null,
         noinline factory: Component.() -> T,
     ): Bindable {
-        return define(T::class.java, qualifier, Scoped, false, scopeRef, factory)
+        return define(T::class, qualifier, Scoped, false, scopeRef, factory)
     }
 
     @PublishedApi
     internal fun <T : Any> define(
-        type: Class<T>,
+        type: KClass<T>,
         qualifier: Qualifier?,
         definitionType: DefinitionType,
         eager: Boolean,
@@ -84,7 +84,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
     }
 
     private fun <T : Any> createAndRegisterNode(
-        type: Class<T>,
+        type: KClass<T>,
         qualifier: Qualifier?,
         definitionType: DefinitionType,
         factory: Component.() -> T,
@@ -106,7 +106,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
     }
 
     private fun <T : Any> createAndRegisterScopedNode(
-        type: Class<T>,
+        type: KClass<T>,
         qualifier: Qualifier?,
         scopeRef: ScopeRef,
         factory: Component.() -> T,
@@ -119,7 +119,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
             factory = factory,
             onBind = ::registerAlias,
         )
-        val qualifiersByType = Registry.scopedDefinitions.getOrPut(scopeRef) { IdentityHashMap() }
+        val qualifiersByType = Registry.scopedDefinitions.getOrPut(scopeRef) { HashMap() }
         val nodeByQualifier = qualifiersByType.getOrPut(type) { HashMap() }
         if (nodeByQualifier.containsKey(qualifier)) {
             throw DuplicateBindingException(type, qualifier, scopeRef)
@@ -128,21 +128,22 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         return node
     }
 
-    private fun registerAlias(aliasType: Class<*>, target: Node) {
+    private fun registerAlias(aliasType: KClass<*>, target: Node) {
         if (target.scopeRef == null) {
-            val primary = Registry.definitions.getOrPut(target.type) { HashMap() }
+            val primary = Registry.definitions[target.type] ?: return
             val existing = Registry.definitions[aliasType]
             check(existing == null || existing === primary) {
-                "Conflicting bindings for ${aliasType.name}: already has its own family."
+                "Conflicting bindings for ${aliasType.qualifiedName}: already has its own family."
             }
             Registry.definitions[aliasType] = primary
         } else {
-            val primaryScoped = Registry.scopedDefinitions[target.scopeRef]?.get(target.type)
-            val existingScoped = Registry.scopedDefinitions[target.scopeRef]?.get(aliasType)
-            check(existingScoped == null) {
-                "Conflicting scoped bindings for ${aliasType.name}: already has its own family."
+            val scopedByType = Registry.scopedDefinitions[target.scopeRef] ?: return
+            val primaryScoped = scopedByType[target.type] ?: return
+            val existingScoped = scopedByType[aliasType]
+            check(existingScoped == null || existingScoped === primaryScoped) {
+                "Conflicting scoped bindings for ${aliasType.qualifiedName}: already has its own family."
             }
-            Registry.scopedDefinitions[target.scopeRef]?.put(aliasType, primaryScoped)
+            scopedByType[aliasType] = primaryScoped
         }
     }
 

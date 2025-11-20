@@ -20,15 +20,16 @@ import com.harrytmthy.stitch.api.Bindable
 import com.harrytmthy.stitch.api.Component
 import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.api.ScopeRef
+import kotlin.reflect.KClass
 
 internal class Node(
-    val type: Class<*>,
+    val type: KClass<*>,
     val qualifier: Qualifier?,
     val scopeRef: ScopeRef?,
     val definitionType: DefinitionType,
     val factory: (Component) -> Any,
-    val onBind: (Class<*>, Node) -> Unit,
+    val onBind: (KClass<*>, Node) -> Unit,
 ) : Bindable {
 
-    override fun <T : Any> bind(type: Class<T>): Bindable = apply { onBind(type, this) }
+    override fun <T : Any> bind(type: KClass<T>): Bindable = apply { onBind(type, this) }
 }

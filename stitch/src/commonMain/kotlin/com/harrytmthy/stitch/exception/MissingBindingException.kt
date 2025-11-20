@@ -17,6 +17,7 @@
 package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
+import kotlin.reflect.KClass
 
 /**
  * Thrown when a binding is missing for the requested type or qualifier.
@@ -26,7 +27,7 @@ import com.harrytmthy.stitch.api.Qualifier
  * - The requested qualifier does not exist for that type.
  */
 class MissingBindingException internal constructor(
-    type: Class<*>,
+    type: KClass<*>,
     qualifier: Qualifier?,
     explanation: String,
 ) : GetFailedException(type, qualifier, explanation) {
@@ -36,14 +37,14 @@ class MissingBindingException internal constructor(
         /**
          * Creates a MissingBindingException for a type that has no binding registered.
          */
-        fun missingType(type: Class<*>) =
+        fun missingType(type: KClass<*>) =
             MissingBindingException(type, null, "No binding for the requested type.")
 
         /**
          * Creates a MissingBindingException for a qualifier that doesn't exist for a type.
          */
         fun missingQualifier(
-            type: Class<*>,
+            type: KClass<*>,
             qualifier: Qualifier?,
             available: Collection<Qualifier?>,
         ): MissingBindingException {
