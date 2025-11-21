@@ -19,12 +19,11 @@ package com.harrytmthy.stitch.api
 import com.harrytmthy.stitch.exception.MissingBindingException
 import com.harrytmthy.stitch.exception.MissingScopeException
 import com.harrytmthy.stitch.exception.ScopeClosedException
+import com.harrytmthy.stitch.internal.ConcurrentHashMap
 import com.harrytmthy.stitch.internal.DefinitionType
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
-import com.harrytmthy.stitch.internal.computeIfAbsentCompat
 import kotlinx.atomicfu.locks.synchronized
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 
 class Component internal constructor() {
@@ -75,8 +74,8 @@ class Component internal constructor() {
 
                 DefinitionType.Scoped -> {
                     scope ?: throw MissingScopeException(type, qualifier)
-                    val perScope = Registry.scoped.computeIfAbsentCompat(scope.id) { ConcurrentHashMap() }
-                    val inner = perScope.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
+                    val perScope = Registry.scoped.computeIfAbsent(scope.id) { ConcurrentHashMap() }
+                    val inner = perScope.computeIfAbsent(node.type) { ConcurrentHashMap() }
                     inner[qualifierKey]?.let {
                         scope.ensureOpen(type, qualifier)
                         return it as T
@@ -94,7 +93,7 @@ class Component internal constructor() {
                 }
 
                 DefinitionType.Singleton -> {
-                    val inner = Registry.singletons.computeIfAbsentCompat(node.type) {
+                    val inner = Registry.singletons.computeIfAbsent(node.type) {
                         ConcurrentHashMap()
                     }
                     inner[qualifierKey]?.let { return it as T }

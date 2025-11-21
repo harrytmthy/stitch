@@ -19,7 +19,6 @@ package com.harrytmthy.stitch.internal
 import com.harrytmthy.stitch.api.DefaultQualifier
 import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.api.ScopeRef
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 
 internal object Registry {
