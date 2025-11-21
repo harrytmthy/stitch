@@ -12,6 +12,7 @@ koin = "4.1.1"
 kotlin = "2.2.20"
 kotlinBinaryCompatibility = "0.18.1"
 kotlinpoet = "2.0.0"
+kotlinAtomicfu = "0.29.0"
 ksp = "2.2.20-2.0.4"
 mavenPublishPlugin = "0.32.0"
 
@@ -27,6 +28,7 @@ dagger = { group = "com.google.dagger", name = "dagger", version.ref = "dagger" 
 dagger-compiler = { group = "com.google.dagger", name = "dagger-compiler", version.ref = "dagger" }
 javax-inject = { group = "javax.inject", name = "javax.inject", version.ref = "javaxInject" }
 koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }
+kotlin-atomicfu = { group = "org.jetbrains.kotlinx", name = "atomicfu", version.ref = "kotlinAtomicfu" }
 kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version.ref = "kotlin" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlin" }
 kotlinpoet = { group = "com.squareup", name = "kotlinpoet", version.ref = "kotlinpoet" }
@@ -42,6 +44,7 @@ maven-publish = { group = "com.vanniktech", name = "gradle-maven-publish-plugin"
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
+kotlin-atomicfu-plugin = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "kotlinAtomicfu" }
 kotlin-binary-compatibility = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "kotlinBinaryCompatibility" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

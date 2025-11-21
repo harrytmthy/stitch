@@ -17,6 +17,7 @@
 plugins {
     alias(libs.plugins.stitch.jvm)
     alias(libs.plugins.stitch.publishing)
+    alias(libs.plugins.kotlin.atomicfu.plugin)
     alias(libs.plugins.kotlin.binary.compatibility)
 }
 
@@ -28,6 +29,7 @@ kotlin {
 }
 
 dependencies {
+    api(libs.kotlin.atomicfu)
     implementation(libs.kotlin.stdlib)
     testImplementation(libs.kotlin.test)
 }

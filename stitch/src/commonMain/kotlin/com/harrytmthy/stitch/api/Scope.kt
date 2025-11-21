@@ -18,20 +18,19 @@ package com.harrytmthy.stitch.api
 
 import com.harrytmthy.stitch.internal.Registry
 import com.harrytmthy.stitch.internal.computeIfAbsentCompat
+import kotlinx.atomicfu.atomic
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 
 class Scope internal constructor(internal val id: Int, internal val reference: ScopeRef) {
 
-    private val open = AtomicBoolean(false)
+    private val open = atomic(false)
 
     fun open() {
-        open.set(true)
+        open.value = true
     }
 
     fun close() {
-        open.set(false)
+        open.value = false
         Registry.scoped.remove(id)
         ScopeRef.getScopeIds(reference)?.remove(id)
     }
@@ -42,7 +41,7 @@ class Scope internal constructor(internal val id: Int, internal val reference: S
     inline fun <reified T : Any> inject(qualifier: Qualifier? = null): Lazy<T> =
         Stitch.inject(qualifier, scope = this)
 
-    internal fun isOpen(): Boolean = open.get()
+    internal fun isOpen(): Boolean = open.value
 }
 
 @JvmInline
@@ -64,7 +63,7 @@ value class ScopeRef private constructor(val name: String) {
 
         private val idsByScopeRef = ConcurrentHashMap<ScopeRef, HashSet<Int>>()
 
-        private val nextId = AtomicInteger(1)
+        private val nextId = atomic(1)
 
         fun of(name: String): ScopeRef = pool.computeIfAbsentCompat(name) { ScopeRef(it) }
 
@@ -75,7 +74,7 @@ value class ScopeRef private constructor(val name: String) {
         internal fun clear() {
             pool.clear()
             idsByScopeRef.clear()
-            nextId.set(1)
+            nextId.value = 1
         }
     }
 }

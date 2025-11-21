@@ -23,6 +23,7 @@ import com.harrytmthy.stitch.internal.DefinitionType
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
 import com.harrytmthy.stitch.internal.computeIfAbsentCompat
+import kotlinx.atomicfu.locks.synchronized
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 
