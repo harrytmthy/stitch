@@ -36,7 +36,7 @@ object Stitch {
 
     private fun warmUp(nodes: List<Node>) {
         for (node in nodes) {
-            component.getInternal(node.type, node.qualifier, scope = null)
+            component.getInternal(node.type, node.qualifier, scope = null, resolutionContext = null)
         }
     }
 
@@ -54,22 +54,33 @@ object Stitch {
         Registry.clear()
         Named.clear()
         ScopeRef.clear()
-        component.clear()
     }
 
     inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
-        getInternal(T::class, qualifier, scope)
+        getInternal(T::class, qualifier, scope, resolutionContext = null)
+
+    context(resolutionContext: ResolutionContext)
+    inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
+        getInternal(T::class, qualifier, scope, resolutionContext)
 
     inline fun <reified T : Any> inject(
         qualifier: Qualifier? = null,
         scope: Scope? = null,
     ): Lazy<T> {
-        return lazy(LazyThreadSafetyMode.NONE) { getInternal(T::class, qualifier, scope) }
+        return lazy(LazyThreadSafetyMode.NONE) {
+            getInternal(T::class, qualifier, scope, resolutionContext = null)
+        }
     }
 
     @PublishedApi
-    internal fun <T : Any> getInternal(type: KClass<T>, qualifier: Qualifier?, scope: Scope?): T =
-        component.getInternal(type, qualifier, scope)
+    internal fun <T : Any> getInternal(
+        type: KClass<T>,
+        qualifier: Qualifier?,
+        scope: Scope?,
+        resolutionContext: ResolutionContext?,
+    ): T {
+        return component.getInternal(type, qualifier, scope, resolutionContext)
+    }
 }
 
 inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =

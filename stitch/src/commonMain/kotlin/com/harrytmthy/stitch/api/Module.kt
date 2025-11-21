@@ -38,24 +38,24 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
     inline fun <reified T : Any> singleton(
         qualifier: Qualifier? = null,
         eager: Boolean = false,
-        noinline factory: Component.() -> T,
+        noinline factory: ResolutionContext.() -> T,
     ): Bindable {
-        return define(T::class, qualifier, Singleton, eager, null, factory)
+        return define(T::class, qualifier, Singleton, eager, null, factory, null)
     }
 
     inline fun <reified T : Any> factory(
         qualifier: Qualifier? = null,
-        noinline factory: Component.() -> T,
+        noinline factory: ResolutionContext.() -> T,
     ): Bindable {
-        return define(T::class, qualifier, Factory, false, null, factory)
+        return define(T::class, qualifier, Factory, false, null, factory, null)
     }
 
     inline fun <reified T : Any> scoped(
         scopeRef: ScopeRef,
         qualifier: Qualifier? = null,
-        noinline factory: Component.() -> T,
+        noinline factory: ResolutionContext.() -> T,
     ): Bindable {
-        return define(T::class, qualifier, Scoped, false, scopeRef, factory)
+        return define(T::class, qualifier, Scoped, false, scopeRef, null, factory)
     }
 
     @PublishedApi
@@ -65,12 +65,14 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         definitionType: DefinitionType,
         eager: Boolean,
         scopeRef: ScopeRef?,
-        factory: Component.() -> T,
+        factory: (ResolutionContext.() -> T)?,
+        scopedFactory: (ResolutionContext.() -> T)?,
     ): Bindable {
         return when (definitionType) {
-            Factory -> createAndRegisterNode(type, qualifier, definitionType, factory)
+            Factory -> createAndRegisterNode(type, qualifier, definitionType, factory!!)
                 .also(registeredNodes::add)
-            Singleton -> createAndRegisterNode(type, qualifier, definitionType, factory)
+
+            Singleton -> createAndRegisterNode(type, qualifier, definitionType, factory!!)
                 .also {
                     if (eager || forceEager) {
                         registeredEagerNodes.add(it)
@@ -78,7 +80,8 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
                         registeredNodes.add(it)
                     }
                 }
-            Scoped -> createAndRegisterScopedNode(type, qualifier, scopeRef!!, factory)
+
+            Scoped -> createAndRegisterScopedNode(type, qualifier, scopeRef!!, scopedFactory!!)
                 .also(registeredNodes::add)
         }
     }
@@ -87,7 +90,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         type: KClass<T>,
         qualifier: Qualifier?,
         definitionType: DefinitionType,
-        factory: Component.() -> T,
+        factory: ResolutionContext.() -> T,
     ): Node {
         val node = Node(
             type = type,
@@ -109,7 +112,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         type: KClass<T>,
         qualifier: Qualifier?,
         scopeRef: ScopeRef,
-        factory: Component.() -> T,
+        factory: ResolutionContext.() -> T,
     ): Node {
         val node = Node(
             type = type,

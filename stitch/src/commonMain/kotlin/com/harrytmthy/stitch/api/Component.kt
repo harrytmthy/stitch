@@ -16,7 +16,6 @@
 
 package com.harrytmthy.stitch.api
 
-import com.harrytmthy.stitch.exception.CycleException
 import com.harrytmthy.stitch.exception.MissingBindingException
 import com.harrytmthy.stitch.exception.MissingScopeException
 import com.harrytmthy.stitch.exception.ScopeClosedException
@@ -29,62 +28,52 @@ import kotlin.reflect.KClass
 
 class Component internal constructor() {
 
-    private val resolutionStack = threadLocal { ResolutionStack() }
-
-    private val scopeContext = threadLocal { ScopeContext() }
-
-    inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
-        getInternal(T::class, qualifier, scope)
-
-    inline fun <reified T : Any> lazyOf(
-        qualifier: Qualifier? = null,
-        scope: Scope? = null,
-    ): Lazy<T> {
-        return lazy(LazyThreadSafetyMode.NONE) { get(qualifier, scope) }
-    }
-
     @PublishedApi
     @Suppress("UNCHECKED_CAST")
-    internal fun <T : Any> getInternal(type: KClass<T>, qualifier: Qualifier?, scope: Scope?): T {
+    internal fun <T : Any> getInternal(
+        type: KClass<T>,
+        qualifier: Qualifier?,
+        scope: Scope?,
+        resolutionContext: ResolutionContext?,
+    ): T {
         val qualifierKey = qualifier ?: DefaultQualifier
-        val scopeContext = scopeContext.get()
-        val effectiveScope = scope ?: scopeContext.scope
 
         // Fast-path: check caches with the requested key first
-        effectiveScope?.id?.let { scopeId ->
+        scope?.id?.let { scopeId ->
             Registry.scoped[scopeId]?.get(type)?.get(qualifierKey)?.let {
-                effectiveScope.ensureOpen(type, qualifier)
+                scope.ensureOpen(type, qualifier)
                 return it as T
             }
         }
-        if (effectiveScope == null) {
+        if (scope == null) {
             Registry.singletons[type]?.get(qualifierKey)?.let { return it as T }
         }
 
         // Resolve once to learn the canonical cache key
-        val node = lookupNode(type, qualifier, effectiveScope?.reference)
+        val node = lookupNode(type, qualifier, scope?.reference)
 
         // Fast-path: If alias, recheck caches under canonical key
         if (node.type !== type) {
-            effectiveScope?.id?.let { scopeId ->
+            scope?.id?.let { scopeId ->
                 Registry.scoped[scopeId]?.get(node.type)?.get(qualifierKey)?.let {
-                    effectiveScope.ensureOpen(type, qualifier)
+                    scope.ensureOpen(type, qualifier)
                     return it as T
                 }
             }
-            if (effectiveScope == null) {
+            if (scope == null) {
                 Registry.singletons[node.type]?.get(qualifierKey)?.let { return it as T }
             }
         }
 
         // Build with cycle guard, cache under canonical key
-        val resolving = resolutionStack.get()
+        val resolving = resolutionContext ?: ResolutionContext(this, scope)
         resolving.enter(node)
         try {
             return when (node.definitionType) {
-                DefinitionType.Factory -> node.factory(this) as T
+                DefinitionType.Factory -> node.factory(resolving) as T
+
                 DefinitionType.Scoped -> {
-                    val scope = effectiveScope ?: throw MissingScopeException(type, qualifier)
+                    scope ?: throw MissingScopeException(type, qualifier)
                     val perScope = Registry.scoped.computeIfAbsentCompat(scope.id) { ConcurrentHashMap() }
                     val inner = perScope.computeIfAbsentCompat(node.type) { ConcurrentHashMap() }
                     inner[qualifierKey]?.let {
@@ -96,18 +85,13 @@ class Component internal constructor() {
                             scope.ensureOpen(type, qualifier)
                             return it as T
                         }
-                        val previousScope = scopeContext.scope
-                        scopeContext.scope = scope
-                        try {
-                            scope.ensureOpen(type, qualifier)
-                            val built = node.factory(this)
-                            scope.ensureOpen(type, qualifier)
-                            (inner.putIfAbsent(qualifierKey, built) ?: built) as T
-                        } finally {
-                            scopeContext.scope = previousScope
-                        }
+                        scope.ensureOpen(type, qualifier)
+                        val built = node.factory(resolving)
+                        scope.ensureOpen(type, qualifier)
+                        (inner.putIfAbsent(qualifierKey, built) ?: built) as T
                     }
                 }
+
                 DefinitionType.Singleton -> {
                     val inner = Registry.singletons.computeIfAbsentCompat(node.type) {
                         ConcurrentHashMap()
@@ -115,7 +99,7 @@ class Component internal constructor() {
                     inner[qualifierKey]?.let { return it as T }
                     return synchronized(inner) {
                         inner[qualifierKey]?.let { return it as T }
-                        val built = node.factory(this)
+                        val built = node.factory(resolving)
                         (inner.putIfAbsent(qualifierKey, built) ?: built) as T
                     }
                 }
@@ -123,11 +107,6 @@ class Component internal constructor() {
         } finally {
             resolving.exit()
         }
-    }
-
-    internal fun clear() {
-        resolutionStack.remove()
-        scopeContext.remove()
     }
 
     private fun lookupNode(type: KClass<*>, qualifier: Qualifier?, scopeRef: ScopeRef?): Node {
@@ -138,44 +117,9 @@ class Component internal constructor() {
         }
     }
 
-    private inline fun <T : Any> threadLocal(crossinline supplier: () -> T): ThreadLocal<T> =
-        object : ThreadLocal<T>() {
-            override fun initialValue(): T = supplier()
-        }
-
     private fun Scope.ensureOpen(type: KClass<*>, qualifier: Qualifier?) {
         if (!isOpen()) {
             throw ScopeClosedException(type, qualifier, id)
         }
-    }
-
-    private class ResolutionStack {
-
-        private val stack = ArrayDeque<Node>()
-
-        private val indexByNode = HashMap<Node, Int>()
-
-        fun enter(node: Node) {
-            val nodeIndex = indexByNode[node]
-            if (nodeIndex != null) {
-                val cycle = ArrayList<Node>(stack.size - nodeIndex + 1)
-                for (index in nodeIndex until stack.size) {
-                    cycle += stack[index]
-                }
-                cycle += node
-                throw CycleException(node.type, node.qualifier, cycle)
-            }
-            indexByNode[node] = stack.size
-            stack.addLast(node)
-        }
-
-        fun exit() {
-            val removed = stack.removeLast()
-            indexByNode.remove(removed)
-        }
-    }
-
-    private class ScopeContext {
-        var scope: Scope? = null
     }
 }

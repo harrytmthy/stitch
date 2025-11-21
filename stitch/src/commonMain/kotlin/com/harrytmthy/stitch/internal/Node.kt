@@ -17,8 +17,8 @@
 package com.harrytmthy.stitch.internal
 
 import com.harrytmthy.stitch.api.Bindable
-import com.harrytmthy.stitch.api.Component
 import com.harrytmthy.stitch.api.Qualifier
+import com.harrytmthy.stitch.api.ResolutionContext
 import com.harrytmthy.stitch.api.ScopeRef
 import kotlin.reflect.KClass
 
@@ -27,7 +27,7 @@ internal class Node(
     val qualifier: Qualifier?,
     val scopeRef: ScopeRef?,
     val definitionType: DefinitionType,
-    val factory: (Component) -> Any,
+    val factory: (ResolutionContext) -> Any,
     val onBind: (KClass<*>, Node) -> Unit,
 ) : Bindable {
 
