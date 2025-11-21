@@ -188,8 +188,8 @@ class StitchTest {
     @Test
     fun `get with detected cycle should throw CycleException`() {
         val module = module {
-            singleton { A(get()) } // A -> B
-            singleton { B(get()) } // B -> A
+            singleton { A(Stitch.get()) } // A -> B
+            singleton { B(Stitch.get()) } // B -> A
         }
         Stitch.register(module)
 
@@ -217,7 +217,7 @@ class StitchTest {
                 Bar()
             }
             singleton {
-                val barLazy: Lazy<Bar> = lazyOf(scope = null)
+                val barLazy: Lazy<Bar> = lazyOf()
                 singletonBuilds++
                 UsesLazyFactory(barLazy)
             }

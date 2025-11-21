@@ -36,6 +36,7 @@ class JvmConventionPlugin : Plugin<Project> {
             extensions.configure<KotlinJvmProjectExtension> {
                 compilerOptions.jvmTarget = JvmTarget.JVM_11
                 compilerOptions.allWarningsAsErrors = true
+                compilerOptions.freeCompilerArgs.add("-Xcontext-parameters")
             }
         }
     }

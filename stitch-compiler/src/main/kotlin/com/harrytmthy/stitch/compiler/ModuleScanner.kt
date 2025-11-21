@@ -115,6 +115,7 @@ class ModuleScanner(private val logger: KSPLogger) {
                             acc.injectConstructor = symbol
                         }
                     }
+
                     is KSPropertyDeclaration -> {
                         val classDeclaration = symbol.parentDeclaration as? KSClassDeclaration ?: return@forEach
                         accByClass.getOrPut(classDeclaration) {

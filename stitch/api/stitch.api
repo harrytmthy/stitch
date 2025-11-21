@@ -3,12 +3,12 @@ public abstract interface class com/harrytmthy/stitch/api/Bindable {
 }
 
 public final class com/harrytmthy/stitch/api/Component {
-	public final fun getInternal (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
+	public final fun getInternal (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;Lcom/harrytmthy/stitch/api/ResolutionContext;)Ljava/lang/Object;
 }
 
 public final class com/harrytmthy/stitch/api/Module {
 	public fun <init> (ZLkotlin/jvm/functions/Function1;)V
-	public final fun define-z0zhSdE (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/internal/DefinitionType;ZLjava/lang/String;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
+	public final fun define-FENcUh4 (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/internal/DefinitionType;ZLjava/lang/String;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
 }
 
 public final class com/harrytmthy/stitch/api/ModuleKt {
@@ -41,6 +41,11 @@ public final class com/harrytmthy/stitch/api/QualifierKt {
 	public static final fun named (Ljava/lang/String;)Ljava/lang/String;
 }
 
+public final class com/harrytmthy/stitch/api/ResolutionContext {
+	public final fun getComponent ()Lcom/harrytmthy/stitch/api/Component;
+	public final fun getScope ()Lcom/harrytmthy/stitch/api/Scope;
+}
+
 public final class com/harrytmthy/stitch/api/Scope {
 	public final fun close ()V
 	public final fun open ()V
@@ -71,7 +76,7 @@ public final class com/harrytmthy/stitch/api/ScopeRef$Companion {
 
 public final class com/harrytmthy/stitch/api/Stitch {
 	public static final field INSTANCE Lcom/harrytmthy/stitch/api/Stitch;
-	public final fun getInternal (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)Ljava/lang/Object;
+	public final fun getInternal (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;Lcom/harrytmthy/stitch/api/ResolutionContext;)Ljava/lang/Object;
 	public final fun register ([Lcom/harrytmthy/stitch/api/Module;)V
 	public final fun unregister ([Lcom/harrytmthy/stitch/api/Module;)V
 	public final fun unregisterAll ()V
