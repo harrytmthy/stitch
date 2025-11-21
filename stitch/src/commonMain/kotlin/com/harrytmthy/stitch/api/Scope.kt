@@ -16,10 +16,9 @@
 
 package com.harrytmthy.stitch.api
 
+import com.harrytmthy.stitch.internal.ConcurrentHashMap
 import com.harrytmthy.stitch.internal.Registry
-import com.harrytmthy.stitch.internal.computeIfAbsentCompat
 import kotlinx.atomicfu.atomic
-import java.util.concurrent.ConcurrentHashMap
 
 class Scope internal constructor(internal val id: Int, internal val reference: ScopeRef) {
 
@@ -44,12 +43,17 @@ class Scope internal constructor(internal val id: Int, internal val reference: S
     internal fun isOpen(): Boolean = open.value
 }
 
-@JvmInline
-value class ScopeRef private constructor(val name: String) {
+class ScopeRef private constructor(val name: String) {
 
-    fun newInstance(): Scope {
+    private val id = nextId()
+
+    override fun hashCode(): Int = id
+
+    override fun equals(other: Any?): Boolean = other is ScopeRef && other.id == this.id
+
+    fun createScope(): Scope {
         val id = nextId()
-        val inner = idsByScopeRef.computeIfAbsentCompat(this) { HashSet() }
+        val inner = idsByScopeRef.computeIfAbsent(this) { HashSet() }
         inner.add(id)
         return Scope(id, reference = this)
     }
@@ -65,7 +69,7 @@ value class ScopeRef private constructor(val name: String) {
 
         private val nextId = atomic(1)
 
-        fun of(name: String): ScopeRef = pool.computeIfAbsentCompat(name) { ScopeRef(it) }
+        fun of(name: String): ScopeRef = pool.computeIfAbsent(name, ::ScopeRef)
 
         internal fun nextId(): Int = nextId.getAndIncrement()
 

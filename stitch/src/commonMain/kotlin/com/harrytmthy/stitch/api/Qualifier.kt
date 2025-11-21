@@ -16,25 +16,32 @@
 
 package com.harrytmthy.stitch.api
 
-import com.harrytmthy.stitch.internal.computeIfAbsentCompat
-import java.util.concurrent.ConcurrentHashMap
+import com.harrytmthy.stitch.internal.ConcurrentHashMap
+import kotlinx.atomicfu.atomic
 
 sealed interface Qualifier
 
-@JvmInline
-value class Named private constructor(val value: String) : Qualifier {
+class Named private constructor(val value: String) : Qualifier {
+
+    private val id = nextId()
+
+    override fun hashCode(): Int = id
+
+    override fun equals(other: Any?): Boolean = other is Named && other.id == this.id
 
     companion object {
 
-        private val pool = ConcurrentHashMap<String, String>()
+        private val pool = ConcurrentHashMap<String, Named>()
 
-        fun of(name: String): Named {
-            val interned = pool.computeIfAbsentCompat(name) { it }
-            return Named(interned)
-        }
+        private val nextId = atomic(1)
+
+        fun of(name: String): Named = pool.computeIfAbsent(name, ::Named)
+
+        internal fun nextId(): Int = nextId.getAndIncrement()
 
         internal fun clear() {
             pool.clear()
+            nextId.value = 1
         }
     }
 }

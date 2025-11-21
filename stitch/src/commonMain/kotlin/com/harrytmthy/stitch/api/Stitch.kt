@@ -16,6 +16,7 @@
 
 package com.harrytmthy.stitch.api
 
+import com.harrytmthy.stitch.api.Stitch.reset
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
 import kotlin.reflect.KClass
@@ -50,8 +51,24 @@ object Stitch {
         }
     }
 
+    /**
+     * Clears all registered modules and instances, but preserves Qualifiers and ScopeRefs.
+     */
     fun unregisterAll() {
         Registry.clear()
+    }
+
+    /**
+     * Fully resets the Stitch environment:
+     * - Unregisters all modules
+     * - Clears all Qualifiers and ScopeRefs
+     * - Resets internal counters
+     *
+     * Only use in tests or in one-off tooling. After calling [reset], any previously obtained
+     * [Named] or [ScopeRef] values must not be reused.
+     */
+    fun reset() {
+        unregisterAll()
         Named.clear()
         ScopeRef.clear()
     }

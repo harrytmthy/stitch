@@ -61,7 +61,7 @@ class StitchVsKoinBenchmark {
         benchmarkRule.measureRepeated {
             sink = Stitch.get<LocalRepo>()
         }
-        Stitch.unregisterAll()
+        Stitch.reset()
     }
 
     @Test
@@ -73,7 +73,7 @@ class StitchVsKoinBenchmark {
             scopeRef = screenRef,
         )
         Stitch.register(module)
-        val scope = screenRef.newInstance().apply { open() }
+        val scope = screenRef.createScope().apply { open() }
 
         // JIT priming
         repeat(10) { sink = Stitch.get<DeepViewModel>(scope = scope) }
@@ -81,7 +81,7 @@ class StitchVsKoinBenchmark {
         benchmarkRule.measureRepeated {
             sink = Stitch.get<DeepViewModel>(scope = scope)
         }
-        Stitch.unregisterAll()
+        Stitch.reset()
     }
 
     @Test
@@ -90,7 +90,7 @@ class StitchVsKoinBenchmark {
             val module = createStitchModule(deep = false, leafSingleton = false)
             Stitch.register(module)
             sink = Stitch.get<LocalRepo>()
-            runWithMeasurementDisabled { Stitch.unregisterAll() }
+            runWithMeasurementDisabled { Stitch.reset() }
         }
     }
 
@@ -104,11 +104,11 @@ class StitchVsKoinBenchmark {
                 scopeRef = screenRef,
             )
             Stitch.register(module)
-            val scope = screenRef.newInstance().apply { open() }
+            val scope = screenRef.createScope().apply { open() }
 
             sink = Stitch.get<DeepViewModel>(scope = scope)
 
-            runWithMeasurementDisabled { Stitch.unregisterAll() }
+            runWithMeasurementDisabled { Stitch.reset() }
         }
     }
 
@@ -122,7 +122,7 @@ class StitchVsKoinBenchmark {
 
             sink = Stitch.get<LocalRepo>()
 
-            runWithMeasurementDisabled { Stitch.unregisterAll() }
+            runWithMeasurementDisabled { Stitch.reset() }
         }
     }
 
@@ -137,12 +137,12 @@ class StitchVsKoinBenchmark {
                     scopeRef = screenRef,
                 )
                 Stitch.register(module)
-                screenRef.newInstance().apply { open() }
+                screenRef.createScope().apply { open() }
             }
 
             sink = Stitch.get<DeepViewModel>(scope = scope)
 
-            runWithMeasurementDisabled { Stitch.unregisterAll() }
+            runWithMeasurementDisabled { Stitch.reset() }
         }
     }
 
@@ -152,7 +152,7 @@ class StitchVsKoinBenchmark {
             val module = createStitchModule(deep = false, leafSingleton = true, eager = true)
             Stitch.register(module)
             sink = Stitch.get<LocalRepo>()
-            runWithMeasurementDisabled { Stitch.unregisterAll() }
+            runWithMeasurementDisabled { Stitch.reset() }
         }
     }
 
@@ -167,11 +167,11 @@ class StitchVsKoinBenchmark {
                 scopeRef = screenRef,
             )
             Stitch.register(module)
-            val scope = screenRef.newInstance().apply { open() }
+            val scope = screenRef.createScope().apply { open() }
 
             sink = Stitch.get<DeepViewModel>(scope = scope)
 
-            runWithMeasurementDisabled { Stitch.unregisterAll() }
+            runWithMeasurementDisabled { Stitch.reset() }
         }
     }
 
@@ -182,7 +182,7 @@ class StitchVsKoinBenchmark {
                 createStitchModule(deep = true, leafSingleton = true, eager = false)
             }
             Stitch.register(module)
-            runWithMeasurementDisabled { Stitch.unregisterAll() }
+            runWithMeasurementDisabled { Stitch.reset() }
         }
     }
 
@@ -193,7 +193,7 @@ class StitchVsKoinBenchmark {
                 createStitchModule(deep = true, leafSingleton = true, eager = true)
             }
             Stitch.register(module)
-            runWithMeasurementDisabled { Stitch.unregisterAll() }
+            runWithMeasurementDisabled { Stitch.reset() }
         }
     }
 
@@ -204,7 +204,7 @@ class StitchVsKoinBenchmark {
                 val module = createStitchModule(deep = true, leafSingleton = true, eager = false)
                 Stitch.register(module)
             }
-            Stitch.unregisterAll()
+            Stitch.reset()
         }
     }
 
