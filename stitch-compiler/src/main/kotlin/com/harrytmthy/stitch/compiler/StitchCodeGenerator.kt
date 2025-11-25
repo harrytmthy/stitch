@@ -104,6 +104,42 @@ class StitchCodeGenerator(
                 .toTypedArray(),
         )
 
+        // Collect field injection requests by scope (including transitive dependencies)
+        val requestedDepsByScope = mutableMapOf<KSType?, MutableSet<DependencyKey>>()
+
+        // Build node lookup map
+        val nodeMap = nodes.associateBy { DependencyKey(it.type, it.qualifier) }
+
+        // Helper to transitively collect dependencies
+        fun collectTransitiveDeps(node: DependencyNode, visited: MutableSet<DependencyNode> = mutableSetOf()) {
+            if (node in visited) return
+            visited.add(node)
+
+            // Add the node itself to its binding's scope
+            val key = DependencyKey(node.type, node.qualifier)
+            val bindingScope = node.scopeAnnotation
+            requestedDepsByScope.getOrPut(bindingScope) { mutableSetOf() }.add(key)
+
+            // Recursively collect transitive dependencies
+            node.dependencies.forEach { dep ->
+                val depKey = DependencyKey(dep.type, dep.qualifier)
+                nodeMap[depKey]?.let { depNode ->
+                    collectTransitiveDeps(depNode, visited)
+                }
+            }
+        }
+
+        // For each field injection, collect the field type and its transitive deps
+        fieldInjectors.forEach { injector ->
+            injector.injectableFields.forEach { field ->
+                val fieldKey = DependencyKey(field.type, field.qualifier)
+                nodeMap[fieldKey]?.let { node ->
+                    // Collect this node and all its transitive dependencies
+                    collectTransitiveDeps(node)
+                }
+            }
+        }
+
         // Separate nodes by scope
         val unscopedNodes = nodes.filter { it.scopeAnnotation == null }
         val scopedNodesByScope = nodes.filter { it.scopeAnnotation != null }
@@ -113,12 +149,12 @@ class StitchCodeGenerator(
         val allScopes = scopeGraph.scopes.keys
 
         // Generate DI component file (singletons + factories only)
-        generateDiComponentFile(unscopedNodes, fieldInjectors, scopeGraph, dependencies, nodes)
+        generateDiComponentFile(unscopedNodes, fieldInjectors, scopeGraph, dependencies, nodes, requestedDepsByScope)
 
         // Generate scope component files for every scope in the graph
         allScopes.forEach { scopeAnnotation ->
             val scopeNodes = scopedNodesByScope[scopeAnnotation] ?: emptyList()
-            generateScopeComponentFile(scopeAnnotation, scopeNodes, fieldInjectors, scopeGraph, dependencies, nodes)
+            generateScopeComponentFile(scopeAnnotation, scopeNodes, fieldInjectors, scopeGraph, dependencies, nodes, requestedDepsByScope)
         }
 
         logger.info("Stitch: Generated StitchDiComponent, ${allScopes.size} scope component(s)")
@@ -137,6 +173,7 @@ class StitchCodeGenerator(
         scopeGraph: ScopeGraph,
         dependencies: Dependencies,
         allNodes: List<DependencyNode>, // All nodes for dependency resolution
+        requestedDepsByScope: Map<KSType?, Set<DependencyKey>>,
     ) {
         val scopeInfo = scopeGraph.scopes[scopeAnnotation]!!
         val scopeName = scopeAnnotation.declaration.simpleName.asString()
@@ -144,6 +181,9 @@ class StitchCodeGenerator(
 
         val component = TypeSpec.classBuilder(componentClassName)
             .superclass(ClassName("com.harrytmthy.stitch.internal", "StitchComponent"))
+
+        // Get requested deps for this scope
+        val requestedScopedDeps = requestedDepsByScope[scopeAnnotation] ?: emptySet()
 
         // Check if this is a root scope (depends on Singleton)
         val upstreamScope = scopeInfo.dependsOn
@@ -167,13 +207,19 @@ class StitchCodeGenerator(
 
         // Generate DCL fields and provider methods for scoped dependencies
         nodes.forEach { node ->
-            // Add DCL field, initialized flag, and lock
-            component.addProperty(generateSingletonField(node))
-            component.addProperty(generateInitializedFlag(node))
-            component.addProperty(generateLockField(node))
+            // Check if this node is requested via field injection
+            val nodeKey = DependencyKey(node.type, node.qualifier)
+            val isRequested = nodeKey in requestedScopedDeps
+
+            // Add DCL field, initialized flag, and lock only if requested
+            if (isRequested) {
+                component.addProperty(generateSingletonField(node))
+                component.addProperty(generateInitializedFlag(node))
+                component.addProperty(generateLockField(node))
+            }
 
             // Generate canonical provider method (with current scope context)
-            component.addFunction(generateProviderMethod(node, scopeAnnotation, allNodes, scopeGraph))
+            component.addFunction(generateProviderMethod(node, scopeAnnotation, allNodes, scopeGraph, isRequested))
 
             // Generate alias provider methods
             node.aliases.forEach { aliasType ->
@@ -290,12 +336,13 @@ class StitchCodeGenerator(
         scopeGraph: ScopeGraph,
         dependencies: Dependencies,
         allNodes: List<DependencyNode>, // All nodes for dependency resolution
+        requestedDepsByScope: Map<KSType?, Set<DependencyKey>>,
     ) {
         val file = FileSpec.builder(GENERATED_PACKAGE, DI_COMPONENT_NAME)
             .addFileComment("Generated by Stitch KSP Compiler - DO NOT EDIT")
             .addImport("kotlinx.atomicfu", "atomic")
             .addImport("kotlinx.atomicfu.locks", "synchronized")
-            .addType(generateDiComponent(nodes, fieldInjectors, scopeGraph, allNodes))
+            .addType(generateDiComponent(nodes, fieldInjectors, scopeGraph, allNodes, requestedDepsByScope))
             .build()
 
         val outputStream = codeGenerator.createNewFile(
@@ -317,8 +364,13 @@ class StitchCodeGenerator(
         fieldInjectors: List<FieldInjectorInfo>,
         scopeGraph: ScopeGraph,
         allNodes: List<DependencyNode>,
+        requestedDepsByScope: Map<KSType?, Set<DependencyKey>>,
     ): TypeSpec {
         val component = TypeSpec.objectBuilder(DI_COMPONENT_NAME)
+            .superclass(ClassName("com.harrytmthy.stitch.internal", "StitchComponent"))
+
+        // Get requested deps for singleton scope (null key)
+        val requestedSingletonDeps = requestedDepsByScope[null] ?: emptySet()
 
         // Collect module holders for non-object modules
         val moduleClasses = nodes
@@ -333,15 +385,19 @@ class StitchCodeGenerator(
 
         // Generate fields and methods for each dependency
         nodes.forEach { node ->
-            // Add field and lock for singletons (only for canonical type, not aliases)
-            if (node.isSingleton) {
+            // Check if this node is requested via field injection
+            val nodeKey = DependencyKey(node.type, node.qualifier)
+            val isRequested = nodeKey in requestedSingletonDeps
+
+            // Add field and lock for singletons only if requested via field injection
+            if (node.isSingleton && isRequested) {
                 component.addProperty(generateSingletonField(node))
                 component.addProperty(generateInitializedFlag(node))
                 component.addProperty(generateLockField(node))
             }
 
             // Generate canonical provider method (currentScope = null for DI component)
-            component.addFunction(generateProviderMethod(node, null, allNodes, scopeGraph))
+            component.addFunction(generateProviderMethod(node, null, allNodes, scopeGraph, isRequested))
 
             // Generate alias provider methods that delegate to canonical method
             node.aliases.forEach { aliasType ->
@@ -447,14 +503,15 @@ class StitchCodeGenerator(
         currentScope: KSType?,
         allNodes: List<DependencyNode>,
         scopeGraph: ScopeGraph,
+        isRequested: Boolean = true, // Whether this type is requested via field injection
     ): FunSpec {
         val typeCls = node.type.toTypeName()
         val methodName = generateMethodName(node)
         val method = FunSpec.builder(methodName)
             .returns(typeCls)
 
-        // Use DCL for singletons and scoped bindings
-        val useDCL = node.isSingleton || node.scopeAnnotation != null
+        // Use DCL only if requested via field injection and node is singleton/scoped
+        val useDCL = isRequested && (node.isSingleton || node.scopeAnnotation != null)
 
         if (useDCL) {
             // Singleton or scoped: double-checked locking pattern with initialized flag
@@ -744,6 +801,21 @@ class StitchCodeGenerator(
 
             chain += ".upstream"
             cursor = parent
+        }
+    }
+
+    /**
+     * Key for looking up dependencies in the requested deps map.
+     */
+    private data class DependencyKey(val type: KSType, val qualifier: QualifierInfo?) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is DependencyKey) return false
+            return type.declaration == other.type.declaration && qualifier == other.qualifier
+        }
+
+        override fun hashCode(): Int {
+            return 31 * type.declaration.hashCode() + (qualifier?.hashCode() ?: 0)
         }
     }
 
