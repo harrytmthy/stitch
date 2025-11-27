@@ -61,10 +61,15 @@ class StitchSymbolProcessor(
         logger.info("Stitch: Found ${scanResult.modules.size} module(s), ${scanResult.injectables.size} @Inject class(es), ${scanResult.fieldInjectors.size} field injection class(es)")
 
         // Build dependency graph and validate
-        val graph = graphBuilder.buildGraph(scanResult, scopeGraph)
+        val dependencyGraph = graphBuilder.buildGraph(scanResult, scopeGraph)
 
         // Generate DI component and injector objects
-        codeGen.generateComponentAndInjector(graph, scanResult.fieldInjectors, scopeGraph)
+        codeGen.generateComponentAndInjector(
+            dependencyGraph.nodes,
+            dependencyGraph.registry,
+            scanResult.fieldInjectors,
+            scopeGraph,
+        )
 
         logger.info("Stitch: Code generation completed successfully")
 

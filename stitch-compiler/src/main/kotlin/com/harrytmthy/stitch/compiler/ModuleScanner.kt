@@ -166,7 +166,7 @@ class ModuleScanner(private val logger: KSPLogger) {
             }
 
             // Single validation pass for all @Inject fields in this class.
-            val injectableFields = ArrayList<InjectableFieldInfo>()
+            val injectableFields = ArrayList<FieldInfo>()
             fields.forEach { property ->
                 val fieldName = property.simpleName.asString()
 
@@ -192,16 +192,21 @@ class ModuleScanner(private val logger: KSPLogger) {
                 val fieldType = property.type.resolve()
                 val qualifier = namedQualifierCache[property]
                 val scopeAnnotation = property.getScopeAnnotation()
-                injectableFields += InjectableFieldInfo(fieldName, fieldType, qualifier, scopeAnnotation)
+                injectableFields += FieldInfo(
+                    type = fieldType,
+                    qualifier = qualifier,
+                    name = fieldName,
+                    scopeAnnotation = scopeAnnotation,
+                )
             }
 
             // 1) Build InjectableClassInfo for constructor-injected classes (if any).
             if (ctor != null) {
                 val constructorParameters = ctor.parameters.map { param ->
-                    ParameterInfo(
-                        name = param.name?.asString() ?: "",
+                    FieldInfo(
                         type = param.type.resolve(),
                         qualifier = namedQualifierCache[param],
+                        name = param.name?.asString() ?: "",
                     )
                 }
 
@@ -301,10 +306,10 @@ class ModuleScanner(private val logger: KSPLogger) {
         val qualifier = namedQualifierCache[function]
 
         val parameters = function.parameters.map { param ->
-            ParameterInfo(
-                name = param.name?.asString() ?: "",
+            FieldInfo(
                 type = param.type.resolve(),
                 qualifier = namedQualifierCache[param],
+                name = param.name?.asString() ?: "",
             )
         }
 
@@ -422,7 +427,7 @@ class ModuleScanner(private val logger: KSPLogger) {
      * Each component will inject only fields it can resolve from its vantage point.
      */
     private fun analyzeClassScopeUsage(
-        injectableFields: List<InjectableFieldInfo>,
+        injectableFields: List<FieldInfo>,
         scopeGraph: ScopeGraph,
         classDeclaration: KSClassDeclaration,
     ): ClassScopeUsage {

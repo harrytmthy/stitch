@@ -43,6 +43,10 @@ class StitchCodeGenerator(
     private val logger: KSPLogger,
 ) {
 
+    private lateinit var dependencyRegistry: Map<BindingKey, DependencyNode>
+
+    private lateinit var scopeGraph: ScopeGraph
+
     /**
      * Finds a dependency and determines its location relative to the current scope.
      */
@@ -50,24 +54,11 @@ class StitchCodeGenerator(
         depType: KSType,
         depQualifier: QualifierInfo?,
         currentScope: KSType?,
-        allNodes: List<DependencyNode>,
-        scopeGraph: ScopeGraph,
     ): Pair<DependencyNode, DependencyLocation>? {
-        // Build a lookup function
-        fun findNode(scope: KSType?): DependencyNode? {
-            return allNodes.firstOrNull { node ->
-                // Check if type matches either the primary type or any alias
-                val typeMatches = node.type.declaration == depType.declaration ||
-                    node.aliases.any { it.declaration == depType.declaration }
-                typeMatches &&
-                    node.qualifier == depQualifier &&
-                    node.scopeAnnotation?.declaration == scope?.declaration
-            }
-        }
-
         // 1. Try current scope first
         if (currentScope != null) {
-            findNode(currentScope)?.let {
+            val currentKey = BindingKey(depType, depQualifier, currentScope)
+            dependencyRegistry[currentKey]?.let {
                 return it to DependencyLocation.SAME_SCOPE
             }
         }
@@ -76,15 +67,17 @@ class StitchCodeGenerator(
         if (currentScope != null) {
             var ancestorScope: KSType? = scopeGraph.scopes[currentScope]?.dependsOn
             while (ancestorScope != null) {
-                findNode(ancestorScope)?.let {
+                val ancestorKey = BindingKey(depType, depQualifier, ancestorScope)
+                dependencyRegistry[ancestorKey]?.let {
                     return it to DependencyLocation.UPSTREAM
                 }
                 ancestorScope = scopeGraph.scopes[ancestorScope]?.dependsOn
             }
         }
 
-        // 3. Try singleton/unscoped
-        findNode(null)?.let {
+        // 3. Try singleton/unscoped (scope = null)
+        val singletonKey = BindingKey(depType, depQualifier, null)
+        dependencyRegistry[singletonKey]?.let {
             return it to DependencyLocation.SINGLETON
         }
 
@@ -92,7 +85,16 @@ class StitchCodeGenerator(
         return null
     }
 
-    fun generateComponentAndInjector(nodes: List<DependencyNode>, fieldInjectors: List<FieldInjectorInfo>, scopeGraph: ScopeGraph) {
+    fun generateComponentAndInjector(
+        nodes: List<DependencyNode>,
+        registry: Map<BindingKey, DependencyNode>,
+        fieldInjectors: List<FieldInjectorInfo>,
+        scopeGraph: ScopeGraph,
+    ) {
+        // Store registry and scopeGraph as fields for use in resolveDependency
+        this.dependencyRegistry = registry
+        this.scopeGraph = scopeGraph
+
         logger.info("Stitch: Generating DI component with ${nodes.size} bindings and ${fieldInjectors.size} injectors")
 
         val dependencies = Dependencies(
@@ -105,10 +107,18 @@ class StitchCodeGenerator(
         )
 
         // Collect field injection requests by scope (including transitive dependencies)
-        val requestedDepsByScope = mutableMapOf<KSType?, MutableSet<DependencyKey>>()
+        val requestedDepsByScope = mutableMapOf<KSType?, MutableSet<BindingKey>>()
 
-        // Build node lookup map
-        val nodeMap = nodes.associateBy { DependencyKey(it.type, it.qualifier) }
+        // Build node lookup map (index both canonical types and aliases)
+        val nodeMap = mutableMapOf<BindingKey, DependencyNode>()
+        for (node in nodes) {
+            // Index canonical type
+            nodeMap[BindingKey(node.type, node.qualifier)] = node
+            // Index all aliases
+            node.aliases.forEach { aliasType ->
+                nodeMap[BindingKey(aliasType, node.qualifier)] = node
+            }
+        }
 
         // Helper to transitively collect dependencies
         fun collectTransitiveDeps(node: DependencyNode, visited: MutableSet<DependencyNode> = mutableSetOf()) {
@@ -116,13 +126,13 @@ class StitchCodeGenerator(
             visited.add(node)
 
             // Add the node itself to its binding's scope
-            val key = DependencyKey(node.type, node.qualifier)
+            val key = BindingKey(node.type, node.qualifier)
             val bindingScope = node.scopeAnnotation
             requestedDepsByScope.getOrPut(bindingScope) { mutableSetOf() }.add(key)
 
             // Recursively collect transitive dependencies
             node.dependencies.forEach { dep ->
-                val depKey = DependencyKey(dep.type, dep.qualifier)
+                val depKey = BindingKey(dep.type, dep.qualifier)
                 nodeMap[depKey]?.let { depNode ->
                     collectTransitiveDeps(depNode, visited)
                 }
@@ -132,7 +142,7 @@ class StitchCodeGenerator(
         // For each field injection, collect the field type and its transitive deps
         fieldInjectors.forEach { injector ->
             injector.injectableFields.forEach { field ->
-                val fieldKey = DependencyKey(field.type, field.qualifier)
+                val fieldKey = BindingKey(field.type, field.qualifier)
                 nodeMap[fieldKey]?.let { node ->
                     // Collect this node and all its transitive dependencies
                     collectTransitiveDeps(node)
@@ -162,12 +172,12 @@ class StitchCodeGenerator(
         }
 
         // Generate DI component file (singletons + factories only)
-        generateDiComponentFile(unscopedNodes, fieldInjectors, scopeGraph, dependencies, nodes, requestedDepsByScope)
+        generateDiComponentFile(unscopedNodes, fieldInjectors, dependencies, requestedDepsByScope)
 
         // Generate scope component files for every scope in the graph
         allScopes.forEach { scopeAnnotation ->
             val scopeNodes = scopedNodesByScope[scopeAnnotation] ?: emptyList()
-            generateScopeComponentFile(scopeAnnotation, scopeNodes, fieldInjectors, scopeGraph, dependencies, nodes, requestedDepsByScope)
+            generateScopeComponentFile(scopeAnnotation, scopeNodes, fieldInjectors, dependencies, requestedDepsByScope)
         }
 
         // Generate BindingProvider file (contains factory methods for non-singleton bindings)
@@ -195,10 +205,8 @@ class StitchCodeGenerator(
         scopeAnnotation: KSType,
         nodes: List<DependencyNode>,
         fieldInjectors: List<FieldInjectorInfo>,
-        scopeGraph: ScopeGraph,
         dependencies: Dependencies,
-        allNodes: List<DependencyNode>, // All nodes for dependency resolution
-        requestedDepsByScope: Map<KSType?, Set<DependencyKey>>,
+        requestedDepsByScope: Map<KSType?, Set<BindingKey>>,
     ) {
         val scopeInfo = scopeGraph.scopes[scopeAnnotation]!!
         val scopeName = scopeAnnotation.declaration.simpleName.asString()
@@ -238,7 +246,7 @@ class StitchCodeGenerator(
         // Generate DCL fields and provider methods for scoped dependencies
         nodes.forEach { node ->
             // Check if this node is requested via field injection
-            val nodeKey = DependencyKey(node.type, node.qualifier)
+            val nodeKey = BindingKey(node.type, node.qualifier)
             val isRequested = nodeKey in requestedScopedDeps
 
             // Add DCL field, initialized flag, and lock only if requested
@@ -249,7 +257,7 @@ class StitchCodeGenerator(
             }
 
             // Generate canonical provider method (with current scope context)
-            component.addFunction(generateProviderMethod(node, scopeAnnotation, allNodes, scopeGraph, isRequested))
+            component.addFunction(generateProviderMethod(node, scopeAnnotation, isRequested))
 
             // Generate alias provider methods
             node.aliases.forEach { aliasType ->
@@ -263,7 +271,7 @@ class StitchCodeGenerator(
             if (fieldInjector.injectableFields.isEmpty()) return@forEach
 
             component.addFunction(
-                generateScopeFieldInjector(fieldInjector, scopeAnnotation, scopeGraph, allNodes),
+                generateScopeFieldInjector(fieldInjector, scopeAnnotation),
             )
         }
 
@@ -311,8 +319,6 @@ class StitchCodeGenerator(
     private fun generateScopeFieldInjector(
         fieldInjector: FieldInjectorInfo,
         scopeAnnotation: KSType,
-        scopeGraph: ScopeGraph,
-        allNodes: List<DependencyNode>,
     ): FunSpec {
         val className = fieldInjector.classDeclaration.toClassName()
         val methodName = "inject"
@@ -328,8 +334,6 @@ class StitchCodeGenerator(
                         field.type,
                         field.qualifier,
                         scopeAnnotation,
-                        allNodes,
-                        scopeGraph,
                     ) ?: return@forEach // Skip if not found (error already reported)
 
                     val depMethodName = generateDependencyName(field.type, field.qualifier)
@@ -363,16 +367,14 @@ class StitchCodeGenerator(
     private fun generateDiComponentFile(
         nodes: List<DependencyNode>,
         fieldInjectors: List<FieldInjectorInfo>,
-        scopeGraph: ScopeGraph,
         dependencies: Dependencies,
-        allNodes: List<DependencyNode>, // All nodes for dependency resolution
-        requestedDepsByScope: Map<KSType?, Set<DependencyKey>>,
+        requestedDepsByScope: Map<KSType?, Set<BindingKey>>,
     ) {
         val file = FileSpec.builder(GENERATED_PACKAGE, DI_COMPONENT_NAME)
             .addFileComment("Generated by Stitch KSP Compiler - DO NOT EDIT")
             .addImport("kotlinx.atomicfu", "atomic")
             .addImport("kotlinx.atomicfu.locks", "synchronized")
-            .addType(generateDiComponent(nodes, fieldInjectors, scopeGraph, allNodes, requestedDepsByScope))
+            .addType(generateDiComponent(nodes, fieldInjectors, requestedDepsByScope))
             .build()
 
         val outputStream = codeGenerator.createNewFile(
@@ -392,9 +394,7 @@ class StitchCodeGenerator(
     private fun generateDiComponent(
         nodes: List<DependencyNode>,
         fieldInjectors: List<FieldInjectorInfo>,
-        scopeGraph: ScopeGraph,
-        allNodes: List<DependencyNode>,
-        requestedDepsByScope: Map<KSType?, Set<DependencyKey>>,
+        requestedDepsByScope: Map<KSType?, Set<BindingKey>>,
     ): TypeSpec {
         val component = TypeSpec.objectBuilder(DI_COMPONENT_NAME)
             .superclass(ClassName("com.harrytmthy.stitch.internal", "StitchComponent"))
@@ -405,7 +405,7 @@ class StitchCodeGenerator(
         // Generate fields and methods for each dependency
         nodes.forEach { node ->
             // Check if this node is requested via field injection
-            val nodeKey = DependencyKey(node.type, node.qualifier)
+            val nodeKey = BindingKey(node.type, node.qualifier)
             val isRequested = nodeKey in requestedSingletonDeps
 
             // Add field and lock for singletons only if requested via field injection
@@ -416,7 +416,7 @@ class StitchCodeGenerator(
             }
 
             // Generate canonical provider method (currentScope = null for DI component)
-            component.addFunction(generateProviderMethod(node, null, allNodes, scopeGraph, isRequested))
+            component.addFunction(generateProviderMethod(node, null, isRequested))
 
             // Generate alias provider methods that delegate to canonical method
             node.aliases.forEach { aliasType ->
@@ -432,8 +432,6 @@ class StitchCodeGenerator(
                     generateFieldInjector(
                         classDeclaration = fieldInjector.classDeclaration,
                         fields = fieldInjector.injectableFields,
-                        allNodes = allNodes,
-                        scopeGraph = scopeGraph,
                     ),
                 )
             }
@@ -520,8 +518,6 @@ class StitchCodeGenerator(
     private fun generateProviderMethod(
         node: DependencyNode,
         currentScope: KSType?,
-        allNodes: List<DependencyNode>,
-        scopeGraph: ScopeGraph,
         isRequested: Boolean, // Whether this type is requested via field injection
     ): FunSpec {
         val typeCls = node.type.toTypeName()
@@ -546,7 +542,7 @@ class StitchCodeGenerator(
                         indent()
                         addStatement("if ($initFlagName.value) return $fieldReturn")
                         add("val v = ")
-                        addProviderCall(node, currentScope, allNodes, scopeGraph)
+                        addProviderCall(node, currentScope)
                         addStatement("$fieldRefName.value = v")
                         addStatement("$initFlagName.value = true")
                         addStatement("return v")
@@ -559,7 +555,7 @@ class StitchCodeGenerator(
                 method.addCode(
                     buildCodeBlock {
                         add("return ")
-                        addProviderCall(node, currentScope, allNodes, scopeGraph)
+                        addProviderCall(node, currentScope)
                     },
                 )
             }
@@ -583,7 +579,7 @@ class StitchCodeGenerator(
                         indent()
                         addStatement("if ($initFlagName.value) return $fieldReturn")
                         add("val v = ")
-                        addBindingProviderCall(node, currentScope, allNodes, scopeGraph)
+                        addBindingProviderCall(node, currentScope)
                         addStatement("$fieldRefName.value = v")
                         addStatement("$initFlagName.value = true")
                         addStatement("return v")
@@ -596,7 +592,7 @@ class StitchCodeGenerator(
                 method.addCode(
                     buildCodeBlock {
                         add("return ")
-                        addBindingProviderCall(node, currentScope, allNodes, scopeGraph)
+                        addBindingProviderCall(node, currentScope)
                     },
                 )
             }
@@ -612,8 +608,6 @@ class StitchCodeGenerator(
     private fun CodeBlock.Builder.addBindingProviderCall(
         node: DependencyNode,
         currentScope: KSType?, // null for DiComponent, non-null for scoped components
-        allNodes: List<DependencyNode>,
-        scopeGraph: ScopeGraph,
     ) {
         val methodName = generateDependencyName(node)
         val bindingProviderClass = ClassName(GENERATED_PACKAGE, "BindingProvider")
@@ -627,9 +621,15 @@ class StitchCodeGenerator(
                 val paramName = generateDependencyName(dep.type, dep.qualifier)
 
                 // Resolve where this dependency is located
-                val resolved = resolveDependency(dep.type, dep.qualifier, currentScope, allNodes, scopeGraph)
+                val resolved = resolveDependency(dep.type, dep.qualifier, currentScope)
                 if (resolved == null) {
-                    addStatement("/* UNRESOLVED: ${dep.type.declaration.simpleName.asString()} */")
+                    reportUnresolvedDependency(dep.type, dep.qualifier, currentScope)
+                    add("$paramName = error(\"Unresolved dependency\")")
+                    if (index < node.dependencies.size - 1) {
+                        add(",\n")
+                    } else {
+                        add("\n")
+                    }
                     return@forEachIndexed
                 }
 
@@ -682,20 +682,22 @@ class StitchCodeGenerator(
     private fun CodeBlock.Builder.addProviderCall(
         node: DependencyNode,
         currentScope: KSType?,
-        allNodes: List<DependencyNode>,
-        scopeGraph: ScopeGraph,
     ) {
         /**
          * Generates a qualified dependency call based on where the dependency is resolved.
          */
-        fun generateDependencyCall(dep: DependencyRef): String {
-            val (resolvedNode, _) = resolveDependency(dep.type, dep.qualifier, currentScope, allNodes, scopeGraph)
-                ?: return "/* UNRESOLVED: ${dep.type.declaration.simpleName.asString()} */"
+        fun generateDependencyCall(type: KSType, qualifier: QualifierInfo?): String {
+            val resolved = resolveDependency(type, qualifier, currentScope)
+            if (resolved == null) {
+                reportUnresolvedDependency(type, qualifier, currentScope)
+                return "error(\"Unresolved dependency: ${type.declaration.simpleName.asString()}\")"
+            }
+            val (resolvedNode, _) = resolved
 
             // Use the requested dependency type to generate method name (not the node's primary type)
             // This ensures we call userRepository() when UserRepository is requested, even if the
             // underlying implementation is UserRepositoryImpl
-            val methodName = generateDependencyName(dep.type, dep.qualifier)
+            val methodName = generateDependencyName(type, qualifier)
             val targetScope = resolvedNode.scopeAnnotation
 
             return when {
@@ -739,7 +741,7 @@ class StitchCodeGenerator(
                     add("%T(\n", typeCls)
                     indent()
                     constructorParams.forEachIndexed { i, dep ->
-                        val depCall = generateDependencyCall(dep)
+                        val depCall = generateDependencyCall(dep.type, dep.qualifier)
                         val comma = if (i < constructorParams.size - 1) "," else ""
                         addStatement("$depCall$comma")
                     }
@@ -752,8 +754,7 @@ class StitchCodeGenerator(
                     add(".also { instance ->\n")
                     indent()
                     node.injectableFields.forEach { field ->
-                        val fieldDep = DependencyRef(field.type, field.qualifier)
-                        val depCall = generateDependencyCall(fieldDep)
+                        val depCall = generateDependencyCall(field.type, field.qualifier)
                         addStatement("instance.${field.name} = $depCall")
                     }
                     unindent()
@@ -778,7 +779,7 @@ class StitchCodeGenerator(
                     add("%T.$fn(\n", moduleClass)
                     indent()
                     node.dependencies.forEachIndexed { i, dep ->
-                        val depCall = generateDependencyCall(dep)
+                        val depCall = generateDependencyCall(dep.type, dep.qualifier)
                         val comma = if (i < node.dependencies.size - 1) "," else ""
                         addStatement("$depCall$comma")
                     }
@@ -796,7 +797,7 @@ class StitchCodeGenerator(
                     add("%T.$modulePropName.$fn(\n", moduleProviderClass)
                     indent()
                     node.dependencies.forEachIndexed { i, dep ->
-                        val depCall = generateDependencyCall(dep)
+                        val depCall = generateDependencyCall(dep.type, dep.qualifier)
                         val comma = if (i < node.dependencies.size - 1) "," else ""
                         addStatement("$depCall$comma")
                     }
@@ -813,9 +814,7 @@ class StitchCodeGenerator(
      */
     private fun generateFieldInjector(
         classDeclaration: KSClassDeclaration,
-        fields: List<InjectableFieldInfo>,
-        allNodes: List<DependencyNode>,
-        scopeGraph: ScopeGraph,
+        fields: List<FieldInfo>,
     ): FunSpec {
         val className = classDeclaration.toClassName()
 
@@ -829,8 +828,6 @@ class StitchCodeGenerator(
                             depType = field.type,
                             depQualifier = field.qualifier,
                             currentScope = null,
-                            allNodes = allNodes,
-                            scopeGraph = scopeGraph,
                         ) ?: return@forEach // Skip unresolvable fields
 
                         val depMethodName = generateDependencyName(field.type, field.qualifier)
@@ -1032,6 +1029,21 @@ class StitchCodeGenerator(
         return function.build()
     }
 
+    private fun reportUnresolvedDependency(
+        depType: KSType,
+        depQualifier: QualifierInfo?,
+        currentScope: KSType?,
+    ) {
+        val typeName = depType.declaration.qualifiedName?.asString() ?: depType.toString()
+        val qualifier = when (depQualifier) {
+            null -> "<default>"
+            is QualifierInfo.Named -> "@Named(\"${depQualifier.value}\")"
+            is QualifierInfo.Custom -> error("Custom qualifiers are not supported in v1.0")
+        }
+        val scopeName = currentScope?.declaration?.qualifiedName?.asString() ?: "singleton"
+        logger.error("Failed to resolve dependency $typeName ($qualifier) from scope $scopeName")
+    }
+
     private fun sanitizeName(name: String): String {
         return name.replace(Regex("[^a-zA-Z0-9]"), "_")
     }
@@ -1092,21 +1104,6 @@ class StitchCodeGenerator(
 
             chain += ".upstream"
             cursor = parent
-        }
-    }
-
-    /**
-     * Key for looking up dependencies in the requested deps map.
-     */
-    private data class DependencyKey(val type: KSType, val qualifier: QualifierInfo?) {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (other !is DependencyKey) return false
-            return type.declaration == other.type.declaration && qualifier == other.qualifier
-        }
-
-        override fun hashCode(): Int {
-            return 31 * type.declaration.hashCode() + (qualifier?.hashCode() ?: 0)
         }
     }
 

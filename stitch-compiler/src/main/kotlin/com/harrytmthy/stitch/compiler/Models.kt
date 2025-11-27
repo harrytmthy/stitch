@@ -35,7 +35,7 @@ data class ModuleInfo(
 data class ProvidesInfo(
     val declaration: KSFunctionDeclaration,
     val returnType: KSType,
-    val parameters: List<ParameterInfo>,
+    val parameters: List<FieldInfo>,
     val isSingleton: Boolean,
     val qualifier: QualifierInfo?,
     val aliases: List<KSType> = emptyList(),
@@ -58,20 +58,56 @@ data class BindsInfo(
 )
 
 /**
- * Represents a parameter of a @Provides method.
- */
-data class ParameterInfo(
-    val name: String,
-    val type: KSType,
-    val qualifier: QualifierInfo?,
-)
-
-/**
  * Represents qualifier information.
  */
 sealed class QualifierInfo {
     data class Named(val value: String) : QualifierInfo()
     data class Custom(val qualifiedName: String) : QualifierInfo()
+}
+
+/**
+ * Unified field/parameter information.
+ * Replaces DependencyRef, ParameterInfo, and InjectableFieldInfo.
+ *
+ * @param type The type of the field/parameter
+ * @param qualifier Optional qualifier annotation
+ * @param name Optional field/parameter name (null for dependency references)
+ * @param scopeAnnotation Optional scope annotation (null for unscoped/singleton)
+ */
+data class FieldInfo(
+    val type: KSType,
+    val qualifier: QualifierInfo?,
+    val name: String? = null,
+    val scopeAnnotation: KSType? = null,
+)
+
+/**
+ * Key for looking up dependencies in maps.
+ * Includes scope for differentiation between same type/qualifier in different scopes.
+ *
+ * @param type The dependency type
+ * @param qualifier Optional qualifier
+ * @param scope Optional scope annotation (null for singleton/unscoped)
+ */
+data class BindingKey(
+    val type: KSType,
+    val qualifier: QualifierInfo? = null,
+    val scope: KSType? = null,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is BindingKey) return false
+        return type.declaration == other.type.declaration &&
+            qualifier == other.qualifier &&
+            scope?.declaration == other.scope?.declaration
+    }
+
+    override fun hashCode(): Int {
+        var result = type.declaration.hashCode()
+        result = 31 * result + (qualifier?.hashCode() ?: 0)
+        result = 31 * result + (scope?.declaration?.hashCode() ?: 0)
+        return result
+    }
 }
 
 /**
@@ -88,18 +124,10 @@ data class DependencyNode(
     val type: KSType,
     val qualifier: QualifierInfo?,
     val isSingleton: Boolean,
-    val dependencies: List<DependencyRef>,
-    val injectableFields: List<InjectableFieldInfo> = emptyList(),
+    val dependencies: List<FieldInfo>,
+    val injectableFields: List<FieldInfo> = emptyList(),
     val aliases: MutableList<KSType> = mutableListOf(),
     val scopeAnnotation: KSType? = null,
-)
-
-/**
- * Represents a reference to a dependency.
- */
-data class DependencyRef(
-    val type: KSType,
-    val qualifier: QualifierInfo?,
 )
 
 /**
@@ -108,21 +136,11 @@ data class DependencyRef(
 data class InjectableClassInfo(
     val classDeclaration: KSClassDeclaration,
     val constructor: KSFunctionDeclaration,
-    val constructorParameters: List<ParameterInfo>,
-    val injectableFields: List<InjectableFieldInfo>,
+    val constructorParameters: List<FieldInfo>,
+    val injectableFields: List<FieldInfo>,
     val isSingleton: Boolean,
     val qualifier: QualifierInfo?,
     val aliases: List<KSType> = emptyList(),
-    val scopeAnnotation: KSType? = null,
-)
-
-/**
- * Represents a field with @Inject annotation.
- */
-data class InjectableFieldInfo(
-    val name: String,
-    val type: KSType,
-    val qualifier: QualifierInfo?,
     val scopeAnnotation: KSType? = null,
 )
 
@@ -132,7 +150,7 @@ data class InjectableFieldInfo(
  */
 data class FieldInjectorInfo(
     val classDeclaration: KSClassDeclaration,
-    val injectableFields: List<InjectableFieldInfo>,
+    val injectableFields: List<FieldInfo>,
     val scopeUsage: ClassScopeUsage = ClassScopeUsage(null, emptySet(), emptyList()),
 )
 
@@ -169,4 +187,13 @@ data class ScanResult(
     val modules: List<ModuleInfo>,
     val injectables: List<InjectableClassInfo>,
     val fieldInjectors: List<FieldInjectorInfo>,
+)
+
+/**
+ * Result of building and validating the dependency graph.
+ * Contains both the node list and the dependency registry for O(1) lookup.
+ */
+data class DependencyGraph(
+    val nodes: List<DependencyNode>,
+    val registry: Map<BindingKey, DependencyNode>,
 )
