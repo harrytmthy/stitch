@@ -78,7 +78,7 @@ class ApiService @Inject constructor(
 }
 
 class CacheService {
-    fun get(key: String): String? {
+    fun get(key: String): String {
         return "cached_$key"
     }
 }

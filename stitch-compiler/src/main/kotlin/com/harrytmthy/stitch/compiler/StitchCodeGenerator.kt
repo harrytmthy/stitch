@@ -148,6 +148,19 @@ class StitchCodeGenerator(
         // All discovered custom scopes, regardless of whether they have bindings
         val allScopes = scopeGraph.scopes.keys
 
+        // Generate ModuleProvider file (before DiComponent and BindingProvider)
+        val moduleProviderFile = generateModuleProvider(nodes)
+        if (moduleProviderFile != null) {
+            val moduleProviderStream = codeGenerator.createNewFile(
+                dependencies = dependencies,
+                packageName = GENERATED_PACKAGE,
+                fileName = "ModuleProvider",
+            )
+            OutputStreamWriter(moduleProviderStream).use { writer ->
+                moduleProviderFile.writeTo(writer)
+            }
+        }
+
         // Generate DI component file (singletons + factories only)
         generateDiComponentFile(unscopedNodes, fieldInjectors, scopeGraph, dependencies, nodes, requestedDepsByScope)
 
@@ -157,7 +170,19 @@ class StitchCodeGenerator(
             generateScopeComponentFile(scopeAnnotation, scopeNodes, fieldInjectors, scopeGraph, dependencies, nodes, requestedDepsByScope)
         }
 
-        logger.info("Stitch: Generated StitchDiComponent, ${allScopes.size} scope component(s)")
+        // Generate BindingProvider file (contains factory methods for non-singleton bindings)
+        val bindingProviderFile = generateBindingProvider(nodes)
+        val outputStream = codeGenerator.createNewFile(
+            dependencies = dependencies,
+            packageName = GENERATED_PACKAGE,
+            fileName = "BindingProvider",
+        )
+        OutputStreamWriter(outputStream).use { writer ->
+            bindingProviderFile.writeTo(writer)
+        }
+
+        val moduleProviderMsg = if (moduleProviderFile != null) "ModuleProvider, " else ""
+        logger.info("Stitch: Generated ${moduleProviderMsg}StitchDiComponent, ${allScopes.size} scope component(s), BindingProvider")
     }
 
     /**
@@ -189,21 +214,26 @@ class StitchCodeGenerator(
         val upstreamScope = scopeInfo.dependsOn
         val isRootScope = upstreamScope == null
 
-        // Add upstream property for non-root scopes
-        if (!isRootScope) {
+        // Add upstream property for ALL scopes
+        // Root scopes: upstream is StitchDiComponent
+        // Non-root scopes: upstream is the parent scope component
+        val upstreamClassName = if (isRootScope) {
+            ClassName(GENERATED_PACKAGE, DI_COMPONENT_NAME)
+        } else {
             val upstreamScopeName = upstreamScope.declaration.simpleName.asString()
-            val upstreamClassName = ClassName(GENERATED_PACKAGE, "Stitch${upstreamScopeName}Component")
-            component.primaryConstructor(
-                FunSpec.constructorBuilder()
-                    .addParameter("upstream", upstreamClassName)
-                    .build(),
-            )
-            component.addProperty(
-                PropertySpec.builder("upstream", upstreamClassName)
-                    .initializer("upstream")
-                    .build(),
-            )
+            ClassName(GENERATED_PACKAGE, "Stitch${upstreamScopeName}Component")
         }
+
+        component.primaryConstructor(
+            FunSpec.constructorBuilder()
+                .addParameter("upstream", upstreamClassName)
+                .build(),
+        )
+        component.addProperty(
+            PropertySpec.builder("upstream", upstreamClassName)
+                .initializer("upstream")
+                .build(),
+        )
 
         // Generate DCL fields and provider methods for scoped dependencies
         nodes.forEach { node ->
@@ -302,7 +332,7 @@ class StitchCodeGenerator(
                         scopeGraph,
                     ) ?: return@forEach // Skip if not found (error already reported)
 
-                    val depMethodName = generateMethodName(field.type, field.qualifier)
+                    val depMethodName = generateDependencyName(field.type, field.qualifier)
                     val targetScope = resolvedNode.scopeAnnotation
 
                     val call = when {
@@ -372,17 +402,6 @@ class StitchCodeGenerator(
         // Get requested deps for singleton scope (null key)
         val requestedSingletonDeps = requestedDepsByScope[null] ?: emptySet()
 
-        // Collect module holders for non-object modules
-        val moduleClasses = nodes
-            .filter { !it.providerFunction.isConstructor() } // Only @Provides methods
-            .map { it.providerModule }
-            .filter { it.classKind != ClassKind.OBJECT }
-            .distinctBy { it.qualifiedName?.asString() }
-
-        if (moduleClasses.isNotEmpty()) {
-            component.addType(generateModuleHolders(moduleClasses))
-        }
-
         // Generate fields and methods for each dependency
         nodes.forEach { node ->
             // Check if this node is requested via field injection
@@ -431,7 +450,7 @@ class StitchCodeGenerator(
             component.addFunction(
                 FunSpec.builder("create${scopeName}Component")
                     .returns(componentClassName)
-                    .addStatement("return %T()", componentClassName)
+                    .addStatement("return %T(upstream = this)", componentClassName)
                     .build(),
             )
         }
@@ -444,7 +463,7 @@ class StitchCodeGenerator(
      */
     private fun generateSingletonField(node: DependencyNode): PropertySpec {
         val typeCls = node.type.toTypeName()
-        val fieldName = "_${generateMethodName(node)}_ref"
+        val fieldName = "_${generateDependencyName(node)}_ref"
 
         return PropertySpec.builder(
             fieldName,
@@ -459,7 +478,7 @@ class StitchCodeGenerator(
      * Generates an atomic boolean flag for singleton dependencies.
      */
     private fun generateInitializedFlag(node: DependencyNode): PropertySpec {
-        val flagName = "_${generateMethodName(node)}_initialized"
+        val flagName = "_${generateDependencyName(node)}_initialized"
 
         return PropertySpec.builder(
             flagName,
@@ -474,7 +493,7 @@ class StitchCodeGenerator(
      * Generates a lock field for a singleton dependency.
      */
     private fun generateLockField(node: DependencyNode): PropertySpec {
-        val lockFieldName = "_lock_${generateMethodName(node)}"
+        val lockFieldName = "_lock_${generateDependencyName(node)}"
 
         return PropertySpec.builder(lockFieldName, Any::class, KModifier.PRIVATE)
             .initializer("Any()")
@@ -486,8 +505,8 @@ class StitchCodeGenerator(
      */
     private fun generateAliasProviderMethod(node: DependencyNode, aliasType: KSType): FunSpec {
         val aliasTypeCls = aliasType.toTypeName()
-        val canonicalMethodName = generateMethodName(node)
-        val aliasMethodName = generateMethodName(aliasType, node.qualifier)
+        val canonicalMethodName = generateDependencyName(node)
+        val aliasMethodName = generateDependencyName(aliasType, node.qualifier)
 
         return FunSpec.builder(aliasMethodName)
             .returns(aliasTypeCls)
@@ -503,49 +522,157 @@ class StitchCodeGenerator(
         currentScope: KSType?,
         allNodes: List<DependencyNode>,
         scopeGraph: ScopeGraph,
-        isRequested: Boolean = true, // Whether this type is requested via field injection
+        isRequested: Boolean, // Whether this type is requested via field injection
     ): FunSpec {
         val typeCls = node.type.toTypeName()
-        val methodName = generateMethodName(node)
+        val methodName = generateDependencyName(node)
         val method = FunSpec.builder(methodName)
             .returns(typeCls)
 
-        // Use DCL only if requested via field injection and node is singleton/scoped
-        val useDCL = isRequested && (node.isSingleton || node.scopeAnnotation != null)
-
-        if (useDCL) {
-            // Singleton or scoped: double-checked locking pattern with initialized flag
-            val fieldRefName = "_${methodName}_ref"
-            val initFlagName = "_${methodName}_initialized"
-            val lockName = "_lock_$methodName"
-            // Field is stored as nullable, need !! for non-nullable return types
-            val fieldReturn = if (node.type.isMarkedNullable) "$fieldRefName.value" else "$fieldRefName.value!!"
-            method.addCode(
-                buildCodeBlock {
-                    addStatement("if ($initFlagName.value) return $fieldReturn")
-                    addStatement("synchronized($lockName) {")
-                    indent()
-                    addStatement("if ($initFlagName.value) return $fieldReturn")
-                    add("val v = ")
-                    addProviderCall(node, currentScope, allNodes, scopeGraph)
-                    addStatement("$fieldRefName.value = v")
-                    addStatement("$initFlagName.value = true")
-                    addStatement("return v")
-                    unindent()
-                    addStatement("}")
-                },
-            )
+        // Singletons: Use direct construction (DCL if requested, factory if not)
+        // Non-singletons: Call BindingProvider
+        if (node.isSingleton) {
+            // Singleton logic (existing behavior)
+            if (isRequested) {
+                // DCL for requested singletons
+                val fieldRefName = "_${methodName}_ref"
+                val initFlagName = "_${methodName}_initialized"
+                val lockName = "_lock_$methodName"
+                val fieldReturn = if (node.type.isMarkedNullable) "$fieldRefName.value" else "$fieldRefName.value!!"
+                method.addCode(
+                    buildCodeBlock {
+                        addStatement("if ($initFlagName.value) return $fieldReturn")
+                        addStatement("synchronized($lockName) {")
+                        indent()
+                        addStatement("if ($initFlagName.value) return $fieldReturn")
+                        add("val v = ")
+                        addProviderCall(node, currentScope, allNodes, scopeGraph)
+                        addStatement("$fieldRefName.value = v")
+                        addStatement("$initFlagName.value = true")
+                        addStatement("return v")
+                        unindent()
+                        addStatement("}")
+                    },
+                )
+            } else {
+                // Factory method for unrequested singletons
+                method.addCode(
+                    buildCodeBlock {
+                        add("return ")
+                        addProviderCall(node, currentScope, allNodes, scopeGraph)
+                    },
+                )
+            }
         } else {
-            // Factory: direct call, no caching
-            method.addCode(
-                buildCodeBlock {
-                    add("return ")
-                    addProviderCall(node, currentScope, allNodes, scopeGraph)
-                },
-            )
+            // Non-singleton: delegate to BindingProvider
+            // Scoped: use DCL if requested, otherwise factory
+            // Unscoped: always factory (no DCL)
+            val useScopedDCL = isRequested && node.scopeAnnotation != null
+
+            if (useScopedDCL) {
+                // Scoped with DCL: call BindingProvider inside DCL
+                val fieldRefName = "_${methodName}_ref"
+                val initFlagName = "_${methodName}_initialized"
+                val lockName = "_lock_$methodName"
+                val fieldReturn = if (node.type.isMarkedNullable) "$fieldRefName.value" else "$fieldRefName.value!!"
+
+                method.addCode(
+                    buildCodeBlock {
+                        addStatement("if ($initFlagName.value) return $fieldReturn")
+                        addStatement("synchronized($lockName) {")
+                        indent()
+                        addStatement("if ($initFlagName.value) return $fieldReturn")
+                        add("val v = ")
+                        addBindingProviderCall(node, currentScope, allNodes, scopeGraph)
+                        addStatement("$fieldRefName.value = v")
+                        addStatement("$initFlagName.value = true")
+                        addStatement("return v")
+                        unindent()
+                        addStatement("}")
+                    },
+                )
+            } else {
+                // Factory: direct call to BindingProvider, no caching
+                method.addCode(
+                    buildCodeBlock {
+                        add("return ")
+                        addBindingProviderCall(node, currentScope, allNodes, scopeGraph)
+                    },
+                )
+            }
         }
 
         return method.build()
+    }
+
+    /**
+     * Adds a call to BindingProvider with resolved dependencies to the CodeBlock.
+     * Generates code like: BindingProvider.methodName(param1 = dep1(), param2 = dep2())
+     */
+    private fun CodeBlock.Builder.addBindingProviderCall(
+        node: DependencyNode,
+        currentScope: KSType?, // null for DiComponent, non-null for scoped components
+        allNodes: List<DependencyNode>,
+        scopeGraph: ScopeGraph,
+    ) {
+        val methodName = generateDependencyName(node)
+        val bindingProviderClass = ClassName(GENERATED_PACKAGE, "BindingProvider")
+
+        if (node.dependencies.isEmpty()) {
+            add("%T.$methodName()\n", bindingProviderClass)
+        } else {
+            add("%T.$methodName(\n", bindingProviderClass)
+            indent()
+            node.dependencies.forEachIndexed { index, dep ->
+                val paramName = generateDependencyName(dep.type, dep.qualifier)
+
+                // Resolve where this dependency is located
+                val resolved = resolveDependency(dep.type, dep.qualifier, currentScope, allNodes, scopeGraph)
+                if (resolved == null) {
+                    addStatement("/* UNRESOLVED: ${dep.type.declaration.simpleName.asString()} */")
+                    return@forEachIndexed
+                }
+
+                val (resolvedNode, _) = resolved
+                val depMethodName = generateDependencyName(dep.type, dep.qualifier)
+                val targetScope = resolvedNode.scopeAnnotation
+
+                add("$paramName = ")
+                when {
+                    // Singleton / unscoped
+                    targetScope == null -> {
+                        if (currentScope == null) {
+                            // We're in DiComponent
+                            add("$depMethodName()")
+                        } else {
+                            // Navigate upstream to DiComponent
+                            val chain = buildUpstreamChain(currentScope, null, scopeGraph)
+                            add("$chain.$depMethodName()")
+                        }
+                    }
+
+                    // We're in DiComponent but resolved to scoped node (shouldn't happen)
+                    currentScope == null -> add("/* invalid scoped dep from DI component: $depMethodName */")
+
+                    // Same scope
+                    targetScope.declaration == currentScope.declaration -> add("$depMethodName()")
+
+                    // Ancestor scope: build chain of .upstream
+                    else -> {
+                        val chain = buildUpstreamChain(currentScope, targetScope, scopeGraph)
+                        add("$chain.$depMethodName()")
+                    }
+                }
+
+                if (index < node.dependencies.size - 1) {
+                    add(",\n")
+                } else {
+                    add("\n")
+                }
+            }
+            unindent()
+            add(")\n")
+        }
     }
 
     /**
@@ -568,7 +695,7 @@ class StitchCodeGenerator(
             // Use the requested dependency type to generate method name (not the node's primary type)
             // This ensures we call userRepository() when UserRepository is requested, even if the
             // underlying implementation is UserRepositoryImpl
-            val methodName = generateMethodName(dep.type, dep.qualifier)
+            val methodName = generateDependencyName(dep.type, dep.qualifier)
             val targetScope = resolvedNode.scopeAnnotation
 
             return when {
@@ -641,33 +768,41 @@ class StitchCodeGenerator(
             val module = node.providerModule
             val moduleClass = module.toClassName()
             val isObjectModule = module.classKind == ClassKind.OBJECT
-            val moduleAccess = if (isObjectModule) {
-                "%T"
-            } else {
-                "_Modules._${moduleClass.simpleName.replaceFirstChar { it.lowercase() }}"
-            }
             val fn = node.providerFunction.simpleName.asString()
 
-            if (node.dependencies.isEmpty()) {
-                if (isObjectModule) {
-                    add("$moduleAccess.$fn()\n", moduleClass)
+            if (isObjectModule) {
+                // Object module: direct access
+                if (node.dependencies.isEmpty()) {
+                    add("%T.$fn()\n", moduleClass)
                 } else {
-                    add("$moduleAccess.$fn()\n")
+                    add("%T.$fn(\n", moduleClass)
+                    indent()
+                    node.dependencies.forEachIndexed { i, dep ->
+                        val depCall = generateDependencyCall(dep)
+                        val comma = if (i < node.dependencies.size - 1) "," else ""
+                        addStatement("$depCall$comma")
+                    }
+                    unindent()
+                    add(")\n")
                 }
             } else {
-                if (isObjectModule) {
-                    add("$moduleAccess.$fn(\n", moduleClass)
+                // Class module: access via ModuleProvider
+                val moduleProviderClass = ClassName(GENERATED_PACKAGE, "ModuleProvider")
+                val modulePropName = moduleClass.simpleName.replaceFirstChar { it.lowercase() }
+
+                if (node.dependencies.isEmpty()) {
+                    add("%T.$modulePropName.$fn()\n", moduleProviderClass)
                 } else {
-                    add("$moduleAccess.$fn(\n")
+                    add("%T.$modulePropName.$fn(\n", moduleProviderClass)
+                    indent()
+                    node.dependencies.forEachIndexed { i, dep ->
+                        val depCall = generateDependencyCall(dep)
+                        val comma = if (i < node.dependencies.size - 1) "," else ""
+                        addStatement("$depCall$comma")
+                    }
+                    unindent()
+                    add(")\n")
                 }
-                indent()
-                node.dependencies.forEachIndexed { i, dep ->
-                    val depCall = generateDependencyCall(dep)
-                    val comma = if (i < node.dependencies.size - 1) "," else ""
-                    addStatement("$depCall$comma")
-                }
-                unindent()
-                add(")\n")
             }
         }
     }
@@ -698,7 +833,7 @@ class StitchCodeGenerator(
                             scopeGraph = scopeGraph,
                         ) ?: return@forEach // Skip unresolvable fields
 
-                        val depMethodName = generateMethodName(field.type, field.qualifier)
+                        val depMethodName = generateDependencyName(field.type, field.qualifier)
                         addStatement("target.${field.name} = $depMethodName()")
                     }
                 },
@@ -706,30 +841,52 @@ class StitchCodeGenerator(
             .build()
     }
 
-    private fun generateModuleHolders(moduleClasses: List<KSClassDeclaration>): TypeSpec {
-        val type = TypeSpec.objectBuilder("_Modules").addModifiers(KModifier.PRIVATE)
-        moduleClasses.forEach { m ->
-            val className = m.toClassName()
-            val propName = "_${className.simpleName.replaceFirstChar { it.lowercase() }}"
-            type.addProperty(
+    /**
+     * Generates the ModuleProvider object file.
+     * Holds singleton instances of class-based @Module classes.
+     * Skips generation if there are no class-based modules.
+     */
+    private fun generateModuleProvider(nodes: List<DependencyNode>): FileSpec? {
+        // Collect non-object modules from @Provides bindings
+        val moduleClasses = nodes
+            .filter { !it.providerFunction.isConstructor() } // Only @Provides methods
+            .map { it.providerModule }
+            .filter { it.classKind != ClassKind.OBJECT }
+            .distinctBy { it.qualifiedName?.asString() }
+
+        // Skip generation if no class-based modules
+        if (moduleClasses.isEmpty()) {
+            return null
+        }
+
+        val moduleProvider = TypeSpec.objectBuilder("ModuleProvider")
+
+        moduleClasses.forEach { module ->
+            val className = module.toClassName()
+            val propName = className.simpleName.replaceFirstChar { it.lowercase() }
+
+            moduleProvider.addProperty(
                 PropertySpec.builder(propName, className)
                     .initializer("%T()", className)
-                    .addModifiers(KModifier.INTERNAL)
                     .build(),
             )
         }
-        return type.build()
+
+        return FileSpec.builder(GENERATED_PACKAGE, "ModuleProvider")
+            .addFileComment("Generated by Stitch KSP Compiler - DO NOT EDIT")
+            .addType(moduleProvider.build())
+            .build()
     }
 
     /**
-     * Generates a method name for a dependency.
+     * Generates a dependency name.
      * Format: {typeName} for unqualified, {typeName}_named_{value} for Named qualifiers
      */
-    private fun generateMethodName(node: DependencyNode): String {
-        return generateMethodName(node.type, node.qualifier)
+    private fun generateDependencyName(node: DependencyNode): String {
+        return generateDependencyName(node.type, node.qualifier)
     }
 
-    private fun generateMethodName(type: KSType, qualifier: QualifierInfo?): String {
+    private fun generateDependencyName(type: KSType, qualifier: QualifierInfo?): String {
         val typeName = type.declaration.simpleName.asString()
         val baseName = typeName.replaceFirstChar { it.lowercase() }
 
@@ -738,6 +895,141 @@ class StitchCodeGenerator(
             is QualifierInfo.Named -> "${baseName}_named_${sanitizeName(qualifier.value)}"
             is QualifierInfo.Custom -> error("Custom qualifiers not supported in v1.0")
         }
+    }
+
+    /**
+     * Generates the BindingProvider object file.
+     * Contains factory functions for all non-singleton bindings (scoped + unscoped).
+     */
+    private fun generateBindingProvider(nodes: List<DependencyNode>): FileSpec {
+        val bindingProvider = TypeSpec.objectBuilder("BindingProvider")
+
+        // Only generate functions for non-singleton bindings
+        for (node in nodes) {
+            if (node.isSingleton) {
+                continue
+            }
+            bindingProvider.addFunction(generateBindingProviderFunction(node))
+        }
+
+        return FileSpec.builder(GENERATED_PACKAGE, "BindingProvider")
+            .addFileComment("Generated by Stitch KSP Compiler - DO NOT EDIT")
+            .addType(bindingProvider.build())
+            .build()
+    }
+
+    /**
+     * Generates a factory function for BindingProvider.
+     * Only called for non-singleton bindings (scoped + unscoped).
+     */
+    private fun generateBindingProviderFunction(node: DependencyNode): FunSpec {
+        val methodName = generateDependencyName(node)
+        val returnType = node.type.toTypeName()
+
+        val function = FunSpec.builder(methodName)
+            .returns(returnType)
+
+        // Add parameter for each dependency (including field injections)
+        // BindingProvider accepts ALL dependencies as parameters
+        node.dependencies.forEach { dep ->
+            val paramName = generateDependencyName(dep.type, dep.qualifier)
+            val paramType = dep.type.toTypeName()
+            function.addParameter(paramName, paramType)
+        }
+
+        val isInjectConstructor = node.providerFunction.isConstructor()
+        val constructorParamCount = if (isInjectConstructor) {
+            node.dependencies.size - node.injectableFields.size
+        } else {
+            node.dependencies.size
+        }
+        val constructorDeps = node.dependencies.take(constructorParamCount)
+
+        // Generate construction call
+        if (isInjectConstructor) {
+            // @Inject constructor: new ClassName(param1, param2, ...)
+            val typeCls = node.type.toClassName()
+            function.addCode(
+                buildCodeBlock {
+                    if (constructorDeps.isEmpty() && node.injectableFields.isEmpty()) {
+                        addStatement("return %T()", typeCls)
+                    } else {
+                        if (constructorDeps.isEmpty()) {
+                            add("return %T()", typeCls)
+                        } else {
+                            add("return %T(\n", typeCls)
+                            indent()
+                            constructorDeps.forEachIndexed { i, dep ->
+                                val paramName = generateDependencyName(dep.type, dep.qualifier)
+                                val comma = if (i < constructorDeps.size - 1) "," else ""
+                                addStatement("$paramName$comma")
+                            }
+                            unindent()
+                            add(")")
+                        }
+
+                        // Field injection using .also
+                        if (node.injectableFields.isNotEmpty()) {
+                            add(".also { instance ->\n")
+                            indent()
+                            node.injectableFields.forEach { field ->
+                                val paramName = generateDependencyName(field.type, field.qualifier)
+                                addStatement("instance.${field.name} = $paramName")
+                            }
+                            unindent()
+                            add("}\n")
+                        } else {
+                            add("\n")
+                        }
+                    }
+                },
+            )
+        } else {
+            // @Provides function: Use ModuleProvider for class modules
+            val moduleClass = node.providerModule.toClassName()
+            val providerMethod = node.providerFunction.simpleName.asString()
+            val isObjectModule = node.providerModule.classKind == ClassKind.OBJECT
+            val moduleProviderClass = ClassName(GENERATED_PACKAGE, "ModuleProvider")
+
+            function.addCode(
+                buildCodeBlock {
+                    if (isObjectModule) {
+                        // Object module: direct access
+                        if (constructorDeps.isEmpty()) {
+                            addStatement("return %T.$providerMethod()", moduleClass)
+                        } else {
+                            add("return %T.$providerMethod(\n", moduleClass)
+                            indent()
+                            constructorDeps.forEachIndexed { i, dep ->
+                                val paramName = generateDependencyName(dep.type, dep.qualifier)
+                                val comma = if (i < constructorDeps.size - 1) "," else ""
+                                addStatement("$paramName$comma")
+                            }
+                            unindent()
+                            addStatement(")")
+                        }
+                    } else {
+                        // Class module: access via ModuleProvider
+                        val modulePropName = moduleClass.simpleName.replaceFirstChar { it.lowercase() }
+                        if (constructorDeps.isEmpty()) {
+                            addStatement("return %T.$modulePropName.$providerMethod()", moduleProviderClass)
+                        } else {
+                            add("return %T.$modulePropName.$providerMethod(\n", moduleProviderClass)
+                            indent()
+                            constructorDeps.forEachIndexed { i, dep ->
+                                val paramName = generateDependencyName(dep.type, dep.qualifier)
+                                val comma = if (i < constructorDeps.size - 1) "," else ""
+                                addStatement("$paramName$comma")
+                            }
+                            unindent()
+                            addStatement(")")
+                        }
+                    }
+                },
+            )
+        }
+
+        return function.build()
     }
 
     private fun sanitizeName(name: String): String {
@@ -785,17 +1077,16 @@ class StitchCodeGenerator(
      */
     private fun buildUpstreamChain(
         currentScope: KSType,
-        targetScope: KSType,
+        targetScope: KSType?,
         scopeGraph: ScopeGraph,
     ): String {
         var chain = "upstream"
         var cursor: KSType? = currentScope
 
         while (true) {
-            val parent = scopeGraph.scopes[cursor]?.dependsOn
-                ?: error("Scope ${cursor?.declaration?.simpleName?.asString()} has no upstream, but dependency resolved in ${targetScope.declaration.simpleName.asString()}")
+            val parent = scopeGraph.scopes[cursor]?.dependsOn ?: return chain
 
-            if (parent.declaration == targetScope.declaration) {
+            if (parent.declaration == targetScope?.declaration) {
                 return chain // e.g. "upstream" or "upstream.upstream"
             }
 
