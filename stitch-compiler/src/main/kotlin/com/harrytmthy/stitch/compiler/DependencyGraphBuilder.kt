@@ -35,39 +35,39 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
         type: KSType,
         qualifier: QualifierInfo?,
         currentScope: KSType?,
-        registry: Map<DependencyKey, DependencyNode>,
+        registry: Map<BindingKey, DependencyNode>,
         scopeGraph: ScopeGraph,
     ): DependencyNode? {
         // 1. Try exact match in current scope
-        val exactKey = DependencyKey(type, qualifier, currentScope)
+        val exactKey = BindingKey(type, qualifier, currentScope)
         registry[exactKey]?.let { return it }
 
         // 2. Walk up the scope chain
         if (currentScope != null) {
             var ancestorScope: KSType? = scopeGraph.scopes[currentScope]?.dependsOn
             while (ancestorScope != null) {
-                val ancestorKey = DependencyKey(type, qualifier, ancestorScope)
+                val ancestorKey = BindingKey(type, qualifier, ancestorScope)
                 registry[ancestorKey]?.let { return it }
                 ancestorScope = scopeGraph.scopes[ancestorScope]?.dependsOn
             }
         }
 
         // 3. Try singleton/unscoped (scope = null)
-        val singletonKey = DependencyKey(type, qualifier, null)
+        val singletonKey = BindingKey(type, qualifier, null)
         return registry[singletonKey]
     }
 
-    fun buildGraph(scanResult: ScanResult, scopeGraph: ScopeGraph): List<DependencyNode> {
+    fun buildGraph(scanResult: ScanResult, scopeGraph: ScopeGraph): DependencyGraph {
         val nodes = mutableListOf<DependencyNode>()
-        val registry = mutableMapOf<DependencyKey, DependencyNode>()
+        val registry = mutableMapOf<BindingKey, DependencyNode>()
 
         // Track (type, qualifier) -> scope for uniqueness across all scopes
         val typeQualifierRegistry = mutableMapOf<Pair<String, QualifierInfo?>, KSType?>()
 
         // Helper function to register a node under multiple keys (canonical + aliases)
         fun registerNode(node: DependencyNode, aliasTypes: List<KSType> = emptyList()) {
-            val allKeys = listOf(DependencyKey(node.type, node.qualifier, node.scopeAnnotation)) +
-                aliasTypes.map { DependencyKey(it, node.qualifier, node.scopeAnnotation) }
+            val allKeys = listOf(BindingKey(node.type, node.qualifier, node.scopeAnnotation)) +
+                aliasTypes.map { BindingKey(it, node.qualifier, node.scopeAnnotation) }
 
             for (key in allKeys) {
                 // Check for duplicate within same scope (existing behavior)
@@ -135,7 +135,7 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
                     qualifier = provider.qualifier,
                     isSingleton = provider.isSingleton,
                     dependencies = provider.parameters.map { param ->
-                        DependencyRef(param.type, param.qualifier)
+                        FieldInfo(type = param.type, qualifier = param.qualifier)
                     },
                     aliases = provider.aliases.toMutableList(),
                     scopeAnnotation = provider.scopeAnnotation,
@@ -151,9 +151,9 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
 
             // Dependencies include both constructor params AND injectable fields
             val allDependencies = injectable.constructorParameters.map { param ->
-                DependencyRef(param.type, param.qualifier)
+                FieldInfo(type = param.type, qualifier = param.qualifier)
             } + injectable.injectableFields.map { field ->
-                DependencyRef(field.type, field.qualifier)
+                FieldInfo(type = field.type, qualifier = field.qualifier)
             }
 
             val node = DependencyNode(
@@ -184,7 +184,7 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
 
                 if (existingNode != null) {
                     // Register the existing node under the alias type with same scope
-                    val aliasKey = DependencyKey(binds.aliasType, binds.qualifier, existingNode.scopeAnnotation)
+                    val aliasKey = BindingKey(binds.aliasType, binds.qualifier, existingNode.scopeAnnotation)
                     if (registry.containsKey(aliasKey)) {
                         val conflicting = registry[aliasKey]!!
                         val conflictingLocation = if (conflicting.providerFunction.isConstructor()) {
@@ -268,15 +268,15 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
         // Seventh pass: Validate scoped dependencies
         validateScopedDependencies(nodes, registry, scopeGraph)
 
-        return nodes
+        return DependencyGraph(nodes, registry)
     }
 
-    private fun detectCycles(nodes: List<DependencyNode>, registry: Map<DependencyKey, DependencyNode>, scopeGraph: ScopeGraph) {
-        val visiting = mutableSetOf<DependencyKey>()
-        val visited = mutableSetOf<DependencyKey>()
+    private fun detectCycles(nodes: List<DependencyNode>, registry: Map<BindingKey, DependencyNode>, scopeGraph: ScopeGraph) {
+        val visiting = mutableSetOf<BindingKey>()
+        val visited = mutableSetOf<BindingKey>()
 
         fun dfs(node: DependencyNode, path: List<DependencyNode>) {
-            val key = DependencyKey(node.type, node.qualifier, node.scopeAnnotation)
+            val key = BindingKey(node.type, node.qualifier, node.scopeAnnotation)
 
             if (visiting.contains(key)) {
                 // Cycle detected
@@ -312,7 +312,7 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
         }
 
         nodes.forEach { node ->
-            val key = DependencyKey(node.type, node.qualifier, node.scopeAnnotation)
+            val key = BindingKey(node.type, node.qualifier, node.scopeAnnotation)
             if (!visited.contains(key)) {
                 dfs(node, emptyList())
             }
@@ -325,7 +325,7 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
      */
     private fun validateScopedDependencies(
         nodes: List<DependencyNode>,
-        registry: Map<DependencyKey, DependencyNode>,
+        registry: Map<BindingKey, DependencyNode>,
         scopeGraph: ScopeGraph,
     ) {
         nodes.forEach { node ->
@@ -372,27 +372,6 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
             val upstream = scopeGraph.scopes[current]?.dependsOn ?: return false
             if (upstream == ancestor) return true
             current = upstream
-        }
-    }
-
-    private data class DependencyKey(
-        val type: KSType,
-        val qualifier: QualifierInfo?,
-        val scope: KSType?, // null for singleton/unscoped
-    ) {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (other !is DependencyKey) return false
-            return type.declaration == other.type.declaration &&
-                qualifier == other.qualifier &&
-                scope?.declaration == other.scope?.declaration
-        }
-
-        override fun hashCode(): Int {
-            var result = type.declaration.hashCode()
-            result = 31 * result + (qualifier?.hashCode() ?: 0)
-            result = 31 * result + (scope?.declaration?.hashCode() ?: 0)
-            return result
         }
     }
 }
