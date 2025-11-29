@@ -47,11 +47,9 @@ class ScopeGraphBuilder(private val logger: KSPLogger) {
      */
     private fun getScopeGraph(resolver: Resolver, singletons: Set<KSAnnotated>): ScopeGraph {
         val scopeDependencies = HashMap<KSType, KSType?>()
-        listOf(STITCH_SCOPE, JAVAX_SCOPE).forEach { scopeMetaAnnotation ->
-            resolver.getSymbolsWithAnnotation(scopeMetaAnnotation).forEach { symbol ->
-                (symbol as? KSClassDeclaration)?.asStarProjectedType()
-                    ?.let { scopeDependencies[it] = extractDependsOn(it) }
-            }
+        resolver.getSymbolsWithAnnotation(STITCH_SCOPE).forEach { symbol ->
+            (symbol as? KSClassDeclaration)?.asStarProjectedType()
+                ?.let { scopeDependencies[it] = extractDependsOn(it) }
         }
         if (scopeDependencies.isEmpty()) {
             return ScopeGraph(emptyMap(), emptyMap(), singletons)
@@ -86,29 +84,13 @@ class ScopeGraphBuilder(private val logger: KSPLogger) {
      * Extracts the `dependsOn` parameter from a @Scope annotation.
      * Returns null if depends on Singleton (default or explicit).
      */
-    private fun extractDependsOn(annotationType: KSType): KSType? {
-        // Find the @Scope annotation on this annotation class
-        val scopeAnnotation = annotationType.declaration.annotations.firstOrNull { annotation ->
-            val annotationName = annotation.annotationType.resolve().declaration.qualifiedName?.asString()
-            annotationName == STITCH_SCOPE || annotationName == JAVAX_SCOPE
-        } ?: return null
-
-        // Extract the `dependsOn` parameter value
-        val dependsOnArg = scopeAnnotation.arguments.firstOrNull { it.name?.asString() == "dependsOn" }
-
-        if (dependsOnArg == null) {
-            // No explicit dependsOn parameter, defaults to Singleton
-            return null
-        }
-
-        // Resolve the KClass to a KSType
-        val dependsOnType = dependsOnArg.value as KSType
-
-        // Check if it's Singleton (either Stitch or javax)
-        val isSingleton = isSingletonType(dependsOnType)
-
-        return if (isSingleton) null else dependsOnType
-    }
+    private fun extractDependsOn(annotationType: KSType): KSType? =
+        annotationType.declaration.annotations
+            .first { it.annotationType.resolve().declaration.qualifiedName?.asString() == STITCH_SCOPE }
+            .arguments
+            .first { it.name?.asString() == "dependsOn" }
+            .let { it.value as KSType }
+            .takeUnless(::isSingletonType)
 
     /**
      * Checks if a type is Singleton (Stitch or javax).
@@ -160,7 +142,6 @@ class ScopeGraphBuilder(private val logger: KSPLogger) {
 
     private companion object {
         const val STITCH_SCOPE = "com.harrytmthy.stitch.annotations.Scope"
-        const val JAVAX_SCOPE = "javax.inject.Scope"
         const val STITCH_SINGLETON = "com.harrytmthy.stitch.annotations.Singleton"
         const val JAVAX_SINGLETON = "javax.inject.Singleton"
     }

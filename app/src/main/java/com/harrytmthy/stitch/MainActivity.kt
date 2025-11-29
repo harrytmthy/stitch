@@ -40,11 +40,11 @@ class MainActivity : AppCompatActivity(), ActivityComponentProvider {
 
     @Inject
     @Named("activity")
-    lateinit var activityCacheService: CacheService
+    lateinit var activityCacheService: CacheServiceImpl
 
     @Inject
     @Named("activity")
-    lateinit var activityCacheService2: CacheService
+    lateinit var activityCacheService2: CacheServiceImpl
 
     @javax.inject.Inject
     lateinit var complexService: ComplexService
