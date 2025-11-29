@@ -18,97 +18,77 @@ package com.harrytmthy.stitch.compiler
 
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSType
-import com.google.devtools.ksp.symbol.KSValueArgument
-import kotlin.reflect.KClass
 
 /**
  * Builds the scope dependency graph from @Scope-annotated annotations.
- *
- * Responsibilities:
- * 1. Discover all scope annotations (annotations annotated with @Scope)
- * 2. Extract `dependsOn` parameter from each @Scope annotation
- * 3. Build dependency graph and validate acyclicity
- * 4. Calculate depth for each scope (distance from root)
- * 5. Return structured ScopeGraph
  */
 class ScopeGraphBuilder(private val logger: KSPLogger) {
 
     fun buildScopeGraph(resolver: Resolver): ScopeGraph {
-        // Step 1: Discover all scope annotations
-        val scopeAnnotations = discoverScopeAnnotations(resolver)
+        val singletons = getSingletonAnnotatedSymbols(resolver)
+        return getScopeGraph(resolver, singletons)
+    }
 
-        if (scopeAnnotations.isEmpty()) {
-            logger.info("Stitch: No custom scopes found")
-            return ScopeGraph(emptyMap(), emptySet())
+    private fun getSingletonAnnotatedSymbols(resolver: Resolver): Set<KSAnnotated> {
+        val singletonAnnotatedSymbols = HashSet<KSAnnotated>()
+        listOf(STITCH_SINGLETON, JAVAX_SINGLETON).forEach { singletonAnnotation ->
+            resolver.getSymbolsWithAnnotation(singletonAnnotation).forEach { symbol ->
+                singletonAnnotatedSymbols.add(symbol)
+            }
         }
-
-        logger.info("Stitch: Discovered ${scopeAnnotations.size} custom scope annotation(s)")
-
-        // Step 2: Extract dependsOn for each scope
-        val scopeDependencies = mutableMapOf<KSType, KSType?>()
-        scopeAnnotations.forEach { scopeAnnotation ->
-            val dependsOn = extractDependsOn(scopeAnnotation, resolver)
-            scopeDependencies[scopeAnnotation] = dependsOn
-
-            val scopeName = scopeAnnotation.declaration.simpleName.asString()
-            val dependsOnName = dependsOn?.declaration?.simpleName?.asString() ?: "Singleton"
-            logger.info("Stitch: @$scopeName → @$dependsOnName")
-        }
-
-        // Step 3: Validate acyclic graph
-        validateAcyclic(scopeDependencies)
-
-        // Step 4: Calculate depth for each scope
-        val depths = calculateDepths(scopeDependencies)
-
-        // Step 5: Build ScopeInfo map
-        val scopeInfos = scopeDependencies.map { (scope, dependsOn) ->
-            scope to ScopeInfo(
-                annotation = scope,
-                dependsOn = dependsOn,
-                depth = depths[scope]!!,
-            )
-        }.toMap()
-
-        // Step 6: Identify root scopes (those that depend on Singleton)
-        val rootScopes = scopeInfos.filter { it.value.dependsOn == null }.keys
-
-        return ScopeGraph(scopeInfos, rootScopes)
+        return singletonAnnotatedSymbols
     }
 
     /**
-     * Discovers all annotations that are themselves annotated with @Scope.
+     * Scans all annotations that are annotated with @Scope, and return the dependency map.
      */
-    private fun discoverScopeAnnotations(resolver: Resolver): List<KSType> {
-        val scopeAnnotations = mutableListOf<KSType>()
-
-        // Find all symbols annotated with @Scope meta-annotation
+    private fun getScopeGraph(resolver: Resolver, singletons: Set<KSAnnotated>): ScopeGraph {
+        val scopeDependencies = HashMap<KSType, KSType?>()
         listOf(STITCH_SCOPE, JAVAX_SCOPE).forEach { scopeMetaAnnotation ->
-            val annotated = resolver.getSymbolsWithAnnotation(scopeMetaAnnotation)
-
-            annotated.forEach { symbol ->
-                // The symbol itself is a scope annotation (e.g. @ActivityScope)
-                if (symbol is KSClassDeclaration) {
-                    val annotationType = symbol.asStarProjectedType()
-                    scopeAnnotations.add(annotationType)
-                }
+            resolver.getSymbolsWithAnnotation(scopeMetaAnnotation).forEach { symbol ->
+                (symbol as? KSClassDeclaration)?.asStarProjectedType()
+                    ?.let { scopeDependencies[it] = extractDependsOn(it) }
             }
         }
-
-        return scopeAnnotations
+        if (scopeDependencies.isEmpty()) {
+            return ScopeGraph(emptyMap(), emptyMap(), singletons)
+        }
+        validateAcyclic(scopeDependencies)
+        val scopeBySymbol = HashMap<KSAnnotated, KSType>()
+        for (scopeAnnotation in scopeDependencies.keys) {
+            val annotationName = scopeAnnotation.declaration.qualifiedName?.asString() ?: continue
+            resolver.getSymbolsWithAnnotation(annotationName).forEach { symbol ->
+                if (singletons.contains(symbol)) {
+                    val name = scopeAnnotation.declaration.simpleName.asString()
+                    logger.error(
+                        "$symbol is annotated with @Singleton and @$name at the same time",
+                        symbol,
+                    )
+                }
+                if (scopeBySymbol.containsKey(symbol)) {
+                    val existing = scopeBySymbol.getValue(symbol)
+                    val name = scopeAnnotation.declaration.simpleName.asString()
+                    logger.error(
+                        "$symbol is annotated with @$existing and @$name at the same time",
+                        symbol,
+                    )
+                }
+                scopeBySymbol[symbol] = scopeAnnotation
+            }
+        }
+        return ScopeGraph(scopeDependencies, scopeBySymbol, singletons)
     }
 
     /**
      * Extracts the `dependsOn` parameter from a @Scope annotation.
      * Returns null if depends on Singleton (default or explicit).
      */
-    private fun extractDependsOn(scopeAnnotationType: KSType, resolver: Resolver): KSType? {
-        val scopeDeclaration = scopeAnnotationType.declaration
-
+    private fun extractDependsOn(annotationType: KSType): KSType? {
         // Find the @Scope annotation on this annotation class
-        val scopeAnnotation = scopeDeclaration.annotations.firstOrNull { annotation ->
+        val scopeAnnotation = annotationType.declaration.annotations.firstOrNull { annotation ->
             val annotationName = annotation.annotationType.resolve().declaration.qualifiedName?.asString()
             annotationName == STITCH_SCOPE || annotationName == JAVAX_SCOPE
         } ?: return null
@@ -121,24 +101,13 @@ class ScopeGraphBuilder(private val logger: KSPLogger) {
             return null
         }
 
-        // The value is a KClass reference
-        val dependsOnKClass = dependsOnArg.value as? KClass<*>
-
         // Resolve the KClass to a KSType
-        val dependsOnType = resolveKClassToKSType(dependsOnArg, resolver)
+        val dependsOnType = dependsOnArg.value as KSType
 
         // Check if it's Singleton (either Stitch or javax)
         val isSingleton = isSingletonType(dependsOnType)
 
         return if (isSingleton) null else dependsOnType
-    }
-
-    /**
-     * Resolves a KClass<*> argument to a KSType.
-     */
-    private fun resolveKClassToKSType(argument: KSValueArgument, resolver: Resolver): KSType {
-        // The value is stored as a KSType in KSP
-        return argument.value as KSType
     }
 
     /**
@@ -189,37 +158,10 @@ class ScopeGraphBuilder(private val logger: KSPLogger) {
         }
     }
 
-    /**
-     * Calculates the depth of each scope (distance from Singleton).
-     * Root scopes (depend on Singleton) have depth 0.
-     */
-    private fun calculateDepths(scopeDependencies: Map<KSType, KSType?>): Map<KSType, Int> {
-        val depths = mutableMapOf<KSType, Int>()
-
-        fun calculateDepth(scope: KSType): Int {
-            if (scope in depths) return depths[scope]!!
-
-            val upstream = scopeDependencies[scope]
-            val depth = if (upstream == null) {
-                // Root scope (depends on Singleton)
-                0
-            } else {
-                // Recursive: depth = parent depth + 1
-                calculateDepth(upstream) + 1
-            }
-
-            depths[scope] = depth
-            return depth
-        }
-
-        scopeDependencies.keys.forEach { calculateDepth(it) }
-        return depths
-    }
-
-    companion object {
-        private const val STITCH_SCOPE = "com.harrytmthy.stitch.annotations.Scope"
-        private const val JAVAX_SCOPE = "javax.inject.Scope"
-        private const val STITCH_SINGLETON = "com.harrytmthy.stitch.annotations.Singleton"
-        private const val JAVAX_SINGLETON = "javax.inject.Singleton"
+    private companion object {
+        const val STITCH_SCOPE = "com.harrytmthy.stitch.annotations.Scope"
+        const val JAVAX_SCOPE = "javax.inject.Scope"
+        const val STITCH_SINGLETON = "com.harrytmthy.stitch.annotations.Singleton"
+        const val JAVAX_SINGLETON = "javax.inject.Singleton"
     }
 }

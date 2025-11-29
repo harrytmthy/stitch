@@ -44,11 +44,11 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
 
         // 2. Walk up the scope chain
         if (currentScope != null) {
-            var ancestorScope: KSType? = scopeGraph.scopes[currentScope]?.dependsOn
+            var ancestorScope: KSType? = scopeGraph.scopeDependencies[currentScope]
             while (ancestorScope != null) {
                 val ancestorKey = BindingKey(type, qualifier, ancestorScope)
                 registry[ancestorKey]?.let { return it }
-                ancestorScope = scopeGraph.scopes[ancestorScope]?.dependsOn
+                ancestorScope = scopeGraph.scopeDependencies[ancestorScope]
             }
         }
 
@@ -329,17 +329,6 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
     ) {
         nodes.forEach { node ->
             val nodeScope = node.scopeAnnotation ?: return@forEach // Unscoped/singleton, skip
-
-            val nodeScopeInfo = scopeGraph.scopes[nodeScope]
-            if (nodeScopeInfo == null) {
-                // Scope not found in graph - should not happen if scanner worked correctly
-                logger.error(
-                    "Scope ${nodeScope.declaration.simpleName.asString()} not found in scope graph",
-                    node.providerFunction,
-                )
-                return@forEach
-            }
-
             node.dependencies.forEach { dep ->
                 val depNode = findDependency(dep.type, dep.qualifier, nodeScope, registry, scopeGraph) ?: return@forEach // Missing dep, already reported
                 val depScope = depNode.scopeAnnotation
@@ -368,7 +357,7 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
     private fun isAncestor(ancestor: KSType, descendant: KSType, scopeGraph: ScopeGraph): Boolean {
         var current = descendant
         while (true) {
-            val upstream = scopeGraph.scopes[current]?.dependsOn ?: return false
+            val upstream = scopeGraph.scopeDependencies[current] ?: return false
             if (upstream == ancestor) return true
             current = upstream
         }

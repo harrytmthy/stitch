@@ -30,18 +30,21 @@ import com.google.devtools.ksp.symbol.Modifier
 /**
  * Scans for @Module annotated classes and extracts dependency information.
  */
-class ModuleScanner(private val logger: KSPLogger) {
+class ModuleScanner(
+    private val logger: KSPLogger,
+    private val scopeGraph: ScopeGraph,
+) {
 
     private val namedQualifierCache = HashMap<KSAnnotated, QualifierInfo.Named>()
 
     /**
      * Scans for @Module classes, @Inject constructors, and classes with field injection.
      */
-    fun scanAll(resolver: Resolver, scopeGraph: ScopeGraph): ScanResult {
+    fun scanAll(resolver: Resolver): ScanResult {
         cacheQualifiers(resolver)
 
         val modules = scanModules(resolver)
-        val injectScan = scanInjectables(resolver, scopeGraph)
+        val injectScan = scanInjectables(resolver)
 
         return ScanResult(
             modules = modules,
@@ -84,7 +87,7 @@ class ModuleScanner(private val logger: KSPLogger) {
     /**
      * Single combined scan for all @Inject usage (Stitch + javax.inject).
      */
-    private fun scanInjectables(resolver: Resolver, scopeGraph: ScopeGraph): InjectScanResult {
+    private fun scanInjectables(resolver: Resolver): InjectScanResult {
         val accByClass = LinkedHashMap<KSClassDeclaration, ConstructorInjectionAccumulator>()
         val seenSymbols = HashSet<KSAnnotated>()
 
@@ -191,7 +194,7 @@ class ModuleScanner(private val logger: KSPLogger) {
 
                 val fieldType = property.type.resolve()
                 val qualifier = namedQualifierCache[property]
-                val scopeAnnotation = property.getScopeAnnotation()
+                val scopeAnnotation = scopeGraph.scopeBySymbol[property]
                 injectableFields += FieldInfo(
                     type = fieldType,
                     qualifier = qualifier,
@@ -209,22 +212,7 @@ class ModuleScanner(private val logger: KSPLogger) {
                         name = param.name?.asString() ?: "",
                     )
                 }
-
-                val isSingleton = classDeclaration.hasAnnotation(STITCH_SINGLETON) ||
-                    classDeclaration.hasAnnotation(JAVAX_SINGLETON)
-
-                val scopeAnnotation = classDeclaration.getScopeAnnotation()
-
-                // Validation: cannot be both @Singleton and scoped
-                if (isSingleton && scopeAnnotation != null) {
-                    logger.error(
-                        "@Inject class ${classDeclaration.simpleName.asString()} cannot be both @Singleton and scoped " +
-                            "(${scopeAnnotation.declaration.simpleName.asString()})",
-                        classDeclaration,
-                    )
-                    return@forEach
-                }
-
+                val scopeAnnotation = scopeGraph.scopeBySymbol[classDeclaration]
                 val qualifier = namedQualifierCache[classDeclaration]
 
                 // Extract @Binds(aliases = [...]) from class
@@ -235,7 +223,7 @@ class ModuleScanner(private val logger: KSPLogger) {
                     constructor = ctor,
                     constructorParameters = constructorParameters,
                     injectableFields = injectableFields,
-                    isSingleton = isSingleton,
+                    isSingleton = scopeGraph.singletonAnnotatedSymbols.contains(classDeclaration),
                     qualifier = qualifier,
                     aliases = aliases,
                     scopeAnnotation = scopeAnnotation,
@@ -244,8 +232,7 @@ class ModuleScanner(private val logger: KSPLogger) {
 
             // 2) Build FieldInjectorInfo for field injection, independent from ctor presence.
             if (injectableFields.isNotEmpty()) {
-                val scopeUsage = analyzeClassScopeUsage(injectableFields, scopeGraph, classDeclaration)
-                fieldInjectors += FieldInjectorInfo(classDeclaration, injectableFields, scopeUsage)
+                fieldInjectors += FieldInjectorInfo(classDeclaration, injectableFields)
             }
         }
 
@@ -288,23 +275,8 @@ class ModuleScanner(private val logger: KSPLogger) {
             return null
         }
 
-        val isSingleton = function.hasAnnotation(STITCH_SINGLETON) ||
-            function.hasAnnotation(JAVAX_SINGLETON)
-
-        val scopeAnnotation = function.getScopeAnnotation()
-
-        // Validation: cannot be both @Singleton and scoped
-        if (isSingleton && scopeAnnotation != null) {
-            logger.error(
-                "@Provides method ${function.simpleName.asString()} cannot be both @Singleton and scoped " +
-                    "(${scopeAnnotation.declaration.simpleName.asString()})",
-                function,
-            )
-            return null
-        }
-
+        val scopeAnnotation = scopeGraph.scopeBySymbol[function]
         val qualifier = namedQualifierCache[function]
-
         val parameters = function.parameters.map { param ->
             FieldInfo(
                 type = param.type.resolve(),
@@ -320,7 +292,7 @@ class ModuleScanner(private val logger: KSPLogger) {
             declaration = function,
             returnType = returnType,
             parameters = parameters,
-            isSingleton = isSingleton,
+            isSingleton = scopeGraph.singletonAnnotatedSymbols.contains(function),
             qualifier = qualifier,
             aliases = aliases,
             scopeAnnotation = scopeAnnotation,
@@ -362,20 +334,11 @@ class ModuleScanner(private val logger: KSPLogger) {
 
         // Get implementation type (parameter type)
         val implementationType = function.parameters.first().type.resolve()
-
-        // TODO: Validate that alias type is a supertype of implementation type
-        // KSP doesn't have a reliable isAssignableTo API, so we skip validation for now
-
-        val isSingleton = function.hasAnnotation(STITCH_SINGLETON) ||
-            function.hasAnnotation(JAVAX_SINGLETON)
-
         val qualifier = namedQualifierCache[function]
-
         return BindsInfo(
             declaration = function,
             implementationType = implementationType,
             aliasType = aliasType,
-            isSingleton = isSingleton,
             qualifier = qualifier,
         )
     }
@@ -414,57 +377,6 @@ class ModuleScanner(private val logger: KSPLogger) {
     }
 
     /**
-     * Detects if this element has a scope annotation (annotated with @Scope meta-annotation).
-     * Returns the scope annotation type if found, null otherwise.
-     */
-    private fun KSAnnotated.getScopeAnnotation(): KSType? {
-        return annotations.firstOrNull { annotation ->
-            val annotationDeclaration = annotation.annotationType.resolve().declaration
-            // Check if this annotation is itself annotated with @Scope
-            annotationDeclaration.annotations.any { metaAnnotation ->
-                val qualifiedName = metaAnnotation.annotationType.resolve().declaration.qualifiedName?.asString()
-                qualifiedName == STITCH_SCOPE
-            }
-        }?.annotationType?.resolve()
-    }
-
-    /**
-     * Analyzes scope usage for a class with field injection.
-     * For relaxed multi-component inject, field injectors are scope-neutral.
-     * Each component will inject only fields it can resolve from its vantage point.
-     */
-    private fun analyzeClassScopeUsage(
-        injectableFields: List<FieldInfo>,
-        scopeGraph: ScopeGraph,
-        classDeclaration: KSClassDeclaration,
-    ): ClassScopeUsage {
-        // For relaxed multi-component inject, field injectors are scope-neutral.
-        // We only care that bindings exist somewhere, not where the class "belongs".
-        // Each component will inject only fields it can resolve from its vantage point.
-        return ClassScopeUsage(
-            deepestScope = null,
-            usedScopes = emptySet(),
-            ancestorPath = emptyList(),
-        )
-    }
-
-    /**
-     * Builds the ancestor path from a scope to root (Singleton).
-     * Returns list of scopes from deepest to root, excluding Singleton.
-     */
-    private fun buildAncestorPath(scope: KSType, scopeGraph: ScopeGraph): List<KSType> {
-        val path = mutableListOf<KSType>()
-        var current: KSType? = scope
-
-        while (current != null) {
-            path.add(current)
-            current = scopeGraph.scopes[current]?.dependsOn
-        }
-
-        return path // [FragmentScope, ActivityScope] (Singleton not included)
-    }
-
-    /**
      * Aggregated scan result for all @Inject usage.
      */
     private data class InjectScanResult(
@@ -487,11 +399,8 @@ class ModuleScanner(private val logger: KSPLogger) {
         const val STITCH_PROVIDES = "com.harrytmthy.stitch.annotations.Provides"
         const val STITCH_BINDS = "com.harrytmthy.stitch.annotations.Binds"
         const val STITCH_INJECT = "com.harrytmthy.stitch.annotations.Inject"
-        const val STITCH_SINGLETON = "com.harrytmthy.stitch.annotations.Singleton"
         const val STITCH_NAMED = "com.harrytmthy.stitch.annotations.Named"
-        const val STITCH_SCOPE = "com.harrytmthy.stitch.annotations.Scope"
         const val JAVAX_INJECT = "javax.inject.Inject"
-        const val JAVAX_SINGLETON = "javax.inject.Singleton"
         const val JAVAX_NAMED = "javax.inject.Named"
     }
 }
