@@ -241,24 +241,19 @@ class ModuleScanner(
 
     private fun scanModule(moduleClass: KSClassDeclaration): ModuleInfo? {
         // Get functions from both declarations (for interfaces) and getAllFunctions (for classes)
-        val declaredFunctions = moduleClass.declarations.filterIsInstance<KSFunctionDeclaration>()
-        val allFunctions = (declaredFunctions + moduleClass.getAllFunctions()).distinct()
-
-        val provides = allFunctions
-            .mapNotNull {
-                if (!it.hasAnnotation(STITCH_PROVIDES)) {
-                    return@mapNotNull null
+        val provides = ArrayList<ProvidesInfo>()
+        val binds = ArrayList<BindsInfo>()
+        for (declaration in moduleClass.getAllFunctions()) {
+            when {
+                declaration.hasAnnotation(STITCH_PROVIDES) -> {
+                    scanProvider(declaration)?.let(provides::add)
                 }
-                scanProvider(it)
-            }.toList()
 
-        val binds = allFunctions
-            .mapNotNull {
-                if (!it.hasAnnotation(STITCH_BINDS)) {
-                    return@mapNotNull null
+                declaration.hasAnnotation(STITCH_BINDS) -> {
+                    scanBinds(declaration)?.let(binds::add)
                 }
-                scanBinds(it)
-            }.toList()
+            }
+        }
 
         if (provides.isEmpty() && binds.isEmpty()) {
             logger.warn("Stitch: Module ${moduleClass.simpleName.asString()} has no @Provides or @Binds methods")
@@ -366,15 +361,10 @@ class ModuleScanner(
         return aliasesList.mapNotNull { it as? KSType }
     }
 
-    private fun KSAnnotated.hasAnnotation(qualifiedName: String): Boolean {
-        val shortName = qualifiedName.substringAfterLast('.')
-        return annotations.any {
-            val resolved = it.annotationType.resolve()
-            val qual = resolved.declaration.qualifiedName?.asString()
-            // Try qualified name first, fallback to short name if qual name is null
-            qual == qualifiedName || (qual == null && it.shortName.asString() == shortName)
+    private fun KSAnnotated.hasAnnotation(qualifiedName: String): Boolean =
+        annotations.any {
+            it.annotationType.resolve().declaration.qualifiedName?.asString() == qualifiedName
         }
-    }
 
     /**
      * Aggregated scan result for all @Inject usage.

@@ -77,7 +77,9 @@ class ApiService @Inject constructor(
     }
 }
 
-class CacheService {
+interface CacheService
+
+class CacheServiceImpl : CacheService {
     fun get(key: String): String {
         return "cached_$key"
     }
@@ -86,7 +88,7 @@ class CacheService {
 @ActivityScope
 class ViewModel @Inject constructor(
     internal val repository: UserRepository,
-    @param:Named("activity") internal val cacheService: CacheService,
+    @param:Named("activity") internal val cacheService: CacheServiceImpl,
 ) {
 
     @Inject
@@ -103,7 +105,7 @@ class ComplexService @Inject constructor(
     private val logger: Logger
 ) : Processor {
     @Inject
-    lateinit var cache: CacheService
+    lateinit var cache: CacheServiceImpl
 
     @Inject
     @Named("baseUrl")
@@ -131,18 +133,19 @@ object AppModule {
     fun provideNullInt(): Int? = null
 
     @Singleton
+    @Binds(aliases = [CacheService::class])
     @Provides
-    fun provideSingletonCacheService(): CacheService = CacheService()
+    fun provideSingletonCacheService(): CacheServiceImpl = CacheServiceImpl()
 
     @ActivityScope
     @Named("activity")
     @Provides
-    fun provideActivityScopedCacheService(): CacheService = CacheService()
+    fun provideActivityScopedCacheService(): CacheServiceImpl = CacheServiceImpl()
 
     @FragmentScope
     @Named("fragment")
     @Provides
-    fun provideFragmentScopedCacheService(): CacheService = CacheService()
+    fun provideFragmentScopedCacheService(): CacheServiceImpl = CacheServiceImpl()
 
     @Module
     interface Inner {

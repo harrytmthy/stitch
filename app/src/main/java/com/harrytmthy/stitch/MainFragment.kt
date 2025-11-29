@@ -16,11 +16,11 @@ class MainFragment : Fragment() {
 
     @Named("activity")
     @Inject
-    lateinit var activityCacheService: CacheService
+    lateinit var activityCacheService: CacheServiceImpl
 
     @Named("fragment")
     @Inject
-    lateinit var fragmentCacheService: CacheService
+    lateinit var fragmentCacheService: CacheServiceImpl
 
     override fun onCreateView(
         inflater: LayoutInflater,
