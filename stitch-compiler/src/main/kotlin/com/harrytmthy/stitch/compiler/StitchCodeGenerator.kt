@@ -65,13 +65,13 @@ class StitchCodeGenerator(
 
         // 2. Walk up the scope chain to find in ancestor scopes
         if (currentScope != null) {
-            var ancestorScope: KSType? = scopeGraph.scopes[currentScope]?.dependsOn
+            var ancestorScope: KSType? = scopeGraph.scopeDependencies[currentScope]
             while (ancestorScope != null) {
                 val ancestorKey = BindingKey(depType, depQualifier, ancestorScope)
                 dependencyRegistry[ancestorKey]?.let {
                     return it to DependencyLocation.UPSTREAM
                 }
-                ancestorScope = scopeGraph.scopes[ancestorScope]?.dependsOn
+                ancestorScope = scopeGraph.scopeDependencies[ancestorScope]
             }
         }
 
@@ -156,7 +156,7 @@ class StitchCodeGenerator(
             .groupBy { it.scopeAnnotation!! }
 
         // All discovered custom scopes, regardless of whether they have bindings
-        val allScopes = scopeGraph.scopes.keys
+        val allScopes = scopeGraph.scopeDependencies.keys
 
         // Generate ModuleProvider file (before DiComponent and BindingProvider)
         val moduleProviderFile = generateModuleProvider(nodes)
@@ -208,7 +208,7 @@ class StitchCodeGenerator(
         dependencies: Dependencies,
         requestedDepsByScope: Map<KSType?, Set<BindingKey>>,
     ) {
-        val scopeInfo = scopeGraph.scopes[scopeAnnotation]!!
+        val scopeInfo = scopeGraph.scopeDependencies[scopeAnnotation]
         val scopeName = scopeAnnotation.declaration.simpleName.asString()
         val componentClassName = "Stitch${scopeName}Component"
 
@@ -219,13 +219,12 @@ class StitchCodeGenerator(
         val requestedScopedDeps = requestedDepsByScope[scopeAnnotation] ?: emptySet()
 
         // Check if this is a root scope (depends on Singleton)
-        val upstreamScope = scopeInfo.dependsOn
-        val isRootScope = upstreamScope == null
+        val upstreamScope = scopeInfo
 
         // Add upstream property for ALL scopes
         // Root scopes: upstream is StitchDiComponent
         // Non-root scopes: upstream is the parent scope component
-        val upstreamClassName = if (isRootScope) {
+        val upstreamClassName = if (upstreamScope == null) {
             ClassName(GENERATED_PACKAGE, DI_COMPONENT_NAME)
         } else {
             val upstreamScopeName = upstreamScope.declaration.simpleName.asString()
@@ -276,8 +275,8 @@ class StitchCodeGenerator(
         }
 
         // Generate factory methods for child scopes (scopes that depend on this scope)
-        val childScopes = scopeGraph.scopes.filter {
-            it.value.dependsOn?.declaration == scopeAnnotation.declaration
+        val childScopes = scopeGraph.scopeDependencies.filter {
+            it.value?.declaration == scopeAnnotation.declaration
         }.keys
         childScopes.forEach { childScope ->
             val childScopeName = childScope.declaration.simpleName.asString()
@@ -438,8 +437,8 @@ class StitchCodeGenerator(
         }
 
         // Generate factory methods for root custom scopes (scopes that depend on Singleton)
-        val rootScopes = scopeGraph.scopes.filter {
-            it.value.dependsOn == null
+        val rootScopes = scopeGraph.scopeDependencies.filter {
+            it.value == null
         }.keys
         rootScopes.forEach { scopeAnnotation ->
             val scopeName = scopeAnnotation.declaration.simpleName.asString()
@@ -1096,7 +1095,7 @@ class StitchCodeGenerator(
         var cursor: KSType? = currentScope
 
         while (true) {
-            val parent = scopeGraph.scopes[cursor]?.dependsOn ?: return chain
+            val parent = scopeGraph.scopeDependencies[cursor] ?: return chain
 
             if (parent.declaration == targetScope?.declaration) {
                 return chain // e.g. "upstream" or "upstream.upstream"

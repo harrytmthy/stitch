@@ -33,9 +33,6 @@ class StitchSymbolProcessor(
     private val logger: KSPLogger,
 ) : SymbolProcessor {
 
-    private val scopeGraphBuilder = ScopeGraphBuilder(logger)
-    private val moduleScanner = ModuleScanner(logger)
-    private val graphBuilder = DependencyGraphBuilder(logger)
     private val codeGen = StitchCodeGenerator(codeGenerator, logger)
 
     private var processed = false
@@ -48,10 +45,10 @@ class StitchSymbolProcessor(
         logger.info("Stitch: Starting dependency injection code generation")
 
         // Build scope graph first
-        val scopeGraph = scopeGraphBuilder.buildScopeGraph(resolver)
+        val scopeGraph = ScopeGraphBuilder(logger).buildScopeGraph(resolver)
 
         // Scan for @Module classes and @Inject constructors
-        val scanResult = moduleScanner.scanAll(resolver, scopeGraph)
+        val scanResult = ModuleScanner(logger, scopeGraph).scanAll(resolver)
 
         if (scanResult.modules.isEmpty() && scanResult.injectables.isEmpty()) {
             logger.info("Stitch: No @Module or @Inject found, skipping code generation")
@@ -61,7 +58,7 @@ class StitchSymbolProcessor(
         logger.info("Stitch: Found ${scanResult.modules.size} module(s), ${scanResult.injectables.size} @Inject class(es), ${scanResult.fieldInjectors.size} field injection class(es)")
 
         // Build dependency graph and validate
-        val dependencyGraph = graphBuilder.buildGraph(scanResult, scopeGraph)
+        val dependencyGraph = DependencyGraphBuilder(logger).buildGraph(scanResult, scopeGraph)
 
         // Generate DI component and injector objects
         codeGen.generateComponentAndInjector(

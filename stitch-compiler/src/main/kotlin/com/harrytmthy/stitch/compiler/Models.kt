@@ -16,6 +16,7 @@
 
 package com.harrytmthy.stitch.compiler
 
+import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSType
@@ -55,7 +56,6 @@ data class BindsInfo(
     val declaration: KSFunctionDeclaration,
     val implementationType: KSType,
     val aliasType: KSType,
-    val isSingleton: Boolean,
     val qualifier: QualifierInfo?,
 )
 
@@ -188,33 +188,15 @@ data class InjectableClassInfo(
 data class FieldInjectorInfo(
     val classDeclaration: KSClassDeclaration,
     val injectableFields: List<FieldInfo>,
-    val scopeUsage: ClassScopeUsage = ClassScopeUsage(null, emptySet(), emptyList()),
-)
-
-/**
- * Represents information about a scope annotation.
- */
-data class ScopeInfo(
-    val annotation: KSType, // The scope annotation type (e.g. ActivityScope)
-    val dependsOn: KSType?, // Upstream scope (null if depends on Singleton)
-    val depth: Int, // Distance from Singleton (0 = root custom scope, 1+ = downstream)
 )
 
 /**
  * Represents the complete scope dependency graph.
  */
 data class ScopeGraph(
-    val scopes: Map<KSType, ScopeInfo>, // All discovered custom scopes
-    val rootScopes: Set<KSType>, // Scopes that depend directly on Singleton
-)
-
-/**
- * Represents scope usage analysis for a class with field injection.
- */
-data class ClassScopeUsage(
-    val deepestScope: KSType?, // Deepest scope used in fields (null if only Singleton/unscoped)
-    val usedScopes: Set<KSType>, // All custom scopes used in fields (excludes Singleton)
-    val ancestorPath: List<KSType>, // Ordered path from deepest to Singleton (excludes Singleton)
+    val scopeDependencies: Map<KSType, KSType?>,
+    val scopeBySymbol: Map<KSAnnotated, KSType>,
+    val singletonAnnotatedSymbols: Set<KSAnnotated>,
 )
 
 /**
