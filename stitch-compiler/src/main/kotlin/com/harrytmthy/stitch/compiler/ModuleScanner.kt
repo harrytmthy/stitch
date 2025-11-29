@@ -328,7 +328,14 @@ class ModuleScanner(private val logger: KSPLogger) {
     }
 
     private fun scanBinds(function: KSFunctionDeclaration): BindsInfo? {
-        val functionName = function.simpleName.asString()
+        val functionName = function.qualifiedName?.asString()
+            ?: run {
+                logger.error(
+                    message = "@Binds method ${function.simpleName.asString()} must not be local",
+                    symbol = function,
+                )
+                return null
+            }
 
         // Validate: @Binds methods must be abstract
         if (!function.isAbstract) {

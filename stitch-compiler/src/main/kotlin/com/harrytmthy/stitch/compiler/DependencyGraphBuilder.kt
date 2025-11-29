@@ -60,9 +60,7 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
     fun buildGraph(scanResult: ScanResult, scopeGraph: ScopeGraph): DependencyGraph {
         val nodes = mutableListOf<DependencyNode>()
         val registry = mutableMapOf<BindingKey, DependencyNode>()
-
-        // Track (type, qualifier) -> scope for uniqueness across all scopes
-        val typeQualifierRegistry = mutableMapOf<Pair<String, QualifierInfo?>, KSType?>()
+        val scopeByTypeAndQualifier = mutableMapOf<BindingKey, KSType?>()
 
         // Helper function to register a node under multiple keys (canonical + aliases)
         fun registerNode(node: DependencyNode, aliasTypes: List<KSType> = emptyList()) {
@@ -95,9 +93,9 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
                     // Check for duplicate across all scopes (Iteration 5)
                     val typeName = key.type.declaration.qualifiedName?.asString()
                     if (typeName != null) {
-                        val typeQualifierKey = typeName to key.qualifier
-                        if (typeQualifierRegistry.containsKey(typeQualifierKey)) {
-                            val existingScope = typeQualifierRegistry[typeQualifierKey]
+                        val typeQualifierKey = BindingKey(key.type, key.qualifier)
+                        if (scopeByTypeAndQualifier.containsKey(typeQualifierKey)) {
+                            val existingScope = scopeByTypeAndQualifier[typeQualifierKey]
                             val existingScopeName = existingScope?.declaration?.simpleName?.asString() ?: "Singleton"
                             val currentScopeName = key.scope?.declaration?.simpleName?.asString() ?: "Singleton"
                             val currentLocation = if (node.providerFunction.isConstructor()) {
@@ -115,7 +113,7 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
                                 node.providerFunction,
                             )
                         } else {
-                            typeQualifierRegistry[typeQualifierKey] = key.scope
+                            scopeByTypeAndQualifier[typeQualifierKey] = key.scope
                         }
                     }
                     registry[key] = node
@@ -125,7 +123,7 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
             nodes.add(node)
         }
 
-        // First pass: Create nodes from @Provides methods
+        // First pass: Create nodes from @Provides and @Inject methods
         scanResult.modules.forEach { module ->
             module.provides.forEach { provider ->
                 val node = DependencyNode(
@@ -145,7 +143,6 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
             }
         }
 
-        // Second pass: Create nodes from @Inject classes
         scanResult.injectables.forEach { injectable ->
             val returnType = injectable.classDeclaration.asStarProjectedType()
 
@@ -171,61 +168,58 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
             registerNode(node, injectable.aliases)
         }
 
-        // Third pass: Process @Binds methods
+        // Second pass: Process @Binds methods
         // @Binds methods reference an existing node and register it under an alias type
         // Note: @Binds doesn't have its own scope - it inherits from the implementation node
         scanResult.modules.forEach { module ->
             module.binds.forEach { binds ->
-                // Try to find existing node with any scope (need to search all entries)
-                val existingNode = registry.entries.firstOrNull { (key, _) ->
-                    key.type.declaration == binds.implementationType.declaration &&
-                        key.qualifier == binds.qualifier
-                }?.value
-
-                if (existingNode != null) {
-                    // Register the existing node under the alias type with same scope
-                    val aliasKey = BindingKey(binds.aliasType, binds.qualifier, existingNode.scopeAnnotation)
-                    if (registry.containsKey(aliasKey)) {
-                        val conflicting = registry[aliasKey]!!
-                        val conflictingLocation = if (conflicting.providerFunction.isConstructor()) {
-                            "${conflicting.providerModule.qualifiedName?.asString()} @Inject constructor"
-                        } else {
-                            "${conflicting.providerModule.qualifiedName?.asString()}.${conflicting.providerFunction.simpleName.asString()}()"
-                        }
-                        val currentLocation = "${module.declaration.qualifiedName?.asString()}.${binds.declaration.simpleName.asString()}()"
-                        val scopeName = aliasKey.scope?.declaration?.simpleName?.asString() ?: "Singleton"
-                        logger.error(
-                            "Duplicate binding for ${aliasKey.type.declaration.qualifiedName?.asString()} " +
-                                "with qualifier ${aliasKey.qualifier} in scope @$scopeName.\n" +
-                                "Already provided by: $conflictingLocation\n" +
-                                "Duplicate found in: $currentLocation",
-                            binds.declaration,
-                        )
-                    } else {
-                        // Register the same node instance under the alias key
-                        registry[aliasKey] = existingNode
-                        // Add alias to node's aliases list so code generator creates provider method
-                        if (!existingNode.aliases.contains(binds.aliasType)) {
-                            existingNode.aliases += binds.aliasType
-                        }
-                    }
-                } else {
-                    // Implementation type not found - error
+                val scopeKey = BindingKey(binds.implementationType, binds.qualifier)
+                val scope = scopeByTypeAndQualifier[scopeKey]
+                val key = BindingKey(binds.implementationType, binds.qualifier, scope)
+                val existingNode = registry[key] ?: run {
                     logger.error(
                         "@Binds method ${binds.declaration.simpleName.asString()}: " +
                             "implementation type ${binds.implementationType.declaration.qualifiedName?.asString()} " +
                             "with qualifier ${binds.qualifier} not found in dependency graph",
                         binds.declaration,
                     )
+                    return@forEach
+                }
+                val aliasKey = BindingKey(binds.aliasType, binds.qualifier, existingNode.scopeAnnotation)
+                if (registry.containsKey(aliasKey)) {
+                    val conflicting = registry[aliasKey]!!
+                    val conflictingLocation = if (conflicting.providerFunction.isConstructor()) {
+                        "${conflicting.providerModule.qualifiedName?.asString()} @Inject constructor"
+                    } else {
+                        "${conflicting.providerModule.qualifiedName?.asString()}.${conflicting.providerFunction.simpleName.asString()}()"
+                    }
+                    val currentLocation = "${module.declaration.qualifiedName?.asString()}.${binds.declaration.simpleName.asString()}()"
+                    val scopeName = aliasKey.scope?.declaration?.simpleName?.asString() ?: "Singleton"
+                    logger.error(
+                        "Duplicate binding for ${aliasKey.type.declaration.qualifiedName?.asString()} " +
+                            "with qualifier ${aliasKey.qualifier} in scope @$scopeName.\n" +
+                            "Already provided by: $conflictingLocation\n" +
+                            "Duplicate found in: $currentLocation",
+                        binds.declaration,
+                    )
+                } else {
+                    // Register the same node instance under the alias key
+                    registry[aliasKey] = existingNode
+                    // Add alias to node's aliases list so code generator creates provider method
+                    if (!existingNode.aliases.contains(binds.aliasType)) {
+                        existingNode.aliases += binds.aliasType
+                    }
                 }
             }
         }
 
-        // Fourth pass: Validate all dependencies exist (scope-aware resolution)
+        // Third pass: Validate all dependencies exist (scope-aware resolution)
+        val adjacency = HashMap<DependencyNode, MutableList<DependencyNode>>()
         nodes.forEach { node ->
+            val dependenciesForNode = ArrayList<DependencyNode>()
             node.dependencies.forEach { dep ->
-                val found = findDependency(dep.type, dep.qualifier, node.scopeAnnotation, registry, scopeGraph)
-                if (found == null) {
+                val dependencyNode = findDependency(dep.type, dep.qualifier, node.scopeAnnotation, registry, scopeGraph)
+                if (dependencyNode == null) {
                     val requiredBy = if (node.providerFunction.isConstructor()) {
                         "${node.providerModule.qualifiedName?.asString()} @Inject constructor"
                     } else {
@@ -237,11 +231,14 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
                             "Required by: $requiredBy",
                         node.providerFunction,
                     )
+                } else {
+                    dependenciesForNode += dependencyNode
                 }
             }
+            adjacency[node] = dependenciesForNode
         }
 
-        // Fifth pass: Validate field injection dependencies (scope-agnostic)
+        // Fourth pass: Validate field injection dependencies (scope-agnostic)
         // For relaxed multi-component inject, we only check that binding exists ANYWHERE
         scanResult.fieldInjectors.forEach { injector ->
             injector.injectableFields.forEach { field ->
@@ -262,27 +259,32 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
             }
         }
 
-        // Sixth pass: Detect cycles
-        detectCycles(nodes, registry, scopeGraph)
+        // Fifth pass: Detect cycles
+        detectCycles(nodes, adjacency)
 
-        // Seventh pass: Validate scoped dependencies
+        // Sixth pass: Validate scoped dependencies
         validateScopedDependencies(nodes, registry, scopeGraph)
 
         return DependencyGraph(nodes, registry)
     }
 
-    private fun detectCycles(nodes: List<DependencyNode>, registry: Map<BindingKey, DependencyNode>, scopeGraph: ScopeGraph) {
-        val visiting = mutableSetOf<BindingKey>()
-        val visited = mutableSetOf<BindingKey>()
+    private fun detectCycles(
+        nodes: List<DependencyNode>,
+        adjacency: Map<DependencyNode, List<DependencyNode>>,
+    ) {
+        val visiting = mutableSetOf<DependencyNode>()
+        val visited = mutableSetOf<DependencyNode>()
 
         fun dfs(node: DependencyNode, path: List<DependencyNode>) {
-            val key = BindingKey(node.type, node.qualifier, node.scopeAnnotation)
+            if (node in visiting) {
+                // cycle detected
+                val startIndex = path.indexOfFirst {
+                    it.type == node.type &&
+                        it.qualifier == node.qualifier &&
+                        it.scopeAnnotation == node.scopeAnnotation
+                }.takeIf { it >= 0 } ?: 0
 
-            if (visiting.contains(key)) {
-                // Cycle detected
-                val cyclePath = path.dropWhile {
-                    it.type != node.type || it.qualifier != node.qualifier || it.scopeAnnotation != node.scopeAnnotation
-                } + node
+                val cyclePath = path.drop(startIndex) + node
                 val cycleDescription = cyclePath.joinToString(" -> ") {
                     val qual = if (it.qualifier != null) " (${it.qualifier})" else ""
                     val scope = if (it.scopeAnnotation != null) " @${it.scopeAnnotation.declaration.simpleName.asString()}" else ""
@@ -295,25 +297,22 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
                 return
             }
 
-            if (visited.contains(key)) {
+            if (visited.contains(node)) {
                 return
             }
 
-            visiting.add(key)
+            visiting.add(node)
 
-            node.dependencies.forEach { dep ->
-                findDependency(dep.type, dep.qualifier, node.scopeAnnotation, registry, scopeGraph)?.let { depNode ->
-                    dfs(depNode, path + node)
-                }
+            adjacency[node]?.forEach { depNode ->
+                dfs(depNode, path + node)
             }
 
-            visiting.remove(key)
-            visited.add(key)
+            visiting -= node
+            visited += node
         }
 
         nodes.forEach { node ->
-            val key = BindingKey(node.type, node.qualifier, node.scopeAnnotation)
-            if (!visited.contains(key)) {
+            if (!visited.contains(node)) {
                 dfs(node, emptyList())
             }
         }
