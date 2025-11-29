@@ -19,6 +19,8 @@ package com.harrytmthy.stitch.compiler
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import com.google.devtools.ksp.symbol.KSTypeArgument
+import com.google.devtools.ksp.symbol.Variance
 
 /**
  * Represents a scanned module class annotated with @Module.
@@ -89,24 +91,59 @@ data class FieldInfo(
  * @param qualifier Optional qualifier
  * @param scope Optional scope annotation (null for singleton/unscoped)
  */
-data class BindingKey(
+class BindingKey(
     val type: KSType,
     val qualifier: QualifierInfo? = null,
     val scope: KSType? = null,
 ) {
+
+    private val typeKey: String = type.toKeyString()
+
+    private val scopeKey: String? = scope?.toKeyString()
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is BindingKey) return false
-        return type.declaration == other.type.declaration &&
-            qualifier == other.qualifier &&
-            scope?.declaration == other.scope?.declaration
+        return typeKey == other.typeKey && qualifier == other.qualifier && scopeKey == other.scopeKey
     }
 
     override fun hashCode(): Int {
-        var result = type.declaration.hashCode()
+        var result = typeKey.hashCode()
         result = 31 * result + (qualifier?.hashCode() ?: 0)
-        result = 31 * result + (scope?.declaration?.hashCode() ?: 0)
+        result = 31 * result + (scopeKey?.hashCode() ?: 0)
         return result
+    }
+
+    override fun toString(): String {
+        return buildString {
+            append(typeKey)
+            qualifier?.let { append(" ").append(it) }
+            scopeKey?.let { append(" @").append(scopeKey) }
+        }
+    }
+}
+
+/**
+ * Converts a KSType to a stable string representation for use as a map key.
+ *
+ * This ensures:
+ * - `String` and `String?` → same key
+ * - `List<out String>` and `List<String>` → same key
+ * - `List<String>` and `List<Int>` → different keys
+ */
+private fun KSType.toKeyString(): String = buildString {
+    append(declaration.qualifiedName?.asString() ?: declaration.simpleName.asString())
+    if (arguments.isNotEmpty()) {
+        arguments.joinTo(this, ",", "<", ">") {
+            it.toKeyString()
+        }
+    }
+}
+
+private fun KSTypeArgument.toKeyString(): String {
+    return when (variance) {
+        Variance.STAR -> "*"
+        else -> type?.resolve()?.toKeyString() ?: "*"
     }
 }
 
