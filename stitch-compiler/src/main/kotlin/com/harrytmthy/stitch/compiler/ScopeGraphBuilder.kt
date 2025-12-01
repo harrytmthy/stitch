@@ -16,7 +16,6 @@
 
 package com.harrytmthy.stitch.compiler
 
-import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
@@ -25,7 +24,7 @@ import com.google.devtools.ksp.symbol.KSType
 /**
  * Builds the scope dependency graph from @Scope-annotated annotations.
  */
-class ScopeGraphBuilder(private val logger: KSPLogger) {
+class ScopeGraphBuilder {
 
     fun buildScopeGraph(resolver: Resolver): ScopeGraph {
         val singletons = getSingletonAnnotatedSymbols(resolver)
@@ -61,7 +60,7 @@ class ScopeGraphBuilder(private val logger: KSPLogger) {
             resolver.getSymbolsWithAnnotation(annotationName).forEach { symbol ->
                 if (singletons.contains(symbol)) {
                     val name = scopeAnnotation.declaration.simpleName.asString()
-                    logger.error(
+                    throw StitchProcessingException(
                         "$symbol is annotated with @Singleton and @$name at the same time",
                         symbol,
                     )
@@ -69,7 +68,7 @@ class ScopeGraphBuilder(private val logger: KSPLogger) {
                 if (scopeBySymbol.containsKey(symbol)) {
                     val existing = scopeBySymbol.getValue(symbol)
                     val name = scopeAnnotation.declaration.simpleName.asString()
-                    logger.error(
+                    throw StitchProcessingException(
                         "$symbol is annotated with @$existing and @$name at the same time",
                         symbol,
                     )
@@ -113,12 +112,11 @@ class ScopeGraphBuilder(private val logger: KSPLogger) {
             if (scope in visiting) {
                 // Cycle detected
                 val cyclePath = path.joinToString(" → ")
-                logger.error(
+                throw StitchProcessingException(
                     "Cycle detected in scope dependencies: $cyclePath → ${scope.declaration.simpleName.asString()}. " +
                         "Scope dependency chains must be acyclic.",
                     scope.declaration,
                 )
-                throw IllegalStateException("Cycle in scope graph")
             }
 
             if (scope in visited) return

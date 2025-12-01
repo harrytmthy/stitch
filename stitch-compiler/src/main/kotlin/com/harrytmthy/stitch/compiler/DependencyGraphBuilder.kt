@@ -290,11 +290,10 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
                     val scope = if (it.scopeAnnotation != null) " @${it.scopeAnnotation.declaration.simpleName.asString()}" else ""
                     "${it.type.declaration.qualifiedName?.asString()}$qual$scope"
                 }
-                logger.error(
+                throw StitchProcessingException(
                     "Dependency cycle detected: $cycleDescription",
                     node.providerFunction,
                 )
-                return
             }
 
             if (visited.contains(node)) {

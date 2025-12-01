@@ -31,7 +31,7 @@ class StitchSymbolProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
         return StitchSymbolProcessor(
             codeGenerator = environment.codeGenerator,
-            logger = environment.logger,
+            logger = StitchLogger(delegate = environment.logger),
         )
     }
 }
