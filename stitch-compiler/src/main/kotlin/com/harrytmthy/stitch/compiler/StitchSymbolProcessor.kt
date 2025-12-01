@@ -17,7 +17,6 @@
 package com.harrytmthy.stitch.compiler
 
 import com.google.devtools.ksp.processing.CodeGenerator
-import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.KSAnnotated
@@ -29,47 +28,55 @@ import com.google.devtools.ksp.symbol.KSAnnotated
  * then generates DI component and injector objects for compile-time dependency resolution.
  */
 class StitchSymbolProcessor(
-    codeGenerator: CodeGenerator,
-    private val logger: KSPLogger,
+    private val codeGenerator: CodeGenerator,
+    private val logger: StitchLogger,
 ) : SymbolProcessor {
-
-    private val codeGen = StitchCodeGenerator(codeGenerator, logger)
 
     private var processed = false
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         // Only process once per compilation
-        if (processed) return emptyList()
+        if (processed) {
+            return emptyList()
+        }
         processed = true
 
         logger.info("Stitch: Starting dependency injection code generation")
+        try {
+            // Build scope graph first
+            val scopeGraph = ScopeGraphBuilder().buildScopeGraph(resolver)
+            ensureNoError()
 
-        // Build scope graph first
-        val scopeGraph = ScopeGraphBuilder(logger).buildScopeGraph(resolver)
+            // Scan for @Module classes and @Inject constructors
+            val scanResult = ModuleScanner(logger, scopeGraph).scanAll(resolver)
+            ensureNoError()
+            if (scanResult.modules.isEmpty() && scanResult.injectables.isEmpty()) {
+                logger.info("Stitch: No @Module or @Inject found, skipping code generation")
+                return emptyList()
+            }
 
-        // Scan for @Module classes and @Inject constructors
-        val scanResult = ModuleScanner(logger, scopeGraph).scanAll(resolver)
+            // Build dependency graph and validate
+            val dependencyGraph = DependencyGraphBuilder(logger).buildGraph(scanResult, scopeGraph)
+            ensureNoError()
 
-        if (scanResult.modules.isEmpty() && scanResult.injectables.isEmpty()) {
-            logger.info("Stitch: No @Module or @Inject found, skipping code generation")
-            return emptyList()
+            // Generate DI component and injector objects
+            StitchCodeGenerator(codeGenerator, logger).generateComponentAndInjector(
+                dependencyGraph.nodes,
+                dependencyGraph.registry,
+                scanResult.fieldInjectors,
+                scopeGraph,
+            )
+            ensureNoError()
+            logger.info("Stitch: Code generation completed successfully")
+        } catch (e: StitchProcessingException) {
+            e.message?.let { logger.error(it, e.symbol) }
         }
-
-        logger.info("Stitch: Found ${scanResult.modules.size} module(s), ${scanResult.injectables.size} @Inject class(es), ${scanResult.fieldInjectors.size} field injection class(es)")
-
-        // Build dependency graph and validate
-        val dependencyGraph = DependencyGraphBuilder(logger).buildGraph(scanResult, scopeGraph)
-
-        // Generate DI component and injector objects
-        codeGen.generateComponentAndInjector(
-            dependencyGraph.nodes,
-            dependencyGraph.registry,
-            scanResult.fieldInjectors,
-            scopeGraph,
-        )
-
-        logger.info("Stitch: Code generation completed successfully")
-
         return emptyList()
+    }
+
+    private fun ensureNoError() {
+        if (logger.hasError) {
+            throw StitchProcessingException()
+        }
     }
 }
