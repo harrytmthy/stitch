@@ -33,8 +33,8 @@ class ScopeGraphBuilder {
 
     private fun getSingletonAnnotatedSymbols(resolver: Resolver): Set<KSAnnotated> {
         val singletonAnnotatedSymbols = HashSet<KSAnnotated>()
-        listOf(STITCH_SINGLETON, JAVAX_SINGLETON).forEach { singletonAnnotation ->
-            resolver.getSymbolsWithAnnotation(singletonAnnotation).forEach { symbol ->
+        for (singletonAnnotation in listOf(STITCH_SINGLETON, JAVAX_SINGLETON)) {
+            for (symbol in resolver.getSymbolsWithAnnotation(singletonAnnotation)) {
                 singletonAnnotatedSymbols.add(symbol)
             }
         }
@@ -46,36 +46,17 @@ class ScopeGraphBuilder {
      */
     private fun getScopeGraph(resolver: Resolver, singletons: Set<KSAnnotated>): ScopeGraph {
         val scopeDependencies = HashMap<KSType, KSType?>()
-        resolver.getSymbolsWithAnnotation(STITCH_SCOPE).forEach { symbol ->
+        for (symbol in resolver.getSymbolsWithAnnotation(STITCH_SCOPE)) {
             (symbol as? KSClassDeclaration)?.asStarProjectedType()
-                ?.let { scopeDependencies[it] = extractDependsOn(it) }
+                ?.let { scopeDependencies[it] = null }
+        }
+        for (scope in scopeDependencies.keys) {
+            scopeDependencies[scope] = extractDependsOn(scope, scopeDependencies.keys)
         }
         if (scopeDependencies.isEmpty()) {
             return ScopeGraph(emptyMap(), emptyMap(), singletons)
         }
-        validateAcyclic(scopeDependencies)
-        val scopeBySymbol = HashMap<KSAnnotated, KSType>()
-        for (scopeAnnotation in scopeDependencies.keys) {
-            val annotationName = scopeAnnotation.declaration.qualifiedName?.asString() ?: continue
-            resolver.getSymbolsWithAnnotation(annotationName).forEach { symbol ->
-                if (singletons.contains(symbol)) {
-                    val name = scopeAnnotation.declaration.simpleName.asString()
-                    throw StitchProcessingException(
-                        "$symbol is annotated with @Singleton and @$name at the same time",
-                        symbol,
-                    )
-                }
-                if (scopeBySymbol.containsKey(symbol)) {
-                    val existing = scopeBySymbol.getValue(symbol)
-                    val name = scopeAnnotation.declaration.simpleName.asString()
-                    throw StitchProcessingException(
-                        "$symbol is annotated with @$existing and @$name at the same time",
-                        symbol,
-                    )
-                }
-                scopeBySymbol[symbol] = scopeAnnotation
-            }
-        }
+        val scopeBySymbol = getScopeBySymbol(resolver, singletons, scopeDependencies)
         return ScopeGraph(scopeDependencies, scopeBySymbol, singletons)
     }
 
@@ -83,32 +64,54 @@ class ScopeGraphBuilder {
      * Extracts the `dependsOn` parameter from a @Scope annotation.
      * Returns null if depends on Singleton (default or explicit).
      */
-    private fun extractDependsOn(annotationType: KSType): KSType? =
-        annotationType.declaration.annotations
+    private fun extractDependsOn(scope: KSType, scopes: Set<KSType>): KSType? =
+        scope.declaration.annotations
             .first { it.annotationType.resolve().declaration.qualifiedName?.asString() == STITCH_SCOPE }
             .arguments
             .first { it.name?.asString() == "dependsOn" }
-            .let { it.value as KSType }
-            .takeUnless(::isSingletonType)
+            .let { argument ->
+                val dependsOn = argument.value as KSType
+                if (dependsOn == scope) {
+                    val scopeName = scope.declaration.simpleName.asString()
+                    throw StitchProcessingException(
+                        message = "@$scopeName depends on itself",
+                        symbol = argument,
+                    )
+                }
+                if (isSingletonType(dependsOn)) {
+                    return@let null
+                }
+                if (dependsOn !in scopes) {
+                    val scopeName = scope.declaration.simpleName.asString()
+                    val other = dependsOn.declaration.simpleName.asString()
+                    throw StitchProcessingException(
+                        message = "@$scopeName depends on $other that is not a scope",
+                        symbol = argument,
+                    )
+                }
+                dependsOn
+            }
 
     /**
      * Checks if a type is Singleton (Stitch or javax).
      */
-    private fun isSingletonType(type: KSType?): Boolean {
-        if (type == null) return true
+    private fun isSingletonType(type: KSType): Boolean {
         val qualifiedName = type.declaration.qualifiedName?.asString() ?: return false
         return qualifiedName == STITCH_SINGLETON || qualifiedName == JAVAX_SINGLETON
     }
 
-    /**
-     * Validates that the scope dependency graph is acyclic.
-     * Uses DFS-based cycle detection.
-     */
-    private fun validateAcyclic(scopeDependencies: Map<KSType, KSType?>) {
+    private fun getScopeBySymbol(
+        resolver: Resolver,
+        singletons: Set<KSAnnotated>,
+        scopeDependencies: Map<KSType, KSType?>,
+    ): Map<KSAnnotated, KSType> {
         val visiting = mutableSetOf<KSType>()
         val visited = mutableSetOf<KSType>()
 
-        fun dfs(scope: KSType, path: List<String>) {
+        /**
+         * DFS-based cycle detection.
+         */
+        fun ensureNoCycles(scope: KSType, path: List<String>) {
             if (scope in visiting) {
                 // Cycle detected
                 val cyclePath = path.joinToString(" → ")
@@ -118,23 +121,50 @@ class ScopeGraphBuilder {
                     scope.declaration,
                 )
             }
-
-            if (scope in visited) return
-
+            if (scope in visited) {
+                return
+            }
             visiting.add(scope)
-
             val upstream = scopeDependencies[scope]
             if (upstream != null) {
                 val newPath = path + scope.declaration.simpleName.asString()
-                dfs(upstream, newPath)
+                ensureNoCycles(upstream, newPath)
             }
-
             visiting.remove(scope)
             visited.add(scope)
         }
 
-        scopeDependencies.keys.forEach { scope ->
-            dfs(scope, emptyList())
+        val scopeBySymbol = HashMap<KSAnnotated, KSType>()
+        for (scope in scopeDependencies.keys) {
+            ensureNoCycles(scope, emptyList())
+            scopeBySymbol.addAnnotatedSymbols(resolver, singletons, scope)
+        }
+        return scopeBySymbol
+    }
+
+    private fun HashMap<KSAnnotated, KSType>.addAnnotatedSymbols(
+        resolver: Resolver,
+        singletons: Set<KSAnnotated>,
+        scope: KSType,
+    ) {
+        val annotationName = scope.declaration.qualifiedName?.asString() ?: return
+        for (symbol in resolver.getSymbolsWithAnnotation(annotationName)) {
+            if (singletons.contains(symbol)) {
+                val name = scope.declaration.simpleName.asString()
+                throw StitchProcessingException(
+                    message = "$symbol is annotated with @Singleton and @$name at the same time",
+                    symbol = symbol,
+                )
+            }
+            if (this.containsKey(symbol)) {
+                val existing = this.getValue(symbol)
+                val name = scope.declaration.simpleName.asString()
+                throw StitchProcessingException(
+                    message = "$symbol is annotated with @$existing and @$name at the same time",
+                    symbol = symbol,
+                )
+            }
+            this[symbol] = scope
         }
     }
 
