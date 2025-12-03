@@ -161,11 +161,13 @@ data class DependencyNode(
     val type: KSType,
     val qualifier: QualifierInfo?,
     val isSingleton: Boolean,
-    val dependencies: List<FieldInfo>,
+    val constructorParameters: List<FieldInfo>,
     val injectableFields: List<FieldInfo> = emptyList(),
     val aliases: MutableList<KSType> = mutableListOf(),
     val scopeAnnotation: KSType? = null,
-)
+) {
+    val dependencies = constructorParameters + injectableFields
+}
 
 /**
  * Represents a class with @Inject constructor (and optional @Inject fields).

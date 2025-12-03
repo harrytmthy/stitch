@@ -132,9 +132,7 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
                     type = provider.returnType,
                     qualifier = provider.qualifier,
                     isSingleton = provider.isSingleton,
-                    dependencies = provider.parameters.map { param ->
-                        FieldInfo(type = param.type, qualifier = param.qualifier)
-                    },
+                    constructorParameters = provider.parameters,
                     aliases = provider.aliases.toMutableList(),
                     scopeAnnotation = provider.scopeAnnotation,
                 )
@@ -144,22 +142,13 @@ class DependencyGraphBuilder(private val logger: KSPLogger) {
         }
 
         scanResult.injectables.forEach { injectable ->
-            val returnType = injectable.classDeclaration.asStarProjectedType()
-
-            // Dependencies include both constructor params AND injectable fields
-            val allDependencies = injectable.constructorParameters.map { param ->
-                FieldInfo(type = param.type, qualifier = param.qualifier)
-            } + injectable.injectableFields.map { field ->
-                FieldInfo(type = field.type, qualifier = field.qualifier)
-            }
-
             val node = DependencyNode(
                 providerModule = injectable.classDeclaration,
                 providerFunction = injectable.constructor,
-                type = returnType,
+                type = injectable.classDeclaration.asStarProjectedType(),
                 qualifier = injectable.qualifier,
                 isSingleton = injectable.isSingleton,
-                dependencies = allDependencies,
+                constructorParameters = injectable.constructorParameters,
                 injectableFields = injectable.injectableFields,
                 aliases = injectable.aliases.toMutableList(),
                 scopeAnnotation = injectable.scopeAnnotation,

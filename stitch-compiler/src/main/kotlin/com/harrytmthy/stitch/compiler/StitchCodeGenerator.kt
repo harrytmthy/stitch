@@ -54,12 +54,12 @@ class StitchCodeGenerator(
         depType: KSType,
         depQualifier: QualifierInfo?,
         currentScope: KSType?,
-    ): Pair<DependencyNode, DependencyLocation>? {
+    ): DependencyNode? {
         // 1. Try current scope first
         if (currentScope != null) {
             val currentKey = BindingKey(depType, depQualifier, currentScope)
             dependencyRegistry[currentKey]?.let {
-                return it to DependencyLocation.SAME_SCOPE
+                return it
             }
         }
 
@@ -69,7 +69,7 @@ class StitchCodeGenerator(
             while (ancestorScope != null) {
                 val ancestorKey = BindingKey(depType, depQualifier, ancestorScope)
                 dependencyRegistry[ancestorKey]?.let {
-                    return it to DependencyLocation.UPSTREAM
+                    return it
                 }
                 ancestorScope = scopeGraph.scopeDependencies[ancestorScope]
             }
@@ -78,7 +78,7 @@ class StitchCodeGenerator(
         // 3. Try singleton/unscoped (scope = null)
         val singletonKey = BindingKey(depType, depQualifier, null)
         dependencyRegistry[singletonKey]?.let {
-            return it to DependencyLocation.SINGLETON
+            return it
         }
 
         // Not found
@@ -155,9 +155,6 @@ class StitchCodeGenerator(
         val scopedNodesByScope = nodes.filter { it.scopeAnnotation != null }
             .groupBy { it.scopeAnnotation!! }
 
-        // All discovered custom scopes, regardless of whether they have bindings
-        val allScopes = scopeGraph.scopeDependencies.keys
-
         // Generate ModuleProvider file (before DiComponent and BindingProvider)
         val moduleProviderFile = generateModuleProvider(nodes)
         if (moduleProviderFile != null) {
@@ -175,6 +172,7 @@ class StitchCodeGenerator(
         generateDiComponentFile(unscopedNodes, fieldInjectors, dependencies, requestedDepsByScope)
 
         // Generate scope component files for every scope in the graph
+        val allScopes = scopeGraph.scopeDependencies.keys
         allScopes.forEach { scopeAnnotation ->
             val scopeNodes = scopedNodesByScope[scopeAnnotation] ?: emptyList()
             generateScopeComponentFile(scopeAnnotation, scopeNodes, fieldInjectors, dependencies, requestedDepsByScope)
@@ -208,7 +206,7 @@ class StitchCodeGenerator(
         dependencies: Dependencies,
         requestedDepsByScope: Map<KSType?, Set<BindingKey>>,
     ) {
-        val scopeInfo = scopeGraph.scopeDependencies[scopeAnnotation]
+        val upstreamScope = scopeGraph.scopeDependencies[scopeAnnotation]
         val scopeName = scopeAnnotation.declaration.simpleName.asString()
         val componentClassName = "Stitch${scopeName}Component"
 
@@ -217,9 +215,6 @@ class StitchCodeGenerator(
 
         // Get requested deps for this scope
         val requestedScopedDeps = requestedDepsByScope[scopeAnnotation] ?: emptySet()
-
-        // Check if this is a root scope (depends on Singleton)
-        val upstreamScope = scopeInfo
 
         // Add upstream property for ALL scopes
         // Root scopes: upstream is StitchDiComponent
@@ -256,7 +251,7 @@ class StitchCodeGenerator(
             }
 
             // Generate canonical provider method (with current scope context)
-            component.addFunction(generateProviderMethod(node, scopeAnnotation, isRequested))
+            component.addFunction(generateProviderMethod(node, isRequested))
 
             // Generate alias provider methods
             node.aliases.forEach { aliasType ->
@@ -275,13 +270,12 @@ class StitchCodeGenerator(
         }
 
         // Generate factory methods for child scopes (scopes that depend on this scope)
-        val childScopes = scopeGraph.scopeDependencies.filter {
-            it.value?.declaration == scopeAnnotation.declaration
-        }.keys
-        childScopes.forEach { childScope ->
-            val childScopeName = childScope.declaration.simpleName.asString()
+        for ((scope, dependsOn) in scopeGraph.scopeDependencies) {
+            if (dependsOn != scopeAnnotation) {
+                continue
+            }
+            val childScopeName = scope.declaration.simpleName.asString()
             val childComponentClassName = ClassName(GENERATED_PACKAGE, "Stitch${childScopeName}Component")
-
             component.addFunction(
                 FunSpec.builder("create${childScopeName}Component")
                     .returns(childComponentClassName)
@@ -329,7 +323,7 @@ class StitchCodeGenerator(
             buildCodeBlock {
                 // Inject ALL fields directly with qualified calls
                 fieldInjector.injectableFields.forEach { field ->
-                    val (resolvedNode, _) = resolveDependency(
+                    val resolvedNode = resolveDependency(
                         field.type,
                         field.qualifier,
                         scopeAnnotation,
@@ -415,7 +409,7 @@ class StitchCodeGenerator(
             }
 
             // Generate canonical provider method (currentScope = null for DI component)
-            component.addFunction(generateProviderMethod(node, null, isRequested))
+            component.addFunction(generateProviderMethod(node, isRequested))
 
             // Generate alias provider methods that delegate to canonical method
             node.aliases.forEach { aliasType ->
@@ -437,11 +431,11 @@ class StitchCodeGenerator(
         }
 
         // Generate factory methods for root custom scopes (scopes that depend on Singleton)
-        val rootScopes = scopeGraph.scopeDependencies.filter {
-            it.value == null
-        }.keys
-        rootScopes.forEach { scopeAnnotation ->
-            val scopeName = scopeAnnotation.declaration.simpleName.asString()
+        for ((scope, dependsOn) in scopeGraph.scopeDependencies) {
+            if (dependsOn != null) {
+                continue
+            }
+            val scopeName = scope.declaration.simpleName.asString()
             val componentClassName = ClassName(GENERATED_PACKAGE, "Stitch${scopeName}Component")
 
             component.addFunction(
@@ -451,7 +445,6 @@ class StitchCodeGenerator(
                     .build(),
             )
         }
-
         return component.build()
     }
 
@@ -516,7 +509,6 @@ class StitchCodeGenerator(
      */
     private fun generateProviderMethod(
         node: DependencyNode,
-        currentScope: KSType?,
         isRequested: Boolean, // Whether this type is requested via field injection
     ): FunSpec {
         val typeCls = node.type.toTypeName()
@@ -524,77 +516,43 @@ class StitchCodeGenerator(
         val method = FunSpec.builder(methodName)
             .returns(typeCls)
 
-        // Singletons: Use direct construction (DCL if requested, factory if not)
-        // Non-singletons: Call BindingProvider
-        if (node.isSingleton) {
-            // Singleton logic (existing behavior)
-            if (isRequested) {
-                // DCL for requested singletons
-                val fieldRefName = "_${methodName}_ref"
-                val initFlagName = "_${methodName}_initialized"
-                val lockName = "_lock_$methodName"
-                val fieldReturn = if (node.type.isMarkedNullable) "$fieldRefName.value" else "$fieldRefName.value!!"
-                method.addCode(
-                    buildCodeBlock {
-                        addStatement("if ($initFlagName.value) return $fieldReturn")
-                        addStatement("synchronized($lockName) {")
-                        indent()
-                        addStatement("if ($initFlagName.value) return $fieldReturn")
-                        add("val v = ")
-                        addProviderCall(node, currentScope)
-                        addStatement("$fieldRefName.value = v")
-                        addStatement("$initFlagName.value = true")
-                        addStatement("return v")
-                        unindent()
-                        addStatement("}")
-                    },
-                )
-            } else {
-                // Factory method for unrequested singletons
-                method.addCode(
-                    buildCodeBlock {
-                        add("return ")
-                        addProviderCall(node, currentScope)
-                    },
-                )
-            }
+        if (isRequested && (node.isSingleton || node.scopeAnnotation != null)) {
+            // DCL for requested node
+            val fieldRefName = "_${methodName}_ref"
+            val initFlagName = "_${methodName}_initialized"
+            val lockName = "_lock_$methodName"
+            val fieldReturn = if (node.type.isMarkedNullable) "$fieldRefName.value" else "$fieldRefName.value!!"
+            method.addCode(
+                buildCodeBlock {
+                    addStatement("if ($initFlagName.value) return $fieldReturn")
+                    addStatement("synchronized($lockName) {")
+                    indent()
+                    addStatement("if ($initFlagName.value) return $fieldReturn")
+                    add("val v = ")
+                    if (node.isSingleton) {
+                        addProviderCall(node)
+                    } else {
+                        addBindingProviderCall(node)
+                    }
+                    addStatement("$fieldRefName.value = v")
+                    addStatement("$initFlagName.value = true")
+                    addStatement("return v")
+                    unindent()
+                    addStatement("}")
+                },
+            )
         } else {
-            // Non-singleton: delegate to BindingProvider
-            // Scoped: use DCL if requested, otherwise factory
-            // Unscoped: always factory (no DCL)
-            val useScopedDCL = isRequested && node.scopeAnnotation != null
-
-            if (useScopedDCL) {
-                // Scoped with DCL: call BindingProvider inside DCL
-                val fieldRefName = "_${methodName}_ref"
-                val initFlagName = "_${methodName}_initialized"
-                val lockName = "_lock_$methodName"
-                val fieldReturn = if (node.type.isMarkedNullable) "$fieldRefName.value" else "$fieldRefName.value!!"
-
-                method.addCode(
-                    buildCodeBlock {
-                        addStatement("if ($initFlagName.value) return $fieldReturn")
-                        addStatement("synchronized($lockName) {")
-                        indent()
-                        addStatement("if ($initFlagName.value) return $fieldReturn")
-                        add("val v = ")
-                        addBindingProviderCall(node, currentScope)
-                        addStatement("$fieldRefName.value = v")
-                        addStatement("$initFlagName.value = true")
-                        addStatement("return v")
-                        unindent()
-                        addStatement("}")
-                    },
-                )
-            } else {
-                // Factory: direct call to BindingProvider, no caching
-                method.addCode(
-                    buildCodeBlock {
-                        add("return ")
-                        addBindingProviderCall(node, currentScope)
-                    },
-                )
-            }
+            // Factory method for unrequested singletons
+            method.addCode(
+                buildCodeBlock {
+                    add("return ")
+                    if (node.isSingleton) {
+                        addProviderCall(node)
+                    } else {
+                        addBindingProviderCall(node)
+                    }
+                },
+            )
         }
 
         return method.build()
@@ -604,10 +562,7 @@ class StitchCodeGenerator(
      * Adds a call to BindingProvider with resolved dependencies to the CodeBlock.
      * Generates code like: BindingProvider.methodName(param1 = dep1(), param2 = dep2())
      */
-    private fun CodeBlock.Builder.addBindingProviderCall(
-        node: DependencyNode,
-        currentScope: KSType?, // null for DiComponent, non-null for scoped components
-    ) {
+    private fun CodeBlock.Builder.addBindingProviderCall(node: DependencyNode) {
         val methodName = generateDependencyName(node)
         val bindingProviderClass = ClassName(GENERATED_PACKAGE, "BindingProvider")
 
@@ -616,58 +571,48 @@ class StitchCodeGenerator(
         } else {
             add("%T.$methodName(\n", bindingProviderClass)
             indent()
-            node.dependencies.forEachIndexed { index, dep ->
+            for (dep in node.dependencies) {
                 val paramName = generateDependencyName(dep.type, dep.qualifier)
 
                 // Resolve where this dependency is located
-                val resolved = resolveDependency(dep.type, dep.qualifier, currentScope)
+                val resolved = resolveDependency(dep.type, dep.qualifier, node.scopeAnnotation)
                 if (resolved == null) {
-                    reportUnresolvedDependency(dep.type, dep.qualifier, currentScope)
+                    reportUnresolvedDependency(dep.type, dep.qualifier, node.scopeAnnotation)
                     add("$paramName = error(\"Unresolved dependency\")")
-                    if (index < node.dependencies.size - 1) {
-                        add(",\n")
-                    } else {
-                        add("\n")
-                    }
-                    return@forEachIndexed
+                    add(",\n")
+                    continue
                 }
 
-                val (resolvedNode, _) = resolved
                 val depMethodName = generateDependencyName(dep.type, dep.qualifier)
-                val targetScope = resolvedNode.scopeAnnotation
+                val targetScope = resolved.scopeAnnotation
 
                 add("$paramName = ")
                 when {
                     // Singleton / unscoped
                     targetScope == null -> {
-                        if (currentScope == null) {
+                        if (node.scopeAnnotation == null) {
                             // We're in DiComponent
                             add("$depMethodName()")
                         } else {
                             // Navigate upstream to DiComponent
-                            val chain = buildUpstreamChain(currentScope, null, scopeGraph)
+                            val chain = buildUpstreamChain(node.scopeAnnotation, null, scopeGraph)
                             add("$chain.$depMethodName()")
                         }
                     }
 
                     // We're in DiComponent but resolved to scoped node (shouldn't happen)
-                    currentScope == null -> add("/* invalid scoped dep from DI component: $depMethodName */")
+                    node.scopeAnnotation == null -> add("/* invalid scoped dep from DI component: $depMethodName */")
 
                     // Same scope
-                    targetScope.declaration == currentScope.declaration -> add("$depMethodName()")
+                    targetScope.declaration == node.scopeAnnotation.declaration -> add("$depMethodName()")
 
                     // Ancestor scope: build chain of .upstream
                     else -> {
-                        val chain = buildUpstreamChain(currentScope, targetScope, scopeGraph)
+                        val chain = buildUpstreamChain(node.scopeAnnotation, targetScope, scopeGraph)
                         add("$chain.$depMethodName()")
                     }
                 }
-
-                if (index < node.dependencies.size - 1) {
-                    add(",\n")
-                } else {
-                    add("\n")
-                }
+                add(",\n")
             }
             unindent()
             add(")\n")
@@ -678,26 +623,22 @@ class StitchCodeGenerator(
      * Adds the code to create an instance (constructor call or module method call).
      * Uses scope-aware resolution to generate qualified dependency calls.
      */
-    private fun CodeBlock.Builder.addProviderCall(
-        node: DependencyNode,
-        currentScope: KSType?,
-    ) {
+    private fun CodeBlock.Builder.addProviderCall(node: DependencyNode) {
         /**
          * Generates a qualified dependency call based on where the dependency is resolved.
          */
         fun generateDependencyCall(type: KSType, qualifier: QualifierInfo?): String {
-            val resolved = resolveDependency(type, qualifier, currentScope)
+            val resolved = resolveDependency(type, qualifier, node.scopeAnnotation)
             if (resolved == null) {
-                reportUnresolvedDependency(type, qualifier, currentScope)
+                reportUnresolvedDependency(type, qualifier, node.scopeAnnotation)
                 return "error(\"Unresolved dependency: ${type.declaration.simpleName.asString()}\")"
             }
-            val (resolvedNode, _) = resolved
 
             // Use the requested dependency type to generate method name (not the node's primary type)
             // This ensures we call userRepository() when UserRepository is requested, even if the
             // underlying implementation is UserRepositoryImpl
             val methodName = generateDependencyName(type, qualifier)
-            val targetScope = resolvedNode.scopeAnnotation
+            val targetScope = resolved.scopeAnnotation
 
             return when {
                 // 1) Singleton / unscoped → StitchDiComponent
@@ -705,15 +646,15 @@ class StitchCodeGenerator(
 
                 // 2) We are in DI component (currentScope == null) but resolved to scoped node
                 //    This should not happen if validateScopedDependencies did its job
-                currentScope == null -> "/* invalid scoped dep from DI component: $methodName */"
+                node.scopeAnnotation == null -> "/* invalid scoped dep from DI component: $methodName */"
 
                 // 3) Same scope
-                targetScope.declaration == currentScope.declaration -> "$methodName()"
+                targetScope.declaration == node.scopeAnnotation.declaration -> "$methodName()"
 
                 // 4) Ancestor scope: build chain of .upstream
                 else -> {
                     val chain = buildUpstreamChain(
-                        currentScope = currentScope,
+                        currentScope = node.scopeAnnotation,
                         targetScope = targetScope,
                         scopeGraph = scopeGraph,
                     )
@@ -722,13 +663,10 @@ class StitchCodeGenerator(
             }
         }
 
-        val isInjectConstructor = node.providerFunction.isConstructor()
-
-        if (isInjectConstructor) {
+        if (node.providerFunction.isConstructor()) {
             // @Inject constructor
             val typeCls = node.type.toClassName()
-            val constructorParamCount = node.dependencies.size - node.injectableFields.size
-            val constructorParams = node.dependencies.take(constructorParamCount)
+            val constructorParams = node.constructorParameters
 
             if (constructorParams.isEmpty() && node.injectableFields.isEmpty()) {
                 add("%T()\n", typeCls)
@@ -739,22 +677,21 @@ class StitchCodeGenerator(
                 } else {
                     add("%T(\n", typeCls)
                     indent()
-                    constructorParams.forEachIndexed { i, dep ->
-                        val depCall = generateDependencyCall(dep.type, dep.qualifier)
-                        val comma = if (i < constructorParams.size - 1) "," else ""
-                        addStatement("$depCall$comma")
+                    for (field in constructorParams) {
+                        val depCall = generateDependencyCall(field.type, field.qualifier)
+                        addStatement("$depCall,")
                     }
                     unindent()
                     add(")")
                 }
 
-                // Field injection using .also
+                // Field injection using .apply
                 if (node.injectableFields.isNotEmpty()) {
-                    add(".also { instance ->\n")
+                    add(".apply {\n")
                     indent()
-                    node.injectableFields.forEach { field ->
+                    for (field in node.injectableFields) {
                         val depCall = generateDependencyCall(field.type, field.qualifier)
-                        addStatement("instance.${field.name} = $depCall")
+                        addStatement("this.${field.name} = $depCall")
                     }
                     unindent()
                     add("}\n")
@@ -765,22 +702,18 @@ class StitchCodeGenerator(
             }
         } else {
             // @Provides method
-            val module = node.providerModule
-            val moduleClass = module.toClassName()
-            val isObjectModule = module.classKind == ClassKind.OBJECT
+            val moduleClass = node.providerModule.toClassName()
             val fn = node.providerFunction.simpleName.asString()
-
-            if (isObjectModule) {
+            if (node.providerModule.classKind == ClassKind.OBJECT) {
                 // Object module: direct access
                 if (node.dependencies.isEmpty()) {
                     add("%T.$fn()\n", moduleClass)
                 } else {
                     add("%T.$fn(\n", moduleClass)
                     indent()
-                    node.dependencies.forEachIndexed { i, dep ->
-                        val depCall = generateDependencyCall(dep.type, dep.qualifier)
-                        val comma = if (i < node.dependencies.size - 1) "," else ""
-                        addStatement("$depCall$comma")
+                    for (dependency in node.dependencies) {
+                        val depCall = generateDependencyCall(dependency.type, dependency.qualifier)
+                        addStatement("$depCall,")
                     }
                     unindent()
                     add(")\n")
@@ -795,10 +728,9 @@ class StitchCodeGenerator(
                 } else {
                     add("%T.$modulePropName.$fn(\n", moduleProviderClass)
                     indent()
-                    node.dependencies.forEachIndexed { i, dep ->
-                        val depCall = generateDependencyCall(dep.type, dep.qualifier)
-                        val comma = if (i < node.dependencies.size - 1) "," else ""
-                        addStatement("$depCall$comma")
+                    for (dependency in node.dependencies) {
+                        val depCall = generateDependencyCall(dependency.type, dependency.qualifier)
+                        addStatement("$depCall,")
                     }
                     unindent()
                     add(")\n")
@@ -823,7 +755,7 @@ class StitchCodeGenerator(
                 buildCodeBlock {
                     fields.forEach { field ->
                         // Only inject fields resolvable from singleton scope (null)
-                        val resolved = resolveDependency(
+                        resolveDependency(
                             depType = field.type,
                             depQualifier = field.qualifier,
                             currentScope = null,
@@ -934,12 +866,7 @@ class StitchCodeGenerator(
         }
 
         val isInjectConstructor = node.providerFunction.isConstructor()
-        val constructorParamCount = if (isInjectConstructor) {
-            node.dependencies.size - node.injectableFields.size
-        } else {
-            node.dependencies.size
-        }
-        val constructorDeps = node.dependencies.take(constructorParamCount)
+        val constructorDeps = node.constructorParameters
 
         // Generate construction call
         if (isInjectConstructor) {
@@ -955,22 +882,21 @@ class StitchCodeGenerator(
                         } else {
                             add("return %T(\n", typeCls)
                             indent()
-                            constructorDeps.forEachIndexed { i, dep ->
-                                val paramName = generateDependencyName(dep.type, dep.qualifier)
-                                val comma = if (i < constructorDeps.size - 1) "," else ""
-                                addStatement("$paramName$comma")
+                            for (field in constructorDeps) {
+                                val paramName = generateDependencyName(field.type, field.qualifier)
+                                addStatement("$paramName,")
                             }
                             unindent()
                             add(")")
                         }
 
-                        // Field injection using .also
+                        // Field injection using .apply
                         if (node.injectableFields.isNotEmpty()) {
-                            add(".also { instance ->\n")
+                            add(".apply {\n")
                             indent()
-                            node.injectableFields.forEach { field ->
+                            for (field in node.injectableFields) {
                                 val paramName = generateDependencyName(field.type, field.qualifier)
-                                addStatement("instance.${field.name} = $paramName")
+                                addStatement("this.${field.name} = $paramName")
                             }
                             unindent()
                             add("}\n")
@@ -996,10 +922,9 @@ class StitchCodeGenerator(
                         } else {
                             add("return %T.$providerMethod(\n", moduleClass)
                             indent()
-                            constructorDeps.forEachIndexed { i, dep ->
-                                val paramName = generateDependencyName(dep.type, dep.qualifier)
-                                val comma = if (i < constructorDeps.size - 1) "," else ""
-                                addStatement("$paramName$comma")
+                            for (field in constructorDeps) {
+                                val paramName = generateDependencyName(field.type, field.qualifier)
+                                addStatement("$paramName,")
                             }
                             unindent()
                             addStatement(")")
@@ -1012,10 +937,9 @@ class StitchCodeGenerator(
                         } else {
                             add("return %T.$modulePropName.$providerMethod(\n", moduleProviderClass)
                             indent()
-                            constructorDeps.forEachIndexed { i, dep ->
-                                val paramName = generateDependencyName(dep.type, dep.qualifier)
-                                val comma = if (i < constructorDeps.size - 1) "," else ""
-                                addStatement("$paramName$comma")
+                            for (field in constructorDeps) {
+                                val paramName = generateDependencyName(field.type, field.qualifier)
+                                addStatement("$paramName,")
                             }
                             unindent()
                             addStatement(")")
@@ -1060,28 +984,6 @@ class StitchCodeGenerator(
         return ClassName(packageName, simpleName)
     }
 
-    private fun QualifierInfo.toCode(): String =
-        when (this) {
-            is QualifierInfo.Named -> "com.harrytmthy.stitch.api.named(${this.value.quote()})"
-            is QualifierInfo.Custom -> error("Custom qualifiers are not supported in v1.0")
-        }
-
-    private fun String.quote(): String =
-        buildString {
-            append('"')
-            for (ch in this@quote) {
-                when (ch) {
-                    '\\' -> append("\\\\")
-                    '"' -> append("\\\"")
-                    '\n' -> append("\\n")
-                    '\r' -> append("\\r")
-                    '\t' -> append("\\t")
-                    else -> append(ch)
-                }
-            }
-            append('"')
-        }
-
     /**
      * Builds the upstream chain from currentScope to targetScope.
      * Returns "upstream", "upstream.upstream", etc.
@@ -1092,27 +994,18 @@ class StitchCodeGenerator(
         scopeGraph: ScopeGraph,
     ): String {
         var chain = "upstream"
-        var cursor: KSType? = currentScope
+        var current: KSType? = currentScope
 
         while (true) {
-            val parent = scopeGraph.scopeDependencies[cursor] ?: return chain
+            val parent = scopeGraph.scopeDependencies[current] ?: return chain
 
             if (parent.declaration == targetScope?.declaration) {
                 return chain // e.g. "upstream" or "upstream.upstream"
             }
 
             chain += ".upstream"
-            cursor = parent
+            current = parent
         }
-    }
-
-    /**
-     * Represents where a dependency is located for resolution.
-     */
-    private enum class DependencyLocation {
-        SAME_SCOPE, // In the current scope component
-        UPSTREAM, // In an ancestor custom scope (access via upstream)
-        SINGLETON, // In singleton/unscoped (access via StitchDiComponent)
     }
 
     private companion object {
