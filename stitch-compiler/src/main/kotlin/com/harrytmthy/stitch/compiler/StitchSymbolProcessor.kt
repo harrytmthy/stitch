@@ -43,6 +43,8 @@ class StitchSymbolProcessor(
 
         logger.info("Stitch: Starting dependency injection code generation")
         try {
+            AnnotationScanner(resolver).scan()
+
             // Build scope graph first
             val scopeGraph = ScopeGraphBuilder().buildScopeGraph(resolver)
             ensureNoError()

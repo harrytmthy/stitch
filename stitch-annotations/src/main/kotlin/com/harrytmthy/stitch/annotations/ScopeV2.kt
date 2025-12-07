@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.compiler
+package com.harrytmthy.stitch.annotations
 
-import com.google.devtools.ksp.symbol.KSAnnotated
-import com.google.devtools.ksp.symbol.KSNode
+@Target(AnnotationTarget.FUNCTION, AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ScopeV2(val name: String)
 
-internal open class StitchProcessingException(
-    override val message: String? = null,
-    val symbol: KSNode? = null,
-) : IllegalStateException(message)
-
-fun fatalError(message: String, symbol: KSAnnotated): Nothing =
-    throw StitchProcessingException(message, symbol)
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class RegisterScope(val dependsOn: String = "")
