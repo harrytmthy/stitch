@@ -218,3 +218,32 @@ data class DependencyGraph(
     val nodes: List<DependencyNode>,
     val registry: Map<BindingKey, DependencyNode>,
 )
+
+class SymbolAnnotations(val symbol: KSAnnotated) {
+    var provides: Boolean = false
+    var inject: Inject? = null
+    var qualifier: Qualifier? = null
+    var scope: String? = null
+    var singleton: Boolean = false
+
+    fun getScopeName(): String? = scope ?: "Singleton".takeIf { singleton }
+}
+
+sealed class Inject {
+    data object Constructor : Inject()
+    data object Field : Inject()
+}
+
+sealed class Qualifier {
+
+    data class Named(val value: String) : Qualifier()
+
+    val name: String?
+        get() = (this as? Named)?.value
+}
+
+/**
+ * Represents a binding. Scope is excluded, since it doesn't define a binding
+ * (it only tells in which graph the binding exists).
+ */
+data class BindingNode(val type: KSType, val qualifier: Qualifier?)

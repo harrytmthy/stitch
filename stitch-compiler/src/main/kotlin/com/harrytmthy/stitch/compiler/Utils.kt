@@ -16,13 +16,16 @@
 
 package com.harrytmthy.stitch.compiler
 
-import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.FileLocation
+import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSNode
+import com.google.devtools.ksp.symbol.KSValueArgument
 
-internal open class StitchProcessingException(
-    override val message: String? = null,
-    val symbol: KSNode? = null,
-) : IllegalStateException(message)
+val KSNode.filePathAndLineNumber: String?
+    get() = (location as? FileLocation)?.let { "${it.filePath}:${it.lineNumber}" }
 
-fun fatalError(message: String, symbol: KSAnnotated): Nothing =
-    throw StitchProcessingException(message, symbol)
+fun Sequence<KSAnnotation>.find(annotationName: String): KSAnnotation =
+    first { it.annotationType.resolve().declaration.qualifiedName?.asString() == annotationName }
+
+fun KSAnnotation.findArgument(argumentName: String): KSValueArgument =
+    arguments.first { it.name?.asString() == argumentName }
