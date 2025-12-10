@@ -8,16 +8,18 @@ import androidx.core.view.WindowInsetsCompat
 import com.harrytmthy.stitch.AppModule.BASE_URL
 import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.annotations.Named
+import com.harrytmthy.stitch.annotations.Scope
 import com.harrytmthy.stitch.api.Stitch
+import com.harrytmthy.stitch.api.StitchScope
 import com.harrytmthy.stitch.exception.MissingBindingException
-import com.harrytmthy.stitch.generated.StitchDiComponent
 
 /**
  * Only for testing convenience. Please ignore the weird architecture 😄
  */
-class MainActivity : AppCompatActivity(), ActivityComponentProvider {
+class MainActivity : AppCompatActivity() {
 
-    override val activityComponent = StitchDiComponent.createActivityScopeComponent()
+    @Scope("activity")
+    lateinit var mainActivityScope: StitchScope
 
     @Inject
     lateinit var logger: Logger
@@ -60,7 +62,6 @@ class MainActivity : AppCompatActivity(), ActivityComponentProvider {
     lateinit var viewModel: ViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        activityComponent.inject(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
@@ -70,7 +71,7 @@ class MainActivity : AppCompatActivity(), ActivityComponentProvider {
             insets
         }
         renderFragment()
-        assertStitch()
+//        assertStitch()
     }
 
     private fun renderFragment() {

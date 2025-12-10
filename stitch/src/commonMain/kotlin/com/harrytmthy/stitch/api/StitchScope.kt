@@ -14,12 +14,9 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.annotations
+package com.harrytmthy.stitch.api
 
-@Target(AnnotationTarget.FUNCTION, AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class ScopeV2(val name: String)
-
-@Target(AnnotationTarget.PROPERTY)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class RegisterScope(val dependsOn: String = "")
+interface StitchScope {
+    fun inject(target: Any)
+    fun close()
+}

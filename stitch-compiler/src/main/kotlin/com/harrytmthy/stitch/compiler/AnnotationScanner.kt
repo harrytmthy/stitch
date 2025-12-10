@@ -257,13 +257,40 @@ class AnnotationScanner(private val resolver: Resolver) {
     private fun getOrCreateSymbolAnnotations(symbol: KSAnnotated): SymbolAnnotations =
         annotationsBySymbol.getOrPut(symbol) { SymbolAnnotations(symbol) }
 
+    private class SymbolAnnotations(val symbol: KSAnnotated) {
+        var provides: Boolean = false
+        var inject: Inject? = null
+        var qualifier: Qualifier? = null
+        var scope: String? = null
+        var singleton: Boolean = false
+    }
+
+    private sealed class Inject {
+        data object Constructor : Inject()
+        data object Field : Inject()
+    }
+
+    private sealed class Qualifier {
+
+        data class Named(val value: String) : Qualifier()
+
+        val name: String?
+            get() = (this as? Named)?.value
+    }
+
+    /**
+     * Represents a binding. Scope is excluded, since it doesn't define a binding
+     * (it only tells in which graph the binding exists).
+     */
+    private data class BindingNode(val type: KSType, val qualifier: Qualifier?)
+
     private companion object {
         const val PROVIDES = "com.harrytmthy.stitch.annotations.Provides"
         const val STITCH_INJECT = "com.harrytmthy.stitch.annotations.Inject"
         const val JAVAX_INJECT = "javax.inject.Inject"
         const val STITCH_NAMED = "com.harrytmthy.stitch.annotations.Named"
         const val JAVAX_NAMED = "javax.inject.Named"
-        const val SCOPE = "com.harrytmthy.stitch.annotations.ScopeV2"
+        const val SCOPE = "com.harrytmthy.stitch.annotations.Scope"
         const val STITCH_SINGLETON = "com.harrytmthy.stitch.annotations.Singleton"
         const val JAVAX_SINGLETON = "javax.inject.Singleton"
         const val BINDS = "com.harrytmthy.stitch.annotations.Binds"
