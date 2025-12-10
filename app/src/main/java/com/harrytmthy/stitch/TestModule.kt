@@ -21,31 +21,20 @@ import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.annotations.Module
 import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.annotations.Provides
-import com.harrytmthy.stitch.annotations.RegisterScope
 import com.harrytmthy.stitch.annotations.Scope
-import com.harrytmthy.stitch.annotations.ScopeV2
 import com.harrytmthy.stitch.annotations.Singleton
 
-@Scope(dependsOn = Singleton::class)
+@Scope
 @Retention(AnnotationRetention.RUNTIME)
 annotation class ActivityScope
 
-@Scope(dependsOn = ActivityScope::class)
+@Scope
 @Retention(AnnotationRetention.RUNTIME)
 annotation class FragmentScope
 
-@Scope(dependsOn = FragmentScope::class)
+@Scope
 @Retention(AnnotationRetention.RUNTIME)
 annotation class ViewWithFragmentScope
-
-@RegisterScope
-const val activityScope = "activity"
-
-@RegisterScope(dependsOn = activityScope)
-const val fragmentScope = "fragment"
-
-@RegisterScope(dependsOn = fragmentScope)
-const val viewWithFragmentScope = "viewWithFragment"
 
 @Singleton
 class Logger @Inject constructor() {
@@ -97,7 +86,6 @@ class CacheServiceImpl : CacheService {
 }
 
 @ActivityScope
-@ScopeV2("activity")
 class ViewModel @Inject constructor(
     internal val repository: UserRepository,
     @param:Named("activity") internal val cacheService: CacheServiceImpl,
@@ -150,13 +138,11 @@ object AppModule {
     fun provideSingletonCacheService(): CacheServiceImpl = CacheServiceImpl()
 
     @ActivityScope
-    @ScopeV2("activity")
     @Named("activity")
     @Provides
     fun provideActivityScopedCacheService(): CacheServiceImpl = CacheServiceImpl()
 
     @FragmentScope
-    @ScopeV2("fragment")
     @Named("fragment")
     @Provides
     fun provideFragmentScopedCacheService(): CacheServiceImpl = CacheServiceImpl()

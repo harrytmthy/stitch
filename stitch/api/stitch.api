@@ -71,6 +71,11 @@ public final class com/harrytmthy/stitch/api/Stitch {
 	public final fun unregisterAll ()V
 }
 
+public abstract interface class com/harrytmthy/stitch/api/StitchScope {
+	public abstract fun close ()V
+	public abstract fun inject (Ljava/lang/Object;)V
+}
+
 public final class com/harrytmthy/stitch/exception/CycleException : com/harrytmthy/stitch/exception/GetFailedException {
 }
 

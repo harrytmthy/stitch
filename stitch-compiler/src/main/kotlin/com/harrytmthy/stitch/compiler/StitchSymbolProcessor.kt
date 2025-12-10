@@ -17,6 +17,7 @@
 package com.harrytmthy.stitch.compiler
 
 import com.google.devtools.ksp.processing.CodeGenerator
+import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.KSAnnotated
@@ -29,7 +30,7 @@ import com.google.devtools.ksp.symbol.KSAnnotated
  */
 class StitchSymbolProcessor(
     private val codeGenerator: CodeGenerator,
-    private val logger: StitchLogger,
+    private val logger: KSPLogger,
 ) : SymbolProcessor {
 
     private var processed = false
@@ -44,41 +45,10 @@ class StitchSymbolProcessor(
         logger.info("Stitch: Starting dependency injection code generation")
         try {
             AnnotationScanner(resolver).scan()
-
-            // Build scope graph first
-            val scopeGraph = ScopeGraphBuilder().buildScopeGraph(resolver)
-            ensureNoError()
-
-            // Scan for @Module classes and @Inject constructors
-            val scanResult = ModuleScanner(logger, scopeGraph).scanAll(resolver)
-            ensureNoError()
-            if (scanResult.modules.isEmpty() && scanResult.injectables.isEmpty()) {
-                logger.info("Stitch: No @Module or @Inject found, skipping code generation")
-                return emptyList()
-            }
-
-            // Build dependency graph and validate
-            val dependencyGraph = DependencyGraphBuilder(logger).buildGraph(scanResult, scopeGraph)
-            ensureNoError()
-
-            // Generate DI component and injector objects
-            StitchCodeGenerator(codeGenerator, logger).generateComponentAndInjector(
-                dependencyGraph.nodes,
-                dependencyGraph.registry,
-                scanResult.fieldInjectors,
-                scopeGraph,
-            )
-            ensureNoError()
-            logger.info("Stitch: Code generation completed successfully")
         } catch (e: StitchProcessingException) {
             e.message?.let { logger.error(it, e.symbol) }
+            throw e
         }
         return emptyList()
-    }
-
-    private fun ensureNoError() {
-        if (logger.hasError) {
-            throw StitchProcessingException()
-        }
     }
 }

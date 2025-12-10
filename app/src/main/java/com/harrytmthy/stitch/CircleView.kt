@@ -6,7 +6,6 @@ import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.View
 import com.harrytmthy.stitch.annotations.Inject
-import com.harrytmthy.stitch.generated.StitchFragmentScopeComponent
 
 class CircleView @JvmOverloads constructor(
     context: Context,
@@ -19,9 +18,8 @@ class CircleView @JvmOverloads constructor(
     @Inject
     lateinit var logger: Logger
 
-    fun inject(fragmentComponent: StitchFragmentScopeComponent) {
-        fragmentComponent.createViewWithFragmentScopeComponent().inject(this)
-        logger.log("something")
+    fun inject() {
+        // TODO: Re-add this
     }
 
     override fun onDraw(canvas: Canvas) {

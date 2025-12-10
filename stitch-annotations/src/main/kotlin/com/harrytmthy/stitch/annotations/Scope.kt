@@ -16,8 +16,6 @@
 
 package com.harrytmthy.stitch.annotations
 
-import kotlin.reflect.KClass
-
 /**
  * Meta-annotation that identifies a scope annotation for the DI path.
  *
@@ -62,8 +60,6 @@ import kotlin.reflect.KClass
  * @see Named
  * @see Qualifier
  */
-@Target(AnnotationTarget.ANNOTATION_CLASS)
+@Target(AnnotationTarget.ANNOTATION_CLASS, AnnotationTarget.FIELD)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class Scope(
-    val dependsOn: KClass<*> = Singleton::class,
-)
+annotation class Scope(val name: String = "")

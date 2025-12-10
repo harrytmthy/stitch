@@ -7,7 +7,6 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.annotations.Named
-import com.harrytmthy.stitch.generated.StitchFragmentScopeComponent
 
 class MainFragment : Fragment() {
 
@@ -31,15 +30,6 @@ class MainFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        val fragmentComponent = (requireActivity() as ActivityComponentProvider).activityComponent
-            .createFragmentScopeComponent()
-            .apply { inject(this@MainFragment) }
-        logger.log("something")
-        check(activityCacheService !== fragmentCacheService)
-        renderDotView(view.findViewById(R.id.view_circle), fragmentComponent)
-    }
-
-    private fun renderDotView(view: CircleView, fragmentComponent: StitchFragmentScopeComponent) {
-        view.inject(fragmentComponent)
+        // TODO: Re-add this
     }
 }
