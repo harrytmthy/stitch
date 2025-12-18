@@ -17,62 +17,128 @@
 package com.harrytmthy.stitch.compiler
 
 import com.google.devtools.ksp.isConstructor
+import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
 
-class AnnotationScanner(private val resolver: Resolver) {
+class AnnotationScanner(
+    private val resolver: Resolver,
+    private val logger: KSPLogger,
+    private val registry: Registry,
+) {
 
-    private val annotationsBySymbol = HashMap<KSAnnotated, SymbolAnnotations>()
+    private val scopeBySymbol = HashMap<KSAnnotated, Scope>()
 
-    /**
-     * Groups field injection requests by the class that owns the field.
-     */
-    private val fieldInjections = HashMap<KSClassDeclaration, ArrayList<KSPropertyDeclaration>>()
+    private val customScopeByCanonicalName = HashMap<String, Scope.Custom>()
 
-    /**
-     * Tracks the origin of an existing node.
-     */
-    private val symbolByNode = HashMap<BindingNode, KSAnnotated>()
+    private val qualifierBySymbol = HashMap<KSAnnotated, Qualifier>()
 
-    /**
-     * Represents the dependency graph.
-     */
-    private val bindingEdges = HashMap<BindingNode, HashSet<BindingNode>>()
+    private val providedBindingBySymbol = HashMap<KSAnnotated, ProvidedBinding>()
+
+    private val parametersByBinding = HashMap<ProvidedBinding, ArrayList<KSValueParameter>>()
 
     fun scan() {
+        scanRoot()
         scanScopes()
         scanQualifiers()
         scanProvides()
         scanInjects()
         scanBinds()
+        collectDependenciesAndMissingBindings()
     }
 
+    private fun scanRoot() {
+        registry.isAggregator = resolver.getSymbolsWithAnnotation(ROOT).any()
+    }
+
+    /**
+     * `@Scope` has 3 different cases:
+     *
+     * Case #1 - KSClassDeclaration (annotation class):
+     *
+     * ```
+     * @Scope
+     * @Retention(AnnotationRetention.RUNTIME)
+     * annotation class Activity
+     * ```
+     *
+     * Case #2 - KSClassDeclaration (non-annotation class):
+     *
+     * ```
+     * @Scope("Activity")
+     * class UserViewModel @Inject constructor(...) : ViewModel()
+     * ```
+     *
+     * OR:
+     *
+     * ```
+     * @Activity
+     * class UserViewModel @Inject constructor(...) : ViewModel()
+     * ```
+     *
+     * Case #3 - KSFunctionDeclaration:
+     *
+     * ```
+     * @Scope("Activity")
+     * @Provides
+     * fun provideUserViewModel(...): UserViewModel = UserViewModel(...)
+     * ```
+     *
+     * OR:
+     *
+     * ```
+     * @Activity
+     * @Provides
+     * fun provideUserViewModel(...): UserViewModel = UserViewModel(...)
+     * ```
+     *
+     * The ones that actually register a scope (updating [scopeBySymbol]) are Case #2 and #3,
+     * NOT Case #1. `@Scope` only acts as a meta-annotation in Case #1.
+     */
     private fun scanScopes() {
         for (singletonAnnotation in listOf(STITCH_SINGLETON, JAVAX_SINGLETON)) {
             for (symbol in resolver.getSymbolsWithAnnotation(singletonAnnotation)) {
-                getOrCreateSymbolAnnotations(symbol).apply { singleton = true }
+                scopeBySymbol[symbol] = Scope.Singleton
             }
         }
         for (symbol in resolver.getSymbolsWithAnnotation(SCOPE)) {
-            annotationsBySymbol[symbol]?.let { annotations ->
-                if (annotations.singleton) {
-                    fatalError("@Scope cannot be used with @Singleton at the same time", symbol)
-                }
+            if (symbol in scopeBySymbol) {
+                fatalError("@Scope cannot be used with @Singleton at the same time", symbol)
             }
             val scopeName = symbol.annotations.find(SCOPE).arguments.first().value as String
             when (symbol) {
-                is KSClassDeclaration -> getOrCreateSymbolAnnotations(symbol).apply { scope = scopeName }
+                is KSClassDeclaration -> {
+                    if (symbol.classKind == ClassKind.ANNOTATION_CLASS) {
+                        if (scopeName.isNotEmpty()) {
+                            logger.warn("`name` arg is ignored in annotation classes", symbol)
+                        }
+                        continue
+                    }
+                    if (scopeName.isEmpty()) {
+                        fatalError("Scope name cannot be empty", symbol)
+                    }
+                    val scope = Scope.Custom(scopeName)
+                    customScopeByCanonicalName[scope.canonicalName] = scope
+                    scopeBySymbol[symbol] = scope
+                }
 
                 is KSFunctionDeclaration -> {
                     if (symbol.isConstructor()) {
                         fatalError("@Scope cannot be used on constructors", symbol)
                     }
-                    getOrCreateSymbolAnnotations(symbol).apply { scope = scopeName }
+                    if (scopeName.isEmpty()) {
+                        fatalError("Scope name cannot be empty", symbol)
+                    }
+                    val scope = Scope.Custom(scopeName)
+                    customScopeByCanonicalName[scope.canonicalName] = scope
+                    scopeBySymbol[symbol] = scope
                 }
             }
         }
@@ -86,8 +152,11 @@ class AnnotationScanner(private val resolver: Resolver) {
     private fun scanNamedQualifiers() {
         for (annotationName in listOf(STITCH_NAMED, JAVAX_NAMED)) {
             for (symbol in resolver.getSymbolsWithAnnotation(annotationName)) {
+                if (symbol in qualifierBySymbol) {
+                    fatalError("@Named cannot be used with other qualifiers", symbol)
+                }
                 val name = symbol.annotations.find(annotationName).arguments.first().value as String
-                getOrCreateSymbolAnnotations(symbol).qualifier = Qualifier.Named(name)
+                qualifierBySymbol[symbol] = Qualifier.Named(name)
             }
         }
     }
@@ -97,36 +166,37 @@ class AnnotationScanner(private val resolver: Resolver) {
             if (symbol !is KSFunctionDeclaration) {
                 fatalError("@Provides can only be used on functions", symbol)
             }
-            val type = symbol.returnType?.resolve()
+            val type = symbol.returnType?.resolve()?.declaration?.qualifiedName?.asString()
                 ?: fatalError("@Provides has no return type", symbol)
-            val annotations = getOrCreateSymbolAnnotations(symbol).apply { provides = true }
-            val node = BindingNode(type, annotations.qualifier)
-            symbolByNode[node]?.let { duplicateBindingError(node, symbol, it) }
-            symbolByNode[node] = symbol
-            val dependencies = bindingEdges.getOrPut(node) { HashSet() }
-            for (functionParameter in symbol.parameters) {
-                val type = functionParameter.type.resolve()
-                val qualifier = annotationsBySymbol[functionParameter]?.qualifier
-                val node = BindingNode(type, qualifier)
-                dependencies.add(node)
+            val qualifier = qualifierBySymbol[symbol]
+            val scope = getScopeFromSymbol(symbol)
+            val location = symbol.filePathAndLineNumber!!
+            val binding = ProvidedBinding(type, qualifier, scope, location)
+
+            // ProvidedBinding is keyed only by type + qualifier, allowing `providedBindings`
+            // to detect if there is another symbol providing the same type + qualifier.
+            if (binding in registry.providedBindings) {
+                duplicateBindingError(registry.providedBindings.getValue(binding), symbol)
+            }
+            providedBindingBySymbol[symbol] = binding
+            registry.providedBindings.add(binding)
+
+            // Parameters (or "dependencies") that will be collected after scanning @Inject.
+            if (symbol.parameters.isNotEmpty()) {
+                val parameters = parametersByBinding.getOrPut(binding) { ArrayList() }
+                parameters += symbol.parameters
             }
         }
     }
 
     /**
-     * Constructor injections require a special treatment where the one registered
-     * in [annotationsBySymbol] is the class declaration instead of the constructor,
+     * Constructor injections require a special treatment where the symbol registered
+     * in [providedBindingBySymbol] is the class declaration instead of the constructor,
      * since other annotations are targeting the class, not the constructor.
      */
     private fun scanInjects() {
         for (annotationName in listOf(STITCH_INJECT, JAVAX_INJECT)) {
             for (symbol in resolver.getSymbolsWithAnnotation(annotationName)) {
-                if (annotationsBySymbol[symbol]?.provides == true) {
-                    fatalError(
-                        message = "$symbol is annotated with @Provides & @Inject at the same time",
-                        symbol = symbol,
-                    )
-                }
                 when (symbol) {
                     is KSFunctionDeclaration -> handleConstructorInjection(symbol)
                     is KSPropertyDeclaration -> handleFieldInjection(symbol)
@@ -143,38 +213,117 @@ class AnnotationScanner(private val resolver: Resolver) {
         if (canonicalSymbol.modifiers.contains(Modifier.ABSTRACT)) {
             fatalError("@Inject cannot be used on abstract classes", canonicalSymbol)
         }
-        val annotations = getOrCreateSymbolAnnotations(canonicalSymbol)
-        if (annotations.inject != null) {
+        if (canonicalSymbol in providedBindingBySymbol) {
             fatalError("Multiple @Inject-annotated constructors found. Only one is allowed", canonicalSymbol)
         }
-        annotations.inject = Inject.Constructor
-        val type = canonicalSymbol.asStarProjectedType()
-        val node = BindingNode(type, annotations.qualifier)
-        symbolByNode[node]?.let { duplicateBindingError(node, symbol, it) }
-        symbolByNode[node] = canonicalSymbol
-        val dependencies = bindingEdges.getOrPut(node) { HashSet() }
-        for (functionParameter in symbol.parameters) {
-            val type = functionParameter.type.resolve()
-            val qualifier = annotationsBySymbol[functionParameter]?.qualifier
-            val node = BindingNode(type, qualifier)
-            dependencies.add(node)
+        val type = canonicalSymbol.asStarProjectedType().qualifiedName
+        val qualifier = qualifierBySymbol[canonicalSymbol]
+        val scope = getScopeFromSymbol(canonicalSymbol)
+        val location = canonicalSymbol.filePathAndLineNumber!!
+        val binding = ProvidedBinding(type, qualifier, scope, location)
+
+        // ProvidedBinding is keyed only by type + qualifier, allowing `providedBindings`
+        // to detect if there is another symbol providing the same type + qualifier.
+        if (binding in registry.providedBindings) {
+            duplicateBindingError(registry.providedBindings.getValue(binding), canonicalSymbol)
+        }
+        providedBindingBySymbol[canonicalSymbol] = binding
+        registry.providedBindings.add(binding)
+
+        // Parameters (or "dependencies") that will be collected after scanning @Inject.
+        if (symbol.parameters.isNotEmpty()) {
+            val parameters = parametersByBinding.getOrPut(binding) { ArrayList() }
+            parameters += symbol.parameters
         }
     }
 
     private fun handleFieldInjection(symbol: KSPropertyDeclaration) {
+        if (symbol.parentDeclaration == null) {
+            fatalError("@Inject cannot be used on top level fields", symbol)
+        }
         if (!symbol.isMutable) {
             fatalError("@Inject field '${symbol.simpleName}' must be mutable", symbol)
         }
         if (symbol.modifiers.contains(Modifier.PRIVATE)) {
             fatalError("@Inject field '${symbol.simpleName}' cannot be private", symbol)
         }
-        val classDeclaration = symbol.parentDeclaration as KSClassDeclaration
-        val fieldInjections = fieldInjections
-            .getOrPut(classDeclaration) { ArrayList() }
-        fieldInjections.add(symbol)
-        getOrCreateSymbolAnnotations(symbol).inject = Inject.Field
+        val type = symbol.type.resolve().declaration.qualifiedName!!.asString()
+        val qualifier = qualifierBySymbol[symbol]
+        val fieldName = symbol.simpleName.asString()
+        val binding = RequestedBinding(type, qualifier, fieldName)
+        val parentQualifiedName = symbol.parentDeclaration!!.qualifiedName!!.asString()
+        val bindings = registry.requestedBindingsByClass.getOrPut(parentQualifiedName) { ArrayList() }
+        bindings.add(binding)
     }
 
+    /**
+     * After scanning types + qualifiers, [Registry.providedBindings] is finalized and can be used
+     * to check if there is any dependency that is not locally provided (or "missing bindings").
+     *
+     * Missing bindings will be thrown by the aggregator after collecting all provided bindings
+     * from its contributors + recheck if all elements in [Registry.missingBindings] exist inside
+     * the combined [Registry.providedBindings].
+     */
+    private fun collectDependenciesAndMissingBindings() {
+        for ((providedBinding, parameters) in parametersByBinding) {
+            for (parameter in parameters) {
+                val type = parameter.type.resolve().qualifiedName
+                val qualifier = qualifierBySymbol[parameter]
+                val binding = Binding(type, qualifier)
+                val dependencies = providedBinding.dependencies
+                    ?: HashSet<Binding>(parameters.size, 1f).also { providedBinding.dependencies = it }
+                dependencies.add(binding)
+                if (binding !in registry.providedBindings) {
+                    registry.missingBindings.add(binding)
+                }
+            }
+        }
+        for ((_, requestedBindings) in registry.requestedBindingsByClass) {
+            for (requestedBinding in requestedBindings) {
+                if (requestedBinding !in registry.providedBindings) {
+                    registry.missingBindings.add(requestedBinding)
+                }
+            }
+        }
+    }
+
+    /**
+     * `@Binds` has 3 different cases:
+     *
+     * Case #1 - KSClassDeclaration:
+     *
+     * ```
+     * @Singleton
+     * @Binds(aliases = [UserRepository::class])
+     * class UserRepositoryImpl @Inject constructor(...) : UserRepository
+     * ```
+     *
+     * Case #2 - KSFunctionDeclaration (abstract function):
+     *
+     * ```
+     * @Binds
+     * fun bindUserRepository(repo: UserRepositoryImpl): UserRepository
+     * ```
+     *
+     * OR:
+     *
+     * ```
+     * @Binds(aliases = [...])
+     * fun bindUserRepository(repo: UserRepositoryImpl): UserRepository
+     * ```
+     *
+     * Unlike Case #1 where `@Binds` targets the existing symbol, Case #2 targets a symbol which
+     * isn't annotated with `@Provides` or `@Inject`, so cannot use [providedBindingBySymbol].
+     *
+     * Case #3 - KSFunctionDeclaration:
+     *
+     * ```
+     * @Binds(aliases = [UserRepository::class])
+     * @Singleton
+     * @Provides
+     * fun provideUserRepository(...): UserRepositoryImpl = UserRepositoryImpl(...)
+     * ```
+     */
     private fun scanBinds() {
         for (symbol in resolver.getSymbolsWithAnnotation(BINDS)) {
             when (symbol) {
@@ -184,13 +333,11 @@ class AnnotationScanner(private val resolver: Resolver) {
                     if (aliases.isEmpty()) {
                         fatalError("@Binds(aliases = ...) is required when annotating classes", symbol)
                     }
-                    val annotations = getOrCreateSymbolAnnotations(symbol)
-                    val type = symbol.asStarProjectedType()
-                    val node = BindingNode(type, annotations.qualifier)
+                    val providedBinding = providedBindingBySymbol[symbol] ?: continue
+                    val qualifier = qualifierBySymbol[symbol]
                     for (alias in aliases) {
-                        val aliasNode = BindingNode(alias as KSType, annotations.qualifier)
-                        val dependencies = bindingEdges.getOrPut(aliasNode) { HashSet() }
-                        dependencies.add(node) // Creates an edge: AliasNode → Node
+                        val alias = Binding((alias as KSType).qualifiedName, qualifier)
+                        registry.providedBindings[alias] = providedBinding
                     }
                 }
 
@@ -204,15 +351,19 @@ class AnnotationScanner(private val resolver: Resolver) {
                         val parameter = symbol.parameters.singleOrNull()
                             ?: fatalError("@Binds requires one parameter when annotating abstract functions", symbol)
                         val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
-                        val annotations = getOrCreateSymbolAnnotations(symbol)
-                        val node = BindingNode(parameter.type.resolve(), annotations.qualifier)
-                        val aliasNode = BindingNode(returnType, annotations.qualifier)
-                        val dependencies = bindingEdges.getOrPut(aliasNode) { HashSet() }
-                        dependencies.add(node)
+                        val type = parameter.type.resolve().qualifiedName
+                        val qualifier = qualifierBySymbol[symbol]
+                        val binding = Binding(type, qualifier)
+                        val providedBinding = registry.providedBindings[binding]
+                        if (providedBinding == null) {
+                            registry.missingBindings.add(binding)
+                            continue
+                        }
+                        val alias = Binding(returnType.qualifiedName, qualifier)
+                        registry.providedBindings[alias] = providedBinding
                         for (alias in (aliasArg.value as List<*>)) {
-                            val aliasNode = BindingNode(alias as KSType, annotations.qualifier)
-                            val dependencies = bindingEdges.getOrPut(aliasNode) { HashSet() }
-                            dependencies.add(node)
+                            val alias = Binding((alias as KSType).qualifiedName, qualifier)
+                            registry.providedBindings[alias] = providedBinding
                         }
                     } else {
                         val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
@@ -220,12 +371,11 @@ class AnnotationScanner(private val resolver: Resolver) {
                         if (aliases.isEmpty()) {
                             fatalError("@Binds(aliases = ...) is required when annotating functions", symbol)
                         }
-                        val annotations = getOrCreateSymbolAnnotations(symbol)
-                        val node = BindingNode(returnType, annotations.qualifier)
+                        val providedBinding = providedBindingBySymbol[symbol] ?: continue
+                        val qualifier = qualifierBySymbol[symbol]
                         for (alias in (aliasArg.value as List<*>)) {
-                            val aliasNode = BindingNode(alias as KSType, annotations.qualifier)
-                            val dependencies = bindingEdges.getOrPut(aliasNode) { HashSet() }
-                            dependencies.add(node)
+                            val alias = Binding((alias as KSType).qualifiedName, qualifier)
+                            registry.providedBindings[alias] = providedBinding
                         }
                     }
                 }
@@ -233,58 +383,47 @@ class AnnotationScanner(private val resolver: Resolver) {
         }
     }
 
+    /**
+     * Should be used only when scanning `@Provides` + constructor injections.
+     */
+    private fun getScopeFromSymbol(symbol: KSAnnotated): Scope? {
+        // Fast-path: The scope is either `@Singleton` or provided via `@Scope(name = ...)`
+        scopeBySymbol[symbol]?.let { return it }
+
+        // Slow-path: Check if there is any annotation that is annotated with `@Scope`
+        for (annotation in symbol.annotations) {
+            val declaration = annotation.annotationType.resolve().declaration as? KSClassDeclaration
+                ?: continue
+            val annotationName = annotation.shortName.asString()
+            customScopeByCanonicalName[annotationName.lowercase()]?.let { return it }
+            for (metaAnnotation in declaration.annotations) {
+                if (metaAnnotation.annotationType.resolve().qualifiedName == SCOPE) {
+                    val scope = Scope.Custom(annotationName)
+                    customScopeByCanonicalName[scope.canonicalName] = scope
+                    scopeBySymbol[symbol] = scope
+                    return scope
+                }
+            }
+        }
+        return null // Unscoped
+    }
+
     private fun duplicateBindingError(
-        node: BindingNode,
-        currentSymbol: KSAnnotated,
-        existingSymbol: KSAnnotated,
-    ) {
-        val typeName = node.type.declaration.qualifiedName?.asString()
-        val qualifierName = node.qualifier?.name
-        val scopeName = annotationsBySymbol[existingSymbol]?.scope
-        val existingLocation = existingSymbol.filePathAndLineNumber
+        existingBinding: ProvidedBinding,
+        symbol: KSAnnotated,
+    ): Nothing =
         fatalError(
             message = buildString {
-                append("Duplicate binding for $typeName")
-                qualifierName?.let { append(" (qualifier: $it)") }
-                scopeName?.let { append(" in scope \"$it\"") }
-                append(".")
-                existingLocation?.let { append(" Already provided by $it") }
+                append("Duplicate binding for ${existingBinding.type}")
+                existingBinding.qualifier?.let { append(" (qualifier: $it)") }
+                existingBinding.scope?.let { append(" in scope \"$it\"") }
+                append(". Already provided at ${existingBinding.location}")
             },
-            symbol = currentSymbol,
+            symbol = symbol,
         )
-    }
-
-    private fun getOrCreateSymbolAnnotations(symbol: KSAnnotated): SymbolAnnotations =
-        annotationsBySymbol.getOrPut(symbol) { SymbolAnnotations(symbol) }
-
-    private class SymbolAnnotations(val symbol: KSAnnotated) {
-        var provides: Boolean = false
-        var inject: Inject? = null
-        var qualifier: Qualifier? = null
-        var scope: String? = null
-        var singleton: Boolean = false
-    }
-
-    private sealed class Inject {
-        data object Constructor : Inject()
-        data object Field : Inject()
-    }
-
-    private sealed class Qualifier {
-
-        data class Named(val value: String) : Qualifier()
-
-        val name: String?
-            get() = (this as? Named)?.value
-    }
-
-    /**
-     * Represents a binding. Scope is excluded, since it doesn't define a binding
-     * (it only tells in which graph the binding exists).
-     */
-    private data class BindingNode(val type: KSType, val qualifier: Qualifier?)
 
     private companion object {
+        const val ROOT = "com.harrytmthy.stitch.annotations.StitchRoot"
         const val PROVIDES = "com.harrytmthy.stitch.annotations.Provides"
         const val STITCH_INJECT = "com.harrytmthy.stitch.annotations.Inject"
         const val JAVAX_INJECT = "javax.inject.Inject"

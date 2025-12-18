@@ -44,7 +44,8 @@ class StitchSymbolProcessor(
 
         logger.info("Stitch: Starting dependency injection code generation")
         try {
-            AnnotationScanner(resolver).scan()
+            val registry = Registry()
+            AnnotationScanner(resolver, logger, registry).scan()
         } catch (e: StitchProcessingException) {
             e.message?.let { logger.error(it, e.symbol) }
             throw e
