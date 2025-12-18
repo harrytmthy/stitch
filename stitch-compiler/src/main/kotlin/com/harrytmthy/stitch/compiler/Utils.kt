@@ -19,7 +19,11 @@ package com.harrytmthy.stitch.compiler
 import com.google.devtools.ksp.symbol.FileLocation
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSNode
+import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueArgument
+
+val KSType.qualifiedName: String
+    get() = declaration.qualifiedName!!.asString()
 
 val KSNode.filePathAndLineNumber: String?
     get() = (location as? FileLocation)?.let { "${it.filePath}:${it.lineNumber}" }
