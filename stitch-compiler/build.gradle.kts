@@ -16,6 +16,8 @@
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.stitch.publishing)
+    `java-gradle-plugin`
 }
 
 dependencies {
@@ -27,4 +29,20 @@ dependencies {
 
     // Support for Dagger annotations
     compileOnly(libs.javax.inject)
+}
+
+mavenPublishing {
+    pom {
+        name.set("Stitch Compiler")
+        description.set("Stitch KSP compiler and Gradle plugin for module-aware code generation.")
+    }
+}
+
+gradlePlugin {
+    plugins {
+        create("stitchPlugin") {
+            id = "io.github.harrytmthy.stitch"
+            implementationClass = "com.harrytmthy.stitch.compiler.plugin.StitchPlugin"
+        }
+    }
 }

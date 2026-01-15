@@ -16,10 +16,9 @@
 
 package com.harrytmthy.stitch.compiler
 
-import com.google.devtools.ksp.processing.CodeGenerator
-import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 
 /**
@@ -28,10 +27,7 @@ import com.google.devtools.ksp.symbol.KSAnnotated
  * This processor scans for @Module classes, @Provides methods, and @Inject constructors/fields,
  * then generates DI component and injector objects for compile-time dependency resolution.
  */
-class StitchSymbolProcessor(
-    private val codeGenerator: CodeGenerator,
-    private val logger: KSPLogger,
-) : SymbolProcessor {
+class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment) : SymbolProcessor {
 
     private var processed = false
 
@@ -42,8 +38,11 @@ class StitchSymbolProcessor(
         }
         processed = true
 
+        val logger = environment.logger
         logger.info("Stitch: Starting dependency injection code generation")
         try {
+            val moduleName = getOption("stitch.moduleName")
+            val moduleKey = getOption("stitch.moduleKey")
             val registry = Registry()
             AnnotationScanner(resolver, logger, registry).scan()
         } catch (e: StitchProcessingException) {
@@ -52,4 +51,9 @@ class StitchSymbolProcessor(
         }
         return emptyList()
     }
+
+    private fun getOption(name: String): String =
+        environment.options[name] ?: throw StitchProcessingException(
+            "Missing KSP option '$name'. Configure via ksp { arg(...) } or apply 'io.github.harrytmthy.stitch' plugin.",
+        )
 }
