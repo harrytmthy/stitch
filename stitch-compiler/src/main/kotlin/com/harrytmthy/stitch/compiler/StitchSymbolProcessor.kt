@@ -41,10 +41,14 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
         val logger = environment.logger
         logger.info("Stitch: Starting dependency injection code generation")
         try {
-            val moduleName = getOption("stitch.moduleName")
-            val moduleKey = getOption("stitch.moduleKey")
             val registry = Registry()
             AnnotationScanner(resolver, logger, registry).scan()
+
+            if (!registry.isAggregator) {
+                val moduleName = getOption("stitch.moduleName")
+                val moduleKey = getOption("stitch.moduleKey")
+                // TODO: Generate contribution file
+            }
         } catch (e: StitchProcessingException) {
             e.message?.let { logger.error(it, e.symbol) }
             throw e
