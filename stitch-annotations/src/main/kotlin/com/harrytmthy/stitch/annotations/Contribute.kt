@@ -36,6 +36,7 @@ annotation class ContributedBinding(
     val qualifier: String = "",
     val scope: String = "",
     val provided: Boolean = false,
+    val dependsOn: IntArray = [],
 )
 
 annotation class BindingRequester(val name: String, val fields: Array<RequestedField>)

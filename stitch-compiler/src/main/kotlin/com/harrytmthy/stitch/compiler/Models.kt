@@ -58,7 +58,12 @@ class RequestedBinding(
 ) : Binding(type, qualifier)
 
 sealed class Qualifier {
-    data class Named(val value: String) : Qualifier()
+
+    abstract fun encode(): String
+
+    data class Named(val value: String) : Qualifier() {
+        override fun encode(): String = "Named:$value"
+    }
 }
 
 sealed class Scope {
