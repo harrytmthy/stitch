@@ -59,8 +59,7 @@ android {
         }
     }
     ksp {
-        arg("stitch.moduleName", "App")
-        arg("stitch.moduleKey", "A1B2C3D4")
+        arg("stitch.moduleName", project.path)
     }
 }
 
