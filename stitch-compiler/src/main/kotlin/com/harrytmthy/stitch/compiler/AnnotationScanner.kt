@@ -44,6 +44,8 @@ class AnnotationScanner(
 
     private val parametersByBinding = HashMap<ProvidedBinding, ArrayList<KSValueParameter>>()
 
+    private val providedAliases = BindingPool<ProvidedBinding>()
+
     fun scan() {
         scanRoot()
         scanScopes()
@@ -285,6 +287,13 @@ class AnnotationScanner(
                 }
             }
         }
+        for ((_, alias) in providedAliases) {
+            // Aliases are guaranteed to have exactly 1 dependency
+            val dependency = alias.dependencies!!.single()
+            if (dependency !in registry.providedBindings) {
+                registry.missingBindings.add(dependency)
+            }
+        }
     }
 
     /**
@@ -333,11 +342,13 @@ class AnnotationScanner(
                     if (aliases.isEmpty()) {
                         fatalError("@Binds(aliases = ...) is required when annotating classes", symbol)
                     }
-                    val providedBinding = providedBindingBySymbol[symbol] ?: continue
+                    // TODO: Display a proper KSP warning to inform about the skipped @Binds
+                    val dependency = providedBindingBySymbol[symbol] ?: continue
                     val qualifier = qualifierBySymbol[symbol]
+                    val location = symbol.filePathAndLineNumber.orEmpty()
                     for (alias in aliases) {
-                        val alias = Binding((alias as KSType).qualifiedName, qualifier)
-                        registry.providedBindings[alias] = providedBinding
+                        val type = (alias as KSType).qualifiedName
+                        registerAlias(type, qualifier, location, dependency, symbol)
                     }
                 }
 
@@ -345,25 +356,20 @@ class AnnotationScanner(
                     if (symbol.isConstructor()) {
                         fatalError("@Binds cannot be used on constructors", symbol)
                     }
-                    val returnType = symbol.returnType?.resolve()
+                    val returnType = symbol.returnType?.resolve()?.qualifiedName
                         ?: fatalError("@Binds requires a return type when annotating functions", symbol)
+                    val qualifier = qualifierBySymbol[symbol]
+                    val location = symbol.filePathAndLineNumber.orEmpty()
                     if (symbol.isAbstract) {
                         val parameter = symbol.parameters.singleOrNull()
                             ?: fatalError("@Binds requires one parameter when annotating abstract functions", symbol)
                         val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
                         val type = parameter.type.resolve().qualifiedName
-                        val qualifier = qualifierBySymbol[symbol]
-                        val binding = Binding(type, qualifier)
-                        val providedBinding = registry.providedBindings[binding]
-                        if (providedBinding == null) {
-                            registry.missingBindings.add(binding)
-                            continue
-                        }
-                        val alias = Binding(returnType.qualifiedName, qualifier)
-                        registry.providedBindings[alias] = providedBinding
+                        val dependency = Binding(type, qualifier)
+                        registerAlias(returnType, qualifier, location, dependency, symbol)
                         for (alias in (aliasArg.value as List<*>)) {
-                            val alias = Binding((alias as KSType).qualifiedName, qualifier)
-                            registry.providedBindings[alias] = providedBinding
+                            val type = (alias as KSType).qualifiedName
+                            registerAlias(type, qualifier, location, dependency, symbol)
                         }
                     } else {
                         val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
@@ -371,16 +377,36 @@ class AnnotationScanner(
                         if (aliases.isEmpty()) {
                             fatalError("@Binds(aliases = ...) is required when annotating functions", symbol)
                         }
-                        val providedBinding = providedBindingBySymbol[symbol] ?: continue
-                        val qualifier = qualifierBySymbol[symbol]
+                        // TODO: Display a proper KSP warning to inform about the skipped @Binds
+                        val dependency = providedBindingBySymbol[symbol] ?: continue
                         for (alias in (aliasArg.value as List<*>)) {
-                            val alias = Binding((alias as KSType).qualifiedName, qualifier)
-                            registry.providedBindings[alias] = providedBinding
+                            val type = (alias as KSType).qualifiedName
+                            registerAlias(type, qualifier, location, dependency, symbol)
                         }
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Registers an alias as a provided binding, ensuring no duplicate. Each alias
+     * has exactly one [dependency], which can be another alias or the real binding.
+     */
+    private fun registerAlias(
+        type: String,
+        qualifier: Qualifier?,
+        location: String,
+        dependency: Binding,
+        symbol: KSAnnotated,
+    ) {
+        val alias = ProvidedBinding(type, qualifier, scope = null, location, alias = true)
+        providedAliases[alias]?.let { existingBinding ->
+            duplicateBindingError(existingBinding, symbol)
+        }
+        alias.dependencies = hashSetOf(dependency)
+        providedAliases[alias] = alias
+        registry.providedBindings[alias] = alias
     }
 
     /**
@@ -416,7 +442,9 @@ class AnnotationScanner(
             message = buildString {
                 append("Duplicate binding for ${existingBinding.type}")
                 existingBinding.qualifier?.let { append(" (qualifier: $it)") }
-                existingBinding.scope?.let { append(" in scope \"$it\"") }
+                if (!existingBinding.alias && existingBinding.scope != null) {
+                    append(" in scope \"${existingBinding.scope}\"")
+                }
                 append(". Already provided at ${existingBinding.location}")
             },
             symbol = symbol,

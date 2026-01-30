@@ -40,6 +40,7 @@ class ProvidedBinding(
     qualifier: Qualifier?,
     val scope: Scope?,
     val location: String, // File path + line number
+    val alias: Boolean = false,
 ) : Binding(type, qualifier) {
 
     var dependencies: HashSet<Binding>? = null
