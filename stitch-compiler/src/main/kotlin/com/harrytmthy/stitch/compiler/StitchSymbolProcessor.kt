@@ -46,12 +46,8 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
 
             if (!registry.isAggregator) {
                 val moduleName = getOption("stitch.moduleName")
-                val moduleKey = getOption("stitch.moduleKey")
-                ContributionCodeGenerator(environment.codeGenerator).generate(
-                    packageSuffix = moduleKey,
-                    fileName = "Generated${moduleName}Contribution",
-                    registry = registry,
-                )
+                ContributionCodeGenerator(environment.codeGenerator)
+                    .generate(moduleName, registry)
             }
         } catch (e: StitchProcessingException) {
             e.message?.let { logger.error(it, e.symbol) }
