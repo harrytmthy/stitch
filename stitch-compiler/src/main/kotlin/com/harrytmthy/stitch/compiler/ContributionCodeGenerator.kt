@@ -71,7 +71,8 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 binding.qualifier?.let { add("qualifier = %S,\n", it.encode()) }
                 if (binding is ProvidedBinding) {
                     binding.scope?.let { add("scope = %S,\n", it) }
-                    add("provided = true,\n")
+                    add("location = \"${binding.location}\",\n")
+                    add("alias = ${binding.alias},\n")
                     binding.dependencies?.map(sortedBindings::getValue)
                         ?.sorted()
                         ?.let { add("dependsOn = intArrayOf(%L),\n", it.joinToString(", ")) }

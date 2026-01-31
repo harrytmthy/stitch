@@ -35,7 +35,8 @@ annotation class ContributedBinding(
     val type: String,
     val qualifier: String = "",
     val scope: String = "",
-    val provided: Boolean = false,
+    val location: String = "",
+    val alias: Boolean = false,
     val dependsOn: IntArray = [],
 )
 
