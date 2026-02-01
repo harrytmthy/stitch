@@ -71,8 +71,8 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 binding.qualifier?.let { add("qualifier = %S,\n", it.encode()) }
                 if (binding is ProvidedBinding) {
                     binding.scope?.let { add("scope = %S,\n", it) }
-                    add("location = \"${binding.location}\",\n")
-                    add("alias = ${binding.alias},\n")
+                    add("location = %S,\n", binding.location)
+                    add("alias = %L,\n", binding.alias)
                     binding.dependencies?.map(sortedBindings::getValue)
                         ?.sorted()
                         ?.let { add("dependsOn = intArrayOf(%L),\n", it.joinToString(", ")) }
@@ -135,6 +135,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
         bindings += providedBindings.values
         providedBindings.values.forEach { it.dependencies?.let(bindings::addAll) }
         bindings += requestedBindingsByClass.values.flatten()
+        bindings += missingBindings
         var nextId = 1
         return bindings.sortedWith(compareBy({ it.type }, { it.qualifier?.toString().orEmpty() }))
             .associateWith { nextId++ }
