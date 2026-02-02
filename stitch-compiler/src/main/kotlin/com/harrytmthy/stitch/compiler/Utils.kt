@@ -17,13 +17,15 @@
 package com.harrytmthy.stitch.compiler
 
 import com.google.devtools.ksp.symbol.FileLocation
+import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
+import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSNode
-import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueArgument
 
-val KSType.qualifiedName: String
-    get() = declaration.qualifiedName!!.asString()
+fun KSDeclaration.qualifiedName(symbol: KSAnnotated): String =
+    qualifiedName?.asString()
+        ?: fatalError("Unable to resolve qualified name of type '${simpleName.asString()}'", symbol)
 
 val KSNode.filePathAndLineNumber: String?
     get() = (location as? FileLocation)?.let { "${it.filePath}:${it.lineNumber}" }
