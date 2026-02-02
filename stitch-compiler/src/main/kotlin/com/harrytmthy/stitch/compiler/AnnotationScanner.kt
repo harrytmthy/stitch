@@ -168,7 +168,7 @@ class AnnotationScanner(
             if (symbol !is KSFunctionDeclaration) {
                 fatalError("@Provides can only be used on functions", symbol)
             }
-            val type = symbol.returnType?.resolve()?.declaration?.qualifiedName?.asString()
+            val type = symbol.returnType?.resolve()?.declaration?.qualifiedName(symbol)
                 ?: fatalError("@Provides has no return type", symbol)
             val qualifier = qualifierBySymbol[symbol]
             val scope = getScopeFromSymbol(symbol)
@@ -218,7 +218,7 @@ class AnnotationScanner(
         if (canonicalSymbol in providedBindingBySymbol) {
             fatalError("Multiple @Inject-annotated constructors found. Only one is allowed", canonicalSymbol)
         }
-        val type = canonicalSymbol.asStarProjectedType().qualifiedName
+        val type = canonicalSymbol.asStarProjectedType().declaration.qualifiedName(canonicalSymbol)
         val qualifier = qualifierBySymbol[canonicalSymbol]
         val scope = getScopeFromSymbol(canonicalSymbol)
         val location = canonicalSymbol.filePathAndLineNumber!!
@@ -249,7 +249,7 @@ class AnnotationScanner(
         if (symbol.modifiers.contains(Modifier.PRIVATE)) {
             fatalError("@Inject field '${symbol.simpleName}' cannot be private", symbol)
         }
-        val type = symbol.type.resolve().declaration.qualifiedName!!.asString()
+        val type = symbol.type.resolve().declaration.qualifiedName(symbol)
         val qualifier = qualifierBySymbol[symbol]
         val fieldName = symbol.simpleName.asString()
         val binding = RequestedBinding(type, qualifier, fieldName)
@@ -269,7 +269,7 @@ class AnnotationScanner(
     private fun collectDependenciesAndMissingBindings() {
         for ((providedBinding, parameters) in parametersByBinding) {
             for (parameter in parameters) {
-                val type = parameter.type.resolve().qualifiedName
+                val type = parameter.type.resolve().declaration.qualifiedName(parameter)
                 val qualifier = qualifierBySymbol[parameter]
                 val binding = Binding(type, qualifier)
                 val dependencies = providedBinding.dependencies
@@ -347,7 +347,7 @@ class AnnotationScanner(
                     val qualifier = qualifierBySymbol[symbol]
                     val location = symbol.filePathAndLineNumber.orEmpty()
                     for (alias in aliases) {
-                        val type = (alias as KSType).qualifiedName
+                        val type = (alias as KSType).declaration.qualifiedName(symbol)
                         registerAlias(type, qualifier, location, dependency, symbol)
                     }
                 }
@@ -356,7 +356,8 @@ class AnnotationScanner(
                     if (symbol.isConstructor()) {
                         fatalError("@Binds cannot be used on constructors", symbol)
                     }
-                    val returnType = symbol.returnType?.resolve()?.qualifiedName
+                    val returnType = symbol.returnType?.resolve()?.declaration
+                        ?.qualifiedName(symbol)
                         ?: fatalError("@Binds requires a return type when annotating functions", symbol)
                     val qualifier = qualifierBySymbol[symbol]
                     val location = symbol.filePathAndLineNumber.orEmpty()
@@ -364,11 +365,11 @@ class AnnotationScanner(
                         val parameter = symbol.parameters.singleOrNull()
                             ?: fatalError("@Binds requires one parameter when annotating abstract functions", symbol)
                         val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
-                        val type = parameter.type.resolve().qualifiedName
+                        val type = parameter.type.resolve().declaration.qualifiedName(parameter)
                         val dependency = Binding(type, qualifier)
                         registerAlias(returnType, qualifier, location, dependency, symbol)
                         for (alias in (aliasArg.value as List<*>)) {
-                            val type = (alias as KSType).qualifiedName
+                            val type = (alias as KSType).declaration.qualifiedName(parameter)
                             registerAlias(type, qualifier, location, dependency, symbol)
                         }
                     } else {
@@ -380,7 +381,7 @@ class AnnotationScanner(
                         // TODO: Display a proper KSP warning to inform about the skipped @Binds
                         val dependency = providedBindingBySymbol[symbol] ?: continue
                         for (alias in (aliasArg.value as List<*>)) {
-                            val type = (alias as KSType).qualifiedName
+                            val type = (alias as KSType).declaration.qualifiedName(symbol)
                             registerAlias(type, qualifier, location, dependency, symbol)
                         }
                     }
@@ -423,7 +424,8 @@ class AnnotationScanner(
             val annotationName = annotation.shortName.asString()
             customScopeByCanonicalName[annotationName.lowercase()]?.let { return it }
             for (metaAnnotation in declaration.annotations) {
-                if (metaAnnotation.annotationType.resolve().qualifiedName == SCOPE) {
+                val fqn = metaAnnotation.annotationType.resolve().declaration.qualifiedName(symbol)
+                if (fqn == SCOPE) {
                     val scope = Scope.Custom(annotationName)
                     customScopeByCanonicalName[scope.canonicalName] = scope
                     scopeBySymbol[symbol] = scope
