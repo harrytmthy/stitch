@@ -30,6 +30,13 @@ dependencyResolutionManagement {
 
 rootProject.name = "Stitch"
 include(":app")
+include(":core")
+include(":feature:home")
 include(":stitch")
 include(":stitch-annotations")
 include(":stitch-compiler")
+
+project(":app").projectDir = file("samples/app")
+project(":core").projectDir = file("samples/core")
+project(":feature").projectDir = file("samples/feature")
+project(":feature:home").projectDir = file("samples/feature/home")

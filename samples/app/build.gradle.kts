@@ -1,0 +1,82 @@
+/*
+ * Copyright 2025 Harry Timothy Tumalewa
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.ksp)
+}
+
+android {
+    namespace = "com.harrytmthy.stitch"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.harrytmthy.stitch"
+        minSdk = 21
+        targetSdk = 36
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
+        testInstrumentationRunnerArguments["androidx.benchmark.output.enable"] = "true"
+        testInstrumentationRunnerArguments["additionalTestOutputDir"] = "/sdcard/Download/benchmark"
+    }
+
+    buildTypes {
+        debug {
+            isDebuggable = false
+        }
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    kotlin {
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_11
+        }
+    }
+}
+
+dependencies {
+    implementation(project(":core"))
+    implementation(project(":feature:home"))
+    implementation(project(":stitch"))
+    implementation(project(":stitch-annotations"))
+    ksp(project(":stitch-compiler"))
+
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.core.ktx)
+    debugImplementation(libs.androidx.benchmark.common)
+    androidTestImplementation(libs.androidx.benchmark.junit4)
+    androidTestImplementation(libs.androidx.test.ext)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.koin.android)
+
+    // Dagger for benchmarking (KSP code generation + runtime)
+    implementation(libs.dagger)
+    ksp(libs.dagger.compiler)
+}
