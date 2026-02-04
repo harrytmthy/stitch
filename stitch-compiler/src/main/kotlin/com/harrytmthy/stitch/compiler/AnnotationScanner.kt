@@ -36,7 +36,7 @@ class AnnotationScanner(
 
     private val scopeBySymbol = HashMap<KSAnnotated, Scope>()
 
-    private val customScopeByCanonicalName = HashMap<String, Scope.Custom>()
+    private val customScopeByQualifiedName = HashMap<String, Scope.Custom>()
 
     private val qualifierBySymbol = HashMap<KSAnnotated, Qualifier>()
 
@@ -49,6 +49,7 @@ class AnnotationScanner(
     fun scan() {
         scanRoot()
         scanScopes()
+        scanDependsOn()
         scanQualifiers()
         scanProvides()
         scanInjects()
@@ -100,9 +101,6 @@ class AnnotationScanner(
      * @Provides
      * fun provideUserViewModel(...): UserViewModel = UserViewModel(...)
      * ```
-     *
-     * The ones that actually register a scope (updating [scopeBySymbol]) are Case #2 and #3,
-     * NOT Case #1. `@Scope` only acts as a meta-annotation in Case #1.
      */
     private fun scanScopes() {
         for (singletonAnnotation in listOf(STITCH_SINGLETON, JAVAX_SINGLETON)) {
@@ -118,31 +116,61 @@ class AnnotationScanner(
             when (symbol) {
                 is KSClassDeclaration -> {
                     if (symbol.classKind == ClassKind.ANNOTATION_CLASS) {
+                        // Case #1 path
                         if (scopeName.isNotEmpty()) {
                             logger.warn("`name` arg is ignored in annotation classes", symbol)
                         }
+                        val qualifiedName = symbol.qualifiedName(symbol)
+                        val scope = Scope.Custom(qualifiedName)
+                        customScopeByQualifiedName[qualifiedName] = scope
+                        scopeBySymbol[symbol] = scope
                         continue
                     }
+                    // Case #2 path
                     if (scopeName.isEmpty()) {
                         fatalError("Scope name cannot be empty", symbol)
                     }
-                    val scope = Scope.Custom(scopeName)
-                    customScopeByCanonicalName[scope.canonicalName] = scope
-                    scopeBySymbol[symbol] = scope
+                    scopeBySymbol[symbol] = Scope.Custom(value = scopeName)
                 }
 
                 is KSFunctionDeclaration -> {
+                    // Case #3 path
                     if (symbol.isConstructor()) {
                         fatalError("@Scope cannot be used on constructors", symbol)
                     }
                     if (scopeName.isEmpty()) {
                         fatalError("Scope name cannot be empty", symbol)
                     }
-                    val scope = Scope.Custom(scopeName)
-                    customScopeByCanonicalName[scope.canonicalName] = scope
-                    scopeBySymbol[symbol] = scope
+                    scopeBySymbol[symbol] = Scope.Custom(value = scopeName)
                 }
             }
+        }
+    }
+
+    private fun scanDependsOn() {
+        val dependencyByQualifiedName = HashMap<String, Scope>()
+        dependencyByQualifiedName[STITCH_SINGLETON] = Scope.Singleton
+        dependencyByQualifiedName[JAVAX_SINGLETON] = Scope.Singleton
+        for (symbol in resolver.getSymbolsWithAnnotation(DEPENDS_ON)) {
+            val scope = scopeBySymbol[symbol]
+                ?: fatalError("@DependsOn cannot be used without @Scope", symbol)
+            val annotation = symbol.annotations.find(DEPENDS_ON)
+            val dependency = annotation.arguments[0].value as KSType
+            val qualifiedName = dependency.declaration.qualifiedName(symbol)
+            dependencyByQualifiedName[qualifiedName]?.let { dependency ->
+                // The dependency is @Singleton or already seen
+                registry.scopeDependencies[scope] = dependency
+                continue
+            }
+            val scopeAnnotated = dependency.declaration.annotations.any {
+                it.annotationType.resolve().declaration.qualifiedName?.asString() == SCOPE
+            }
+            if (!scopeAnnotated) {
+                fatalError("Scope '$scope' depends on a type that isn't a scope", symbol)
+            }
+            val scopeDependency = Scope.Custom(qualifiedName)
+            dependencyByQualifiedName[qualifiedName] = scopeDependency
+            registry.scopeDependencies[scope] = scopeDependency
         }
     }
 
@@ -419,15 +447,14 @@ class AnnotationScanner(
 
         // Slow-path: Check if there is any annotation that is annotated with `@Scope`
         for (annotation in symbol.annotations) {
-            val declaration = annotation.annotationType.resolve().declaration as? KSClassDeclaration
-                ?: continue
-            val annotationName = annotation.shortName.asString()
-            customScopeByCanonicalName[annotationName.lowercase()]?.let { return it }
+            val declaration = annotation.annotationType.resolve().declaration
+            val qualifiedName = declaration.qualifiedName(symbol)
+            customScopeByQualifiedName[qualifiedName]?.let { return it }
             for (metaAnnotation in declaration.annotations) {
                 val fqn = metaAnnotation.annotationType.resolve().declaration.qualifiedName(symbol)
                 if (fqn == SCOPE) {
-                    val scope = Scope.Custom(annotationName)
-                    customScopeByCanonicalName[scope.canonicalName] = scope
+                    val scope = Scope.Custom(qualifiedName)
+                    customScopeByQualifiedName[qualifiedName] = scope
                     scopeBySymbol[symbol] = scope
                     return scope
                 }
@@ -462,6 +489,7 @@ class AnnotationScanner(
         const val SCOPE = "com.harrytmthy.stitch.annotations.Scope"
         const val STITCH_SINGLETON = "com.harrytmthy.stitch.annotations.Singleton"
         const val JAVAX_SINGLETON = "javax.inject.Singleton"
+        const val DEPENDS_ON = "com.harrytmthy.stitch.annotations.DependsOn"
         const val BINDS = "com.harrytmthy.stitch.annotations.Binds"
     }
 }
