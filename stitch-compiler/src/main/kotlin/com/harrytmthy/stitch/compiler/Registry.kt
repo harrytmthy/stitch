@@ -48,6 +48,13 @@ class Registry {
     val missingBindings = HashSet<Binding>()
 
     /**
+     * Represents scope dependencies that are registered via `@DependsOn`.
+     * - Key: The registered scope
+     * - Value: Its dependency
+     */
+    val scopeDependencies = HashMap<Scope, Scope>()
+
+    /**
      * Represents whether the current module is the aggregator module.
      */
     var isAggregator = false

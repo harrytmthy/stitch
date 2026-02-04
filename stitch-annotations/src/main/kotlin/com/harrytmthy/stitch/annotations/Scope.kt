@@ -61,5 +61,5 @@ package com.harrytmthy.stitch.annotations
  * @see Qualifier
  */
 @Target(AnnotationTarget.ANNOTATION_CLASS, AnnotationTarget.FIELD)
-@Retention(AnnotationRetention.RUNTIME)
+@Retention(AnnotationRetention.BINARY)
 annotation class Scope(val name: String = "")
