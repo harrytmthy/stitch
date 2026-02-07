@@ -67,19 +67,11 @@ sealed class Qualifier {
     }
 }
 
-/**
- * Explanations:
- * - If a binding uses `@Singleton`, scope = Scope.Singleton
- * - If a binding uses `@Activity`, scope = Scope.Custom(qualifiedName = "com.something.Activity")
- * - If a binding uses `@Scope("activity")`, scope = Scope.Custom(value = "activity")
- */
 sealed class Scope {
 
     data object Singleton : Scope()
 
-    class Custom(val qualifiedName: String = "", val value: String = "") : Scope() {
-
-        val canonicalName: String = qualifiedName.ifBlank { value }
+    class Custom(val canonicalName: String, val qualifiedName: String = "") : Scope() {
 
         override fun toString(): String = canonicalName
 

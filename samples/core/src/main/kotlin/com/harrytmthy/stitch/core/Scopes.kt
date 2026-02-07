@@ -16,6 +16,7 @@
 
 package com.harrytmthy.stitch.core
 
+import com.harrytmthy.stitch.annotations.DependsOn
 import com.harrytmthy.stitch.annotations.Scope
 
 @Scope
@@ -23,9 +24,11 @@ import com.harrytmthy.stitch.annotations.Scope
 annotation class Activity
 
 @Scope
+@DependsOn(Activity::class)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Fragment
 
 @Scope
+@DependsOn(Fragment::class)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class ViewWithFragment

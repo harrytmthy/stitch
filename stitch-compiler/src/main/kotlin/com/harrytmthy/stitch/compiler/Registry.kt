@@ -48,6 +48,11 @@ class Registry {
     val missingBindings = HashSet<Binding>()
 
     /**
+     * Represents custom scopes grouped by their FQN.
+     */
+    val customScopeByQualifiedName = HashMap<String, Scope.Custom>()
+
+    /**
      * Represents scope dependencies that are registered via `@DependsOn`.
      * - Key: The registered scope
      * - Value: Its dependency
