@@ -36,8 +36,6 @@ class AnnotationScanner(
 
     private val scopeBySymbol = HashMap<KSAnnotated, Scope>()
 
-    private val customScopeByQualifiedName = HashMap<String, Scope.Custom>()
-
     private val qualifierBySymbol = HashMap<KSAnnotated, Qualifier>()
 
     private val providedBindingBySymbol = HashMap<KSAnnotated, ProvidedBinding>()
@@ -109,6 +107,7 @@ class AnnotationScanner(
             }
         }
         for (symbol in resolver.getSymbolsWithAnnotation(SCOPE)) {
+            // At this point, scopeBySymbol only contains @Singleton (if any)
             if (symbol in scopeBySymbol) {
                 fatalError("@Scope cannot be used with @Singleton at the same time", symbol)
             }
@@ -116,60 +115,59 @@ class AnnotationScanner(
             when (symbol) {
                 is KSClassDeclaration -> {
                     if (symbol.classKind == ClassKind.ANNOTATION_CLASS) {
-                        // Case #1 path
-                        if (scopeName.isNotEmpty()) {
-                            logger.warn("`name` arg is ignored in annotation classes", symbol)
-                        }
+                        // Case #1 path: Register both FQN + canonical name
                         val qualifiedName = symbol.qualifiedName(symbol)
-                        val scope = Scope.Custom(qualifiedName)
-                        customScopeByQualifiedName[qualifiedName] = scope
+                        val canonicalName = scopeName.ifBlank { symbol.simpleName.asString() }
+                            .lowercase()
+                        val scope = Scope.Custom(canonicalName, qualifiedName)
+                        registry.customScopeByQualifiedName[qualifiedName] = scope
                         scopeBySymbol[symbol] = scope
                         continue
                     }
-                    // Case #2 path
+                    // Case #2 path: FQN of @Scope("activity") is unknown. Leave it empty.
                     if (scopeName.isEmpty()) {
                         fatalError("Scope name cannot be empty", symbol)
                     }
-                    scopeBySymbol[symbol] = Scope.Custom(value = scopeName)
+                    scopeBySymbol[symbol] = Scope.Custom(canonicalName = scopeName.lowercase())
                 }
 
                 is KSFunctionDeclaration -> {
-                    // Case #3 path
+                    // Case #3 path: FQN of @Scope("activity") is unknown. Leave it empty.
                     if (symbol.isConstructor()) {
                         fatalError("@Scope cannot be used on constructors", symbol)
                     }
                     if (scopeName.isEmpty()) {
                         fatalError("Scope name cannot be empty", symbol)
                     }
-                    scopeBySymbol[symbol] = Scope.Custom(value = scopeName)
+                    scopeBySymbol[symbol] = Scope.Custom(canonicalName = scopeName.lowercase())
                 }
             }
         }
     }
 
     private fun scanDependsOn() {
-        val dependencyByQualifiedName = HashMap<String, Scope>()
-        dependencyByQualifiedName[STITCH_SINGLETON] = Scope.Singleton
-        dependencyByQualifiedName[JAVAX_SINGLETON] = Scope.Singleton
         for (symbol in resolver.getSymbolsWithAnnotation(DEPENDS_ON)) {
             val scope = scopeBySymbol[symbol]
                 ?: fatalError("@DependsOn cannot be used without @Scope", symbol)
             val annotation = symbol.annotations.find(DEPENDS_ON)
             val dependency = annotation.arguments[0].value as KSType
             val qualifiedName = dependency.declaration.qualifiedName(symbol)
-            dependencyByQualifiedName[qualifiedName]?.let { dependency ->
-                // The dependency is @Singleton or already seen
+            registry.customScopeByQualifiedName[qualifiedName]?.let { dependency ->
                 registry.scopeDependencies[scope] = dependency
                 continue
             }
-            val scopeAnnotated = dependency.declaration.annotations.any {
+            if (qualifiedName == STITCH_SINGLETON || qualifiedName == JAVAX_SINGLETON) {
+                registry.scopeDependencies[scope] = Scope.Singleton
+                continue
+            }
+            val scopeAnnotation = dependency.declaration.annotations.find {
                 it.annotationType.resolve().declaration.qualifiedName?.asString() == SCOPE
-            }
-            if (!scopeAnnotated) {
-                fatalError("Scope '$scope' depends on a type that isn't a scope", symbol)
-            }
-            val scopeDependency = Scope.Custom(qualifiedName)
-            dependencyByQualifiedName[qualifiedName] = scopeDependency
+            } ?: fatalError("Scope '$scope' depends on a type that isn't a scope", symbol)
+            val canonicalName = (scopeAnnotation.arguments[0].value as String)
+                .ifBlank { dependency.declaration.simpleName.asString() }
+                .lowercase()
+            val scopeDependency = Scope.Custom(canonicalName, qualifiedName)
+            registry.customScopeByQualifiedName[qualifiedName] = scopeDependency
             registry.scopeDependencies[scope] = scopeDependency
         }
     }
@@ -449,12 +447,15 @@ class AnnotationScanner(
         for (annotation in symbol.annotations) {
             val declaration = annotation.annotationType.resolve().declaration
             val qualifiedName = declaration.qualifiedName(symbol)
-            customScopeByQualifiedName[qualifiedName]?.let { return it }
+            registry.customScopeByQualifiedName[qualifiedName]?.let { return it }
             for (metaAnnotation in declaration.annotations) {
                 val fqn = metaAnnotation.annotationType.resolve().declaration.qualifiedName(symbol)
                 if (fqn == SCOPE) {
-                    val scope = Scope.Custom(qualifiedName)
-                    customScopeByQualifiedName[qualifiedName] = scope
+                    val canonicalName = (metaAnnotation.arguments[0].value as String)
+                        .ifBlank { annotation.shortName.asString() }
+                        .lowercase()
+                    val scope = Scope.Custom(canonicalName, qualifiedName)
+                    registry.customScopeByQualifiedName[qualifiedName] = scope
                     scopeBySymbol[symbol] = scope
                     return scope
                 }
