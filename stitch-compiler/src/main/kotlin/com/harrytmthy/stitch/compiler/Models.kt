@@ -71,7 +71,11 @@ sealed class Scope {
 
     data object Singleton : Scope()
 
-    class Custom(val canonicalName: String, val qualifiedName: String = "") : Scope() {
+    class Custom(
+        val canonicalName: String,
+        val qualifiedName: String = "",
+        val location: String = "",
+    ) : Scope() {
 
         override fun toString(): String = canonicalName
 
