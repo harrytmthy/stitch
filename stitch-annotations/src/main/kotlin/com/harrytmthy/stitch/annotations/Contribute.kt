@@ -16,7 +16,7 @@
 
 package com.harrytmthy.stitch.annotations
 
-@Target(AnnotationTarget.FILE)
+@Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)
 annotation class Contribute(
     val bindings: Array<ContributedBinding>,
