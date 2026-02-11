@@ -119,7 +119,8 @@ class AnnotationScanner(
                         val qualifiedName = symbol.qualifiedName(symbol)
                         val canonicalName = scopeName.ifBlank { symbol.simpleName.asString() }
                             .lowercase()
-                        val scope = Scope.Custom(canonicalName, qualifiedName)
+                        val location = symbol.filePathAndLineNumber.orEmpty()
+                        val scope = Scope.Custom(canonicalName, qualifiedName, location)
                         registry.customScopeByQualifiedName[qualifiedName] = scope
                         scopeBySymbol[symbol] = scope
                         continue
