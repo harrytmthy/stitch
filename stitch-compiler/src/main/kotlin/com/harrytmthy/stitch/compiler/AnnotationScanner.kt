@@ -121,6 +121,7 @@ class AnnotationScanner(
                             .lowercase()
                         val location = symbol.filePathAndLineNumber.orEmpty()
                         val scope = Scope.Custom(canonicalName, qualifiedName, location)
+                        registry.customScopeByCanonicalName[canonicalName] = scope
                         registry.customScopeByQualifiedName[qualifiedName] = scope
                         scopeBySymbol[symbol] = scope
                         continue
@@ -129,7 +130,11 @@ class AnnotationScanner(
                     if (scopeName.isEmpty()) {
                         fatalError("Scope name cannot be empty", symbol)
                     }
-                    scopeBySymbol[symbol] = Scope.Custom(canonicalName = scopeName.lowercase())
+                    val scope = Scope.Custom(canonicalName = scopeName.lowercase())
+                    if (scope.canonicalName !in registry.customScopeByCanonicalName) {
+                        registry.customScopeByCanonicalName[scope.canonicalName] = scope
+                    }
+                    scopeBySymbol[symbol] = scope
                 }
 
                 is KSFunctionDeclaration -> {
@@ -140,7 +145,11 @@ class AnnotationScanner(
                     if (scopeName.isEmpty()) {
                         fatalError("Scope name cannot be empty", symbol)
                     }
-                    scopeBySymbol[symbol] = Scope.Custom(canonicalName = scopeName.lowercase())
+                    val scope = Scope.Custom(canonicalName = scopeName.lowercase())
+                    if (scope.canonicalName !in registry.customScopeByCanonicalName) {
+                        registry.customScopeByCanonicalName[scope.canonicalName] = scope
+                    }
+                    scopeBySymbol[symbol] = scope
                 }
             }
         }
@@ -167,7 +176,10 @@ class AnnotationScanner(
             val canonicalName = (scopeAnnotation.arguments[0].value as String)
                 .ifBlank { dependency.declaration.simpleName.asString() }
                 .lowercase()
-            val scopeDependency = Scope.Custom(canonicalName, qualifiedName)
+            val scopeDependency = Scope.Custom(canonicalName)
+            if (canonicalName !in registry.customScopeByCanonicalName) {
+                registry.customScopeByCanonicalName[canonicalName] = scopeDependency
+            }
             registry.customScopeByQualifiedName[qualifiedName] = scopeDependency
             registry.scopeDependencies[scope] = scopeDependency
         }
@@ -455,7 +467,10 @@ class AnnotationScanner(
                     val canonicalName = (metaAnnotation.arguments[0].value as String)
                         .ifBlank { annotation.shortName.asString() }
                         .lowercase()
-                    val scope = Scope.Custom(canonicalName, qualifiedName)
+                    val scope = Scope.Custom(canonicalName)
+                    if (canonicalName !in registry.customScopeByCanonicalName) {
+                        registry.customScopeByCanonicalName[canonicalName] = scope
+                    }
                     registry.customScopeByQualifiedName[qualifiedName] = scope
                     scopeBySymbol[symbol] = scope
                     return scope

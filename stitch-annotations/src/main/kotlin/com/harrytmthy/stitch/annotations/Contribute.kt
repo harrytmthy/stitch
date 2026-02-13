@@ -58,7 +58,7 @@ annotation class RequestedField(val bindingId: Int, val fieldName: String)
 annotation class RegisteredScope(
     val id: Int,
     val canonicalName: String,
-    val qualifiedName: String,
+    val qualifiedName: String = "",
     val location: String = "",
     val dependsOn: Int = 0,
 )
