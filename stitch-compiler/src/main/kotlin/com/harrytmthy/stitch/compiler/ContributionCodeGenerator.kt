@@ -39,6 +39,11 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 val requesters = buildBindingRequesters(sortedBindings, sortedRequestedBindings)
                 addMember("requesters = %L", requesters)
             }
+            if (registry.customScopeByCanonicalName.isNotEmpty()) {
+                val sortedCustomScopes = registry.getSortedRegisteredScopesWithId()
+                val scopes = buildRegisteredScopes(sortedCustomScopes, registry.scopeDependencies)
+                addMember("scopes = %L", scopes)
+            }
         }.build()
         val packageName = "com.harrytmthy.stitch.generated"
         val moduleKey = moduleName.toModuleKey()
@@ -129,6 +134,40 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
         }.build()
     }
 
+    private fun buildRegisteredScopes(
+        sortedCustomScopes: Map<Scope.Custom, Int>,
+        scopeDependencies: Map<Scope, Scope>,
+    ): CodeBlock {
+        val registeredScopeClass = ClassName(
+            "com.harrytmthy.stitch.annotations",
+            "RegisteredScope",
+        )
+        return CodeBlock.builder().apply {
+            add("[\n")
+            indent()
+            sortedCustomScopes.forEach { (scope, id) ->
+                add("%T(\n", registeredScopeClass)
+                indent()
+                add("id = %L,\n", id)
+                add("canonicalName = %S,\n", scope.canonicalName)
+                if (scope.qualifiedName.isNotEmpty()) {
+                    add("qualifiedName = %S,\n", scope.qualifiedName)
+                }
+                if (scope.location.isNotEmpty()) {
+                    add("location = %S,\n", scope.location)
+                }
+                val dependency = scopeDependencies[scope]
+                if (dependency is Scope.Custom && dependency in sortedCustomScopes) {
+                    add("dependsOn = %L,\n", sortedCustomScopes.getValue(dependency))
+                }
+                unindent()
+                add("),\n")
+            }
+            unindent()
+            add("]")
+        }.build()
+    }
+
     /**
      * Returns sorted bindings by stable IDs, which includes:
      * - provided bindings + their dependencies
@@ -158,6 +197,15 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 )
                 fields.sortedWith(comparator)
             }
+
+    /**
+     * Returns sorted bindings by stable IDs.
+     */
+    private fun Registry.getSortedRegisteredScopesWithId(): Map<Scope.Custom, Int> {
+        var nextId = 1
+        return customScopeByCanonicalName.values.sortedWith(compareBy { it.canonicalName })
+            .associateWith { nextId++ }
+    }
 
     /**
      * Produces a stable 6-byte hex key used to disambiguate generated contribution names
