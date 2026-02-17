@@ -36,8 +36,6 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
         if (processed) {
             return emptyList()
         }
-        processed = true
-
         val logger = environment.logger
         logger.info("Stitch: Starting dependency injection code generation")
         try {
@@ -53,6 +51,7 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
             e.message?.let { logger.error(it, e.symbol) }
             throw e
         }
+        processed = true
         return emptyList()
     }
 

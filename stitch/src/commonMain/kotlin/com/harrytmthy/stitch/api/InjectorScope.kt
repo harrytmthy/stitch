@@ -16,7 +16,7 @@
 
 package com.harrytmthy.stitch.api
 
-interface StitchScope {
+interface InjectorScope {
     fun inject(target: Any)
     fun close()
 }

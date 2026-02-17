@@ -6,6 +6,11 @@ public final class com/harrytmthy/stitch/api/Component {
 	public final fun getInternal (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;Lcom/harrytmthy/stitch/api/ResolutionContext;)Ljava/lang/Object;
 }
 
+public abstract interface class com/harrytmthy/stitch/api/InjectorScope {
+	public abstract fun close ()V
+	public abstract fun inject (Ljava/lang/Object;)V
+}
+
 public final class com/harrytmthy/stitch/api/Module {
 	public fun <init> (ZLkotlin/jvm/functions/Function1;)V
 	public final fun define (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/internal/DefinitionType;ZLcom/harrytmthy/stitch/api/ScopeRef;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
@@ -69,11 +74,6 @@ public final class com/harrytmthy/stitch/api/Stitch {
 	public final fun reset ()V
 	public final fun unregister ([Lcom/harrytmthy/stitch/api/Module;)V
 	public final fun unregisterAll ()V
-}
-
-public abstract interface class com/harrytmthy/stitch/api/StitchScope {
-	public abstract fun close ()V
-	public abstract fun inject (Ljava/lang/Object;)V
 }
 
 public final class com/harrytmthy/stitch/exception/CycleException : com/harrytmthy/stitch/exception/GetFailedException {

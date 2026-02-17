@@ -10,7 +10,7 @@ import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.annotations.Scope
 import com.harrytmthy.stitch.api.Stitch
-import com.harrytmthy.stitch.api.StitchScope
+import com.harrytmthy.stitch.api.InjectorScope
 import com.harrytmthy.stitch.core.Logger
 import com.harrytmthy.stitch.di.ApiService
 import com.harrytmthy.stitch.di.AppModule.BASE_URL
@@ -27,9 +27,6 @@ import com.harrytmthy.stitch.exception.MissingBindingException
  * Only for testing convenience. Please ignore the weird architecture 😄
  */
 class MainActivity : AppCompatActivity() {
-
-    @Scope("activity")
-    lateinit var mainActivityScope: StitchScope
 
     @Inject
     lateinit var logger: Logger
