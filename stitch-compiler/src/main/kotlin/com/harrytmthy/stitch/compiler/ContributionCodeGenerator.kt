@@ -30,9 +30,11 @@ import java.security.MessageDigest
 class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
 
     fun generate(moduleName: String, registry: Registry) {
+        val moduleKey = moduleName.toModuleKey()
         val sortedBindings = registry.getSortedBindingsWithId()
         val contributedBindings = buildContributedBindings(sortedBindings)
         val contributeAnnotation = AnnotationSpec.builder(Contribute::class).apply {
+            addMember("moduleKey = %S", moduleKey)
             addMember("bindings = %L", contributedBindings)
             if (registry.requestedBindingsByClass.isNotEmpty()) {
                 val sortedRequestedBindings = registry.getSortedRequestedBindings()
@@ -46,7 +48,6 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
             }
         }.build()
         val packageName = "com.harrytmthy.stitch.generated"
-        val moduleKey = moduleName.toModuleKey()
         val fileName = "Generated${moduleName.toPascalModuleName()}Contribution_$moduleKey"
         val outputObject = TypeSpec.objectBuilder(fileName)
             .addAnnotation(contributeAnnotation)
