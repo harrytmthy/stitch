@@ -1,5 +1,5 @@
 [versions]
-androidGradlePlugin = "8.13.1"
+androidGradlePlugin = "9.0.1"
 androidxAppcompat = "1.7.1"
 androidxBenchmark = "1.4.1"
 androidxCoreKtx = "1.17.0"
@@ -9,11 +9,11 @@ dagger = "2.54"
 dokka = "2.0.0"
 javaxInject = "1"
 koin = "4.1.1"
-kotlin = "2.3.0"
+kotlin = "2.3.10"
 kotlinBinaryCompatibility = "0.18.1"
 kotlinpoet = "2.2.0"
 kotlinAtomicfu = "0.29.0"
-ksp = "2.3.4"
+ksp = "2.3.6"
 mavenPublishPlugin = "0.32.0"
 
 [libraries]
