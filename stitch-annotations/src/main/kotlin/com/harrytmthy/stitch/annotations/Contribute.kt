@@ -21,8 +21,8 @@ package com.harrytmthy.stitch.annotations
 annotation class Contribute(
     val moduleKey: String,
     val bindings: Array<ContributedBinding>,
-    val requesters: Array<BindingRequester> = [],
-    val scopes: Array<RegisteredScope> = [],
+    val requesters: Array<BindingRequester>,
+    val scopes: Array<RegisteredScope>,
 )
 
 /**
@@ -35,11 +35,11 @@ annotation class Contribute(
 annotation class ContributedBinding(
     val id: Int,
     val type: String,
-    val qualifier: String = "",
-    val scope: String = "",
-    val location: String = "",
-    val alias: Boolean = false,
-    val dependsOn: IntArray = [],
+    val qualifier: String,
+    val scope: String,
+    val location: String,
+    val alias: Boolean,
+    val dependsOn: IntArray,
 )
 
 annotation class BindingRequester(val name: String, val fields: Array<RequestedField>)
@@ -59,7 +59,7 @@ annotation class RequestedField(val bindingId: Int, val fieldName: String)
 annotation class RegisteredScope(
     val id: Int,
     val canonicalName: String,
-    val qualifiedName: String = "",
-    val location: String = "",
-    val dependsOn: Int = 0,
+    val qualifiedName: String,
+    val location: String,
+    val dependsOn: Int,
 )
