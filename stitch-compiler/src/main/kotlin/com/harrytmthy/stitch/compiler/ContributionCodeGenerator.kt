@@ -40,11 +40,15 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 val sortedRequestedBindings = registry.getSortedRequestedBindings()
                 val requesters = buildBindingRequesters(sortedBindings, sortedRequestedBindings)
                 addMember("requesters = %L", requesters)
+            } else {
+                addMember("requesters = []")
             }
             if (registry.customScopeByCanonicalName.isNotEmpty()) {
                 val sortedCustomScopes = registry.getSortedRegisteredScopesWithId()
                 val scopes = buildRegisteredScopes(sortedCustomScopes, registry.scopeDependencies)
                 addMember("scopes = %L", scopes)
+            } else {
+                addMember("scopes = []")
             }
         }.build()
         val packageName = "com.harrytmthy.stitch.generated"
@@ -78,14 +82,21 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 indent()
                 add("id = %L,\n", id)
                 add("type = %S,\n", binding.type)
-                binding.qualifier?.let { add("qualifier = %S,\n", it.encode()) }
+                add("qualifier = %S,\n", binding.qualifier?.encode().orEmpty())
                 if (binding is ProvidedBinding) {
-                    binding.scope?.let { add("scope = %S,\n", it) }
+                    add("scope = %S,\n", binding.scope?.toString().orEmpty())
                     add("location = %S,\n", binding.location)
                     add("alias = %L,\n", binding.alias)
-                    binding.dependencies?.map(sortedBindings::getValue)
+                    val dependencies = binding.dependencies?.map(sortedBindings::getValue)
                         ?.sorted()
-                        ?.let { add("dependsOn = intArrayOf(%L),\n", it.joinToString(", ")) }
+                        ?.joinToString(", ")
+                        .orEmpty()
+                    add("dependsOn = [%L],\n", dependencies)
+                } else {
+                    add("scope = \"\",\n")
+                    add("location = \"\",\n")
+                    add("alias = false,\n")
+                    add("dependsOn = [],\n")
                 }
                 unindent()
                 add("),\n")
@@ -151,16 +162,10 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 indent()
                 add("id = %L,\n", id)
                 add("canonicalName = %S,\n", scope.canonicalName)
-                if (scope.qualifiedName.isNotEmpty()) {
-                    add("qualifiedName = %S,\n", scope.qualifiedName)
-                }
-                if (scope.location.isNotEmpty()) {
-                    add("location = %S,\n", scope.location)
-                }
-                val dependency = scopeDependencies[scope]
-                if (dependency is Scope.Custom && dependency in sortedCustomScopes) {
-                    add("dependsOn = %L,\n", sortedCustomScopes.getValue(dependency))
-                }
+                add("qualifiedName = %S,\n", scope.qualifiedName)
+                add("location = %S,\n", scope.location)
+                val dependency = scopeDependencies[scope] as? Scope.Custom
+                add("dependsOn = %L,\n", sortedCustomScopes.getOrDefault(dependency, 0))
                 unindent()
                 add("),\n")
             }
