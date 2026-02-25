@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.compiler
+package com.harrytmthy.stitch.compiler.scanner
 
 import com.google.devtools.ksp.isConstructor
-import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
@@ -27,10 +26,22 @@ import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
+import com.harrytmthy.stitch.compiler.Binding
+import com.harrytmthy.stitch.compiler.BindingPool
+import com.harrytmthy.stitch.compiler.ProvidedBinding
+import com.harrytmthy.stitch.compiler.Qualifier
+import com.harrytmthy.stitch.compiler.Registry
+import com.harrytmthy.stitch.compiler.RequestedBinding
+import com.harrytmthy.stitch.compiler.Scope
+import com.harrytmthy.stitch.compiler.fatalError
+import com.harrytmthy.stitch.compiler.filePathAndLineNumber
+import com.harrytmthy.stitch.compiler.find
+import com.harrytmthy.stitch.compiler.findArgument
+import com.harrytmthy.stitch.compiler.qualifiedName
 
-class AnnotationScanner(
+class LocalAnnotationScanner(
     private val resolver: Resolver,
-    private val logger: KSPLogger,
+    private val moduleKey: String,
     private val registry: Registry,
 ) {
 
@@ -212,7 +223,7 @@ class AnnotationScanner(
             val qualifier = qualifierBySymbol[symbol]
             val scope = getScopeFromSymbol(symbol)
             val location = symbol.filePathAndLineNumber!!
-            val binding = ProvidedBinding(type, qualifier, scope, location)
+            val binding = ProvidedBinding(type, qualifier, scope, location, moduleKey = moduleKey)
 
             // ProvidedBinding is keyed only by type + qualifier, allowing `providedBindings`
             // to detect if there is another symbol providing the same type + qualifier.
@@ -255,13 +266,16 @@ class AnnotationScanner(
             fatalError("@Inject cannot be used on abstract classes", canonicalSymbol)
         }
         if (canonicalSymbol in providedBindingBySymbol) {
-            fatalError("Multiple @Inject-annotated constructors found. Only one is allowed", canonicalSymbol)
+            fatalError(
+                "Multiple @Inject-annotated constructors found. Only one is allowed",
+                canonicalSymbol,
+            )
         }
         val type = canonicalSymbol.asStarProjectedType().declaration.qualifiedName(canonicalSymbol)
         val qualifier = qualifierBySymbol[canonicalSymbol]
         val scope = getScopeFromSymbol(canonicalSymbol)
         val location = canonicalSymbol.filePathAndLineNumber!!
-        val binding = ProvidedBinding(type, qualifier, scope, location)
+        val binding = ProvidedBinding(type, qualifier, scope, location, moduleKey = moduleKey)
 
         // ProvidedBinding is keyed only by type + qualifier, allowing `providedBindings`
         // to detect if there is another symbol providing the same type + qualifier.
@@ -379,7 +393,10 @@ class AnnotationScanner(
                     val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
                     val aliases = aliasArg.value as List<*>
                     if (aliases.isEmpty()) {
-                        fatalError("@Binds(aliases = ...) is required when annotating classes", symbol)
+                        fatalError(
+                            "@Binds(aliases = ...) is required when annotating classes",
+                            symbol,
+                        )
                     }
                     // TODO: Display a proper KSP warning to inform about the skipped @Binds
                     val dependency = providedBindingBySymbol[symbol] ?: continue
@@ -397,12 +414,18 @@ class AnnotationScanner(
                     }
                     val returnType = symbol.returnType?.resolve()?.declaration
                         ?.qualifiedName(symbol)
-                        ?: fatalError("@Binds requires a return type when annotating functions", symbol)
+                        ?: fatalError(
+                            "@Binds requires a return type when annotating functions",
+                            symbol,
+                        )
                     val qualifier = qualifierBySymbol[symbol]
                     val location = symbol.filePathAndLineNumber.orEmpty()
                     if (symbol.isAbstract) {
                         val parameter = symbol.parameters.singleOrNull()
-                            ?: fatalError("@Binds requires one parameter when annotating abstract functions", symbol)
+                            ?: fatalError(
+                                "@Binds requires one parameter when annotating abstract functions",
+                                symbol,
+                            )
                         val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
                         val type = parameter.type.resolve().declaration.qualifiedName(parameter)
                         val dependency = Binding(type, qualifier)
@@ -415,7 +438,10 @@ class AnnotationScanner(
                         val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
                         val aliases = aliasArg.value as List<*>
                         if (aliases.isEmpty()) {
-                            fatalError("@Binds(aliases = ...) is required when annotating functions", symbol)
+                            fatalError(
+                                "@Binds(aliases = ...) is required when annotating functions",
+                                symbol,
+                            )
                         }
                         // TODO: Display a proper KSP warning to inform about the skipped @Binds
                         val dependency = providedBindingBySymbol[symbol] ?: continue
@@ -440,7 +466,7 @@ class AnnotationScanner(
         dependency: Binding,
         symbol: KSAnnotated,
     ) {
-        val alias = ProvidedBinding(type, qualifier, scope = null, location, alias = true)
+        val alias = ProvidedBinding(type, qualifier, scope = null, location, alias = true, moduleKey)
         providedAliases[alias]?.let { existingBinding ->
             duplicateBindingError(existingBinding, symbol)
         }

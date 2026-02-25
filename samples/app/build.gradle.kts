@@ -57,6 +57,9 @@ android {
             jvmTarget = JvmTarget.JVM_11
         }
     }
+    ksp {
+        arg("stitch.moduleName", "App")
+    }
 }
 
 dependencies {

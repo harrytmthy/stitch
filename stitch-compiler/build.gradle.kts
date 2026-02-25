@@ -15,7 +15,7 @@
  */
 
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.stitch.jvm)
     alias(libs.plugins.stitch.publishing)
     `java-gradle-plugin`
 }
