@@ -20,6 +20,9 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
+import com.harrytmthy.stitch.compiler.scanner.ContributionScanner
+import com.harrytmthy.stitch.compiler.scanner.LocalAnnotationScanner
+import java.security.MessageDigest
 
 /**
  * KSP symbol processor for Stitch dependency injection code generation.
@@ -39,19 +42,24 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
         val logger = environment.logger
         logger.info("Stitch: Starting dependency injection code generation")
         try {
+            val moduleName = getOption("stitch.moduleName")
+            val moduleKey = moduleName.toModuleKey()
             val registry = Registry()
-            AnnotationScanner(resolver, logger, registry).scan()
-
+            LocalAnnotationScanner(resolver, moduleKey, registry).scan()
             if (!registry.isAggregator) {
-                val moduleName = getOption("stitch.moduleName")
                 ContributionCodeGenerator(environment.codeGenerator)
-                    .generate(moduleName, registry)
+                    .generate(moduleName, moduleKey, registry)
+            } else {
+                ContributionScanner(resolver, registry).scan()
+                // TODO: Add scope graph builder
+                // TODO: Add binding graph builder
+                // TODO: Add codegen for InjectorScope's implementation
             }
+            processed = true
         } catch (e: StitchProcessingException) {
             e.message?.let { logger.error(it, e.symbol) }
             throw e
         }
-        processed = true
         return emptyList()
     }
 
@@ -59,4 +67,17 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
         environment.options[name] ?: throw StitchProcessingException(
             "Missing KSP option '$name'. Configure via ksp { arg(...) } or apply 'io.github.harrytmthy.stitch' plugin.",
         )
+
+    /**
+     * Produces a stable 6-byte hex key used to disambiguate generated contribution names
+     * for modules that normalize to the same PascalCase name.
+     */
+    private fun String.toModuleKey(): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(toByteArray())
+        return digest.take(6).joinToString("") { "%02X".format(it.toInt() and 0xFF) }
+    }
+
+    companion object {
+        const val GENERATED_PACKAGE_NAME = "com.harrytmthy.stitch.generated"
+    }
 }

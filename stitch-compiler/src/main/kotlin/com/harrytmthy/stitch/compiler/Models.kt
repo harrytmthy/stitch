@@ -41,6 +41,7 @@ class ProvidedBinding(
     val scope: Scope?,
     val location: String, // File path + line number
     val alias: Boolean = false,
+    val moduleKey: String = "", // Only used by the aggregator
 ) : Binding(type, qualifier) {
 
     var dependencies: HashSet<Binding>? = null
@@ -64,6 +65,23 @@ sealed class Qualifier {
 
     data class Named(val value: String) : Qualifier() {
         override fun encode(): String = "Named:$value"
+    }
+
+    companion object {
+
+        fun of(value: String): Qualifier? {
+            if (value.isEmpty()) {
+                return null
+            }
+            val parts = value.split(":")
+            if (parts.size < 2) {
+                error("Should not happen")
+            }
+            return when {
+                parts[0] == "Named" -> Named(parts[1])
+                else -> error("Should not happen")
+            }
+        }
     }
 }
 
