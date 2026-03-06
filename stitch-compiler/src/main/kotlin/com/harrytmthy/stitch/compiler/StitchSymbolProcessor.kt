@@ -22,6 +22,7 @@ import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.harrytmthy.stitch.compiler.scanner.ContributionScanner
 import com.harrytmthy.stitch.compiler.scanner.LocalAnnotationScanner
+import com.harrytmthy.stitch.compiler.scanner.LocalScanResult
 import java.security.MessageDigest
 
 /**
@@ -44,13 +45,13 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
         try {
             val moduleName = getOption("stitch.moduleName")
             val moduleKey = moduleName.toModuleKey()
-            val registry = Registry()
-            LocalAnnotationScanner(resolver, moduleKey, registry).scan()
-            if (!registry.isAggregator) {
+            val localScanResult = LocalScanResult()
+            LocalAnnotationScanner(resolver, moduleKey, localScanResult).scan()
+            if (!localScanResult.isAggregator) {
                 ContributionCodeGenerator(environment.codeGenerator)
-                    .generate(moduleName, moduleKey, registry)
+                    .generate(moduleName, moduleKey, localScanResult)
             } else {
-                ContributionScanner(resolver, registry).scan()
+                ContributionScanner(resolver, moduleKey, localScanResult).scan()
                 // TODO: Add scope graph builder
                 // TODO: Add binding graph builder
                 // TODO: Add codegen for InjectorScope's implementation

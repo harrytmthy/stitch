@@ -20,6 +20,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.harrytmthy.stitch.annotations.Contribute
 import com.harrytmthy.stitch.compiler.StitchSymbolProcessor.Companion.GENERATED_PACKAGE_NAME
+import com.harrytmthy.stitch.compiler.scanner.LocalScanResult
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
@@ -29,22 +30,22 @@ import java.io.OutputStreamWriter
 
 class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
 
-    fun generate(moduleName: String, moduleKey: String, registry: Registry) {
-        val sortedBindings = registry.getSortedBindingsWithId()
+    fun generate(moduleName: String, moduleKey: String, localScanResult: LocalScanResult) {
+        val sortedBindings = localScanResult.getSortedBindingsWithId()
         val contributedBindings = buildContributedBindings(sortedBindings)
         val contributeAnnotation = AnnotationSpec.builder(Contribute::class).apply {
             addMember("moduleKey = %S", moduleKey)
             addMember("bindings = %L", contributedBindings)
-            if (registry.requestedBindingsByClass.isNotEmpty()) {
-                val sortedRequestedBindings = registry.getSortedRequestedBindings()
+            if (localScanResult.requestedBindingsByClass.isNotEmpty()) {
+                val sortedRequestedBindings = localScanResult.getSortedRequestedBindings()
                 val requesters = buildBindingRequesters(sortedBindings, sortedRequestedBindings)
                 addMember("requesters = %L", requesters)
             } else {
                 addMember("requesters = []")
             }
-            if (registry.customScopeByCanonicalName.isNotEmpty()) {
-                val sortedCustomScopes = registry.getSortedRegisteredScopesWithId()
-                val scopes = buildRegisteredScopes(sortedCustomScopes, registry.scopeDependencies)
+            if (localScanResult.customScopeByCanonicalName.isNotEmpty()) {
+                val sortedCustomScopes = localScanResult.getSortedRegisteredScopesWithId()
+                val scopes = buildRegisteredScopes(sortedCustomScopes, localScanResult.scopeDependencies)
                 addMember("scopes = %L", scopes)
             } else {
                 addMember("scopes = []")
@@ -177,7 +178,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
      * - provided bindings + their dependencies
      * - requested bindings
      */
-    private fun Registry.getSortedBindingsWithId(): Map<Binding, Int> {
+    private fun LocalScanResult.getSortedBindingsWithId(): Map<Binding, Int> {
         val bindings = LinkedHashSet<Binding>()
         bindings += providedBindings.values
         providedBindings.values.forEach { it.dependencies?.let(bindings::addAll) }
@@ -191,7 +192,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
     /**
      * Produces stable ordering for Gradle cache hits.
      */
-    private fun Registry.getSortedRequestedBindings(): Map<String, List<RequestedBinding>> =
+    private fun LocalScanResult.getSortedRequestedBindings(): Map<String, List<RequestedBinding>> =
         requestedBindingsByClass.toSortedMap() // sort by requester's FQN
             .mapValues { (_, fields) ->
                 val comparator = compareBy<RequestedBinding>(
@@ -205,7 +206,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
     /**
      * Returns sorted bindings by stable IDs.
      */
-    private fun Registry.getSortedRegisteredScopesWithId(): Map<Scope.Custom, Int> {
+    private fun LocalScanResult.getSortedRegisteredScopesWithId(): Map<Scope.Custom, Int> {
         var nextId = 1
         return customScopeByCanonicalName.values.sortedWith(compareBy { it.canonicalName })
             .associateWith { nextId++ }

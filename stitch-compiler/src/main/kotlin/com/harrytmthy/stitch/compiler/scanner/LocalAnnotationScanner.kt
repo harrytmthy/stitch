@@ -30,7 +30,6 @@ import com.harrytmthy.stitch.compiler.Binding
 import com.harrytmthy.stitch.compiler.BindingPool
 import com.harrytmthy.stitch.compiler.ProvidedBinding
 import com.harrytmthy.stitch.compiler.Qualifier
-import com.harrytmthy.stitch.compiler.Registry
 import com.harrytmthy.stitch.compiler.RequestedBinding
 import com.harrytmthy.stitch.compiler.Scope
 import com.harrytmthy.stitch.compiler.fatalError
@@ -42,7 +41,7 @@ import com.harrytmthy.stitch.compiler.qualifiedName
 class LocalAnnotationScanner(
     private val resolver: Resolver,
     private val moduleKey: String,
-    private val registry: Registry,
+    private val scanResult: LocalScanResult,
 ) {
 
     private val scopeBySymbol = HashMap<KSAnnotated, Scope>()
@@ -67,7 +66,7 @@ class LocalAnnotationScanner(
     }
 
     private fun scanRoot() {
-        registry.isAggregator = resolver.getSymbolsWithAnnotation(ROOT).any()
+        scanResult.isAggregator = resolver.getSymbolsWithAnnotation(ROOT).any()
     }
 
     /**
@@ -132,8 +131,8 @@ class LocalAnnotationScanner(
                             .lowercase()
                         val location = symbol.filePathAndLineNumber.orEmpty()
                         val scope = Scope.Custom(canonicalName, qualifiedName, location)
-                        registry.customScopeByCanonicalName[canonicalName] = scope
-                        registry.customScopeByQualifiedName[qualifiedName] = scope
+                        scanResult.customScopeByCanonicalName[canonicalName] = scope
+                        scanResult.customScopeByQualifiedName[qualifiedName] = scope
                         scopeBySymbol[symbol] = scope
                         continue
                     }
@@ -142,8 +141,8 @@ class LocalAnnotationScanner(
                         fatalError("Scope name cannot be empty", symbol)
                     }
                     val scope = Scope.Custom(canonicalName = scopeName.lowercase())
-                    if (scope.canonicalName !in registry.customScopeByCanonicalName) {
-                        registry.customScopeByCanonicalName[scope.canonicalName] = scope
+                    if (scope.canonicalName !in scanResult.customScopeByCanonicalName) {
+                        scanResult.customScopeByCanonicalName[scope.canonicalName] = scope
                     }
                     scopeBySymbol[symbol] = scope
                 }
@@ -157,8 +156,8 @@ class LocalAnnotationScanner(
                         fatalError("Scope name cannot be empty", symbol)
                     }
                     val scope = Scope.Custom(canonicalName = scopeName.lowercase())
-                    if (scope.canonicalName !in registry.customScopeByCanonicalName) {
-                        registry.customScopeByCanonicalName[scope.canonicalName] = scope
+                    if (scope.canonicalName !in scanResult.customScopeByCanonicalName) {
+                        scanResult.customScopeByCanonicalName[scope.canonicalName] = scope
                     }
                     scopeBySymbol[symbol] = scope
                 }
@@ -173,12 +172,12 @@ class LocalAnnotationScanner(
             val annotation = symbol.annotations.find(DEPENDS_ON)
             val dependency = annotation.arguments[0].value as KSType
             val qualifiedName = dependency.declaration.qualifiedName(symbol)
-            registry.customScopeByQualifiedName[qualifiedName]?.let { dependency ->
-                registry.scopeDependencies[scope] = dependency
+            scanResult.customScopeByQualifiedName[qualifiedName]?.let { dependency ->
+                scanResult.scopeDependencies[scope] = dependency
                 continue
             }
             if (qualifiedName == STITCH_SINGLETON || qualifiedName == JAVAX_SINGLETON) {
-                registry.scopeDependencies[scope] = Scope.Singleton
+                scanResult.scopeDependencies[scope] = Scope.Singleton
                 continue
             }
             val scopeAnnotation = dependency.declaration.annotations.find {
@@ -188,11 +187,11 @@ class LocalAnnotationScanner(
                 .ifBlank { dependency.declaration.simpleName.asString() }
                 .lowercase()
             val scopeDependency = Scope.Custom(canonicalName)
-            if (canonicalName !in registry.customScopeByCanonicalName) {
-                registry.customScopeByCanonicalName[canonicalName] = scopeDependency
+            if (canonicalName !in scanResult.customScopeByCanonicalName) {
+                scanResult.customScopeByCanonicalName[canonicalName] = scopeDependency
             }
-            registry.customScopeByQualifiedName[qualifiedName] = scopeDependency
-            registry.scopeDependencies[scope] = scopeDependency
+            scanResult.customScopeByQualifiedName[qualifiedName] = scopeDependency
+            scanResult.scopeDependencies[scope] = scopeDependency
         }
     }
 
@@ -227,11 +226,11 @@ class LocalAnnotationScanner(
 
             // ProvidedBinding is keyed only by type + qualifier, allowing `providedBindings`
             // to detect if there is another symbol providing the same type + qualifier.
-            if (binding in registry.providedBindings) {
-                duplicateBindingError(registry.providedBindings.getValue(binding), symbol)
+            if (binding in scanResult.providedBindings) {
+                duplicateBindingError(scanResult.providedBindings.getValue(binding), symbol)
             }
             providedBindingBySymbol[symbol] = binding
-            registry.providedBindings.add(binding)
+            scanResult.providedBindings.add(binding)
 
             // Parameters (or "dependencies") that will be collected after scanning @Inject.
             if (symbol.parameters.isNotEmpty()) {
@@ -279,11 +278,11 @@ class LocalAnnotationScanner(
 
         // ProvidedBinding is keyed only by type + qualifier, allowing `providedBindings`
         // to detect if there is another symbol providing the same type + qualifier.
-        if (binding in registry.providedBindings) {
-            duplicateBindingError(registry.providedBindings.getValue(binding), canonicalSymbol)
+        if (binding in scanResult.providedBindings) {
+            duplicateBindingError(scanResult.providedBindings.getValue(binding), canonicalSymbol)
         }
         providedBindingBySymbol[canonicalSymbol] = binding
-        registry.providedBindings.add(binding)
+        scanResult.providedBindings.add(binding)
 
         // Parameters (or "dependencies") that will be collected after scanning @Inject.
         if (symbol.parameters.isNotEmpty()) {
@@ -307,17 +306,17 @@ class LocalAnnotationScanner(
         val fieldName = symbol.simpleName.asString()
         val binding = RequestedBinding(type, qualifier, fieldName)
         val parentQualifiedName = symbol.parentDeclaration!!.qualifiedName!!.asString()
-        val bindings = registry.requestedBindingsByClass.getOrPut(parentQualifiedName) { ArrayList() }
+        val bindings = scanResult.requestedBindingsByClass.getOrPut(parentQualifiedName) { ArrayList() }
         bindings.add(binding)
     }
 
     /**
-     * After scanning types + qualifiers, [Registry.providedBindings] is finalized and can be used
-     * to check if there is any dependency that is not locally provided (or "missing bindings").
+     * After scanning types + qualifiers, [LocalScanResult.providedBindings] is finalized and can be
+     * used to check if there is any dependency that is not locally provided (or missing bindings).
      *
      * Missing bindings will be thrown by the aggregator after collecting all provided bindings
-     * from its contributors + recheck if all elements in [Registry.missingBindings] exist inside
-     * the combined [Registry.providedBindings].
+     * from its contributors + recheck if all elements in [LocalScanResult.missingBindings] exist
+     * inside the combined [LocalScanResult.providedBindings].
      */
     private fun collectDependenciesAndMissingBindings() {
         for ((providedBinding, parameters) in parametersByBinding) {
@@ -328,23 +327,23 @@ class LocalAnnotationScanner(
                 val dependencies = providedBinding.dependencies
                     ?: HashSet<Binding>(parameters.size, 1f).also { providedBinding.dependencies = it }
                 dependencies.add(binding)
-                if (binding !in registry.providedBindings) {
-                    registry.missingBindings.add(binding)
+                if (binding !in scanResult.providedBindings) {
+                    scanResult.missingBindings.add(binding)
                 }
             }
         }
-        for ((_, requestedBindings) in registry.requestedBindingsByClass) {
+        for ((_, requestedBindings) in scanResult.requestedBindingsByClass) {
             for (requestedBinding in requestedBindings) {
-                if (requestedBinding !in registry.providedBindings) {
-                    registry.missingBindings.add(requestedBinding)
+                if (requestedBinding !in scanResult.providedBindings) {
+                    scanResult.missingBindings.add(requestedBinding)
                 }
             }
         }
         for ((_, alias) in providedAliases) {
             // Aliases are guaranteed to have exactly 1 dependency
             val dependency = alias.dependencies!!.single()
-            if (dependency !in registry.providedBindings) {
-                registry.missingBindings.add(dependency)
+            if (dependency !in scanResult.providedBindings) {
+                scanResult.missingBindings.add(dependency)
             }
         }
     }
@@ -472,7 +471,7 @@ class LocalAnnotationScanner(
         }
         alias.dependencies = hashSetOf(dependency)
         providedAliases[alias] = alias
-        registry.providedBindings[alias] = alias
+        scanResult.providedBindings[alias] = alias
     }
 
     /**
@@ -486,7 +485,7 @@ class LocalAnnotationScanner(
         for (annotation in symbol.annotations) {
             val declaration = annotation.annotationType.resolve().declaration
             val qualifiedName = declaration.qualifiedName(symbol)
-            registry.customScopeByQualifiedName[qualifiedName]?.let { return it }
+            scanResult.customScopeByQualifiedName[qualifiedName]?.let { return it }
             for (metaAnnotation in declaration.annotations) {
                 val fqn = metaAnnotation.annotationType.resolve().declaration.qualifiedName(symbol)
                 if (fqn == SCOPE) {
@@ -494,10 +493,10 @@ class LocalAnnotationScanner(
                         .ifBlank { annotation.shortName.asString() }
                         .lowercase()
                     val scope = Scope.Custom(canonicalName)
-                    if (canonicalName !in registry.customScopeByCanonicalName) {
-                        registry.customScopeByCanonicalName[canonicalName] = scope
+                    if (canonicalName !in scanResult.customScopeByCanonicalName) {
+                        scanResult.customScopeByCanonicalName[canonicalName] = scope
                     }
-                    registry.customScopeByQualifiedName[qualifiedName] = scope
+                    scanResult.customScopeByQualifiedName[qualifiedName] = scope
                     scopeBySymbol[symbol] = scope
                     return scope
                 }
