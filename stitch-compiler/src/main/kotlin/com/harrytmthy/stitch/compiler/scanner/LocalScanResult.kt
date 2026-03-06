@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Harry Timothy Tumalewa
+ * Copyright 2026 Harry Timothy Tumalewa
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,25 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.compiler
+package com.harrytmthy.stitch.compiler.scanner
+
+import com.harrytmthy.stitch.compiler.Binding
+import com.harrytmthy.stitch.compiler.BindingPool
+import com.harrytmthy.stitch.compiler.ProvidedBinding
+import com.harrytmthy.stitch.compiler.RequestedBinding
+import com.harrytmthy.stitch.compiler.Scope
 
 /**
- * Stores useful data to build dependency graph and generate code.
+ * Stores useful local data to build dependency graph and generate code.
  *
  * This shouldn't be an `object` since KSP runs per module inside the Gradle daemon, and
  * processor classes can live long enough that static state bleeds across compilations.
  */
-class Registry {
+class LocalScanResult {
 
     /**
      * Represents bindings that are provided via `@Provides`, `@Inject` constructor, and `@Binds`.
-     * Binding requests should lookup here. Bindings that don't exist here are never provided.
+     * Binding requests should look up here. Bindings that don't exist here are never provided.
      *
      * @see BindingPool
      */
