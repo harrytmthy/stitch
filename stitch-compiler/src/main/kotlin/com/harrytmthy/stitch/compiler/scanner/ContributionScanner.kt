@@ -20,12 +20,13 @@ import com.google.devtools.ksp.KspExperimental
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.harrytmthy.stitch.annotations.Contribute
-import com.harrytmthy.stitch.compiler.Binding
-import com.harrytmthy.stitch.compiler.ProvidedBinding
-import com.harrytmthy.stitch.compiler.Qualifier
-import com.harrytmthy.stitch.compiler.RequestedBinding
-import com.harrytmthy.stitch.compiler.Scope
 import com.harrytmthy.stitch.compiler.StitchSymbolProcessor.Companion.GENERATED_PACKAGE_NAME
+import com.harrytmthy.stitch.compiler.consts.BindingKind
+import com.harrytmthy.stitch.compiler.model.BindingDeclaration
+import com.harrytmthy.stitch.compiler.model.ProvidedBinding
+import com.harrytmthy.stitch.compiler.model.Qualifier
+import com.harrytmthy.stitch.compiler.model.RequestedBinding
+import com.harrytmthy.stitch.compiler.model.Scope
 
 class ContributionScanner(
     private val resolver: Resolver,
@@ -49,18 +50,21 @@ class ContributionScanner(
             val scopeAnnotations = annotation.arguments[3].value as List<KSAnnotation>
 
             // Step 1: Collect all provided + requested bindings from the aggregator & contributors
-            val localBindings = ArrayList<Binding>()
+            val localBindings = ArrayList<BindingDeclaration>()
             for (bindingAnnotation in bindingAnnotations) {
                 val id = bindingAnnotation.arguments[0].value as Int
                 val type = bindingAnnotation.arguments[1].value as String
                 val qualifier = Qualifier.of(bindingAnnotation.arguments[2].value as String)
                 val scope = bindingAnnotation.arguments[3].value as String
                 val location = bindingAnnotation.arguments[4].value as String
-                val alias = bindingAnnotation.arguments[5].value as Boolean
-                val dependsOn = bindingAnnotation.arguments[6].value as List<Int>
-                val bindingKey = Binding(type, qualifier)
+                val kind = bindingAnnotation.arguments[5].value as Int
+                val providerPackageName = bindingAnnotation.arguments[6].value as String
+                val providerFunctionName = bindingAnnotation.arguments[7].value as String
+                val providerClassName = bindingAnnotation.arguments[8].value as String
+                val dependsOn = bindingAnnotation.arguments[9].value as List<Int>
+                val bindingKey = BindingDeclaration(type, qualifier, location)
                 localBindings.add(bindingKey)
-                if (location.isNotEmpty()) {
+                if (kind != BindingKind.REQUESTED) {
                     // ProvidedBinding path
                     if (bindingKey in providedBindings) {
                         // TODO(#120): Throw duplicate binding exception
@@ -70,7 +74,17 @@ class ContributionScanner(
                         "" -> null
                         else -> Scope.Custom(scope)
                     }
-                    val binding = ProvidedBinding(type, qualifier, scope, location, alias, moduleKey)
+                    val binding = ProvidedBinding(
+                        type = type,
+                        qualifier = qualifier,
+                        scope = scope,
+                        location = location,
+                        kind = kind,
+                        providerPackageName = providerPackageName,
+                        providerFunctionName = providerFunctionName,
+                        providerClassName = providerClassName,
+                        moduleKey = moduleKey,
+                    )
                     providedBindings[bindingKey] = binding
                 }
             }
@@ -88,7 +102,12 @@ class ContributionScanner(
                     if (binding !in providedBindings) {
                         // TODO(#120): Throw missing binding exception
                     }
-                    val requestedBinding = RequestedBinding(binding.type, binding.qualifier, fieldName)
+                    val requestedBinding = RequestedBinding(
+                        type = binding.type,
+                        qualifier = binding.qualifier,
+                        location = binding.location,
+                        fieldName = fieldName,
+                    )
                     requestedBindings.add(requestedBinding)
                     requestedBindingsByRequester[requesterQualifiedName] = requestedBindings
                 }
@@ -108,7 +127,7 @@ class ContributionScanner(
             // TODO(#120): Implement this step
 
             // Step 5: Build scope edges
-            // TODO(#124): Implement this step
+            // TODO(#126): Implement this step
         }
     }
 }

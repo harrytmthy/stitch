@@ -20,6 +20,11 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.harrytmthy.stitch.annotations.Contribute
 import com.harrytmthy.stitch.compiler.StitchSymbolProcessor.Companion.GENERATED_PACKAGE_NAME
+import com.harrytmthy.stitch.compiler.consts.BindingKind
+import com.harrytmthy.stitch.compiler.model.BindingDeclaration
+import com.harrytmthy.stitch.compiler.model.ProvidedBinding
+import com.harrytmthy.stitch.compiler.model.RequestedBinding
+import com.harrytmthy.stitch.compiler.model.Scope
 import com.harrytmthy.stitch.compiler.scanner.LocalScanResult
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
@@ -68,7 +73,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
         OutputStreamWriter(outputStream).use(file::writeTo)
     }
 
-    private fun buildContributedBindings(sortedBindings: Map<Binding, Int>): CodeBlock {
+    private fun buildContributedBindings(sortedBindings: Map<BindingDeclaration, Int>): CodeBlock {
         val contributedBindingClass = ClassName(
             "com.harrytmthy.stitch.annotations",
             "ContributedBinding",
@@ -85,16 +90,21 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 if (binding is ProvidedBinding) {
                     add("scope = %S,\n", binding.scope?.toString().orEmpty())
                     add("location = %S,\n", binding.location)
-                    add("alias = %L,\n", binding.alias)
+                    add("kind = %L,\n", binding.kind)
+                    add("providerPackageName = %S,\n", binding.providerPackageName)
+                    add("providerFunctionName = %S,\n", binding.providerFunctionName)
+                    add("providerClassName = %S,\n", binding.providerClassName)
                     val dependencies = binding.dependencies?.map(sortedBindings::getValue)
-                        ?.sorted()
                         ?.joinToString(", ")
                         .orEmpty()
                     add("dependsOn = [%L],\n", dependencies)
                 } else {
                     add("scope = \"\",\n")
-                    add("location = \"\",\n")
-                    add("alias = false,\n")
+                    add("location = %S,\n", binding.location)
+                    add("kind = %L,\n", BindingKind.REQUESTED)
+                    add("providerPackageName = \"\",\n")
+                    add("providerFunctionName = \"\",\n")
+                    add("providerClassName = \"\",\n")
                     add("dependsOn = [],\n")
                 }
                 unindent()
@@ -106,7 +116,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
     }
 
     private fun buildBindingRequesters(
-        sortedBindings: Map<Binding, Int>,
+        sortedBindings: Map<BindingDeclaration, Int>,
         sortedRequestedBindings: Map<String, List<RequestedBinding>>,
     ): CodeBlock {
         val bindingRequesterClass = ClassName(
@@ -178,12 +188,11 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
      * - provided bindings + their dependencies
      * - requested bindings
      */
-    private fun LocalScanResult.getSortedBindingsWithId(): Map<Binding, Int> {
-        val bindings = LinkedHashSet<Binding>()
+    private fun LocalScanResult.getSortedBindingsWithId(): Map<BindingDeclaration, Int> {
+        val bindings = LinkedHashSet<BindingDeclaration>()
         bindings += providedBindings.values
         providedBindings.values.forEach { it.dependencies?.let(bindings::addAll) }
         bindings += requestedBindingsByClass.values.flatten()
-        bindings += missingBindings
         var nextId = 1
         return bindings.sortedWith(compareBy({ it.type }, { it.qualifier?.toString().orEmpty() }))
             .associateWith { nextId++ }

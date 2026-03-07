@@ -14,20 +14,13 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.feature.home
+package com.harrytmthy.stitch.compiler.consts
 
-import com.harrytmthy.stitch.annotations.Inject
-import com.harrytmthy.stitch.core.Activity
-import com.harrytmthy.stitch.core.Logger
-
-@Activity
-class HomeViewModel @Inject constructor(
-    private val logger1: Logger,
-    private val logger2: Logger, // logger1 === logger2
-    private val homeService: HomeService,
-) {
-
-    fun fetchHomeData() {
-        homeService.fetch()
-    }
+object BindingKind {
+    const val REQUESTED = 0
+    const val PROVIDED_IN_CONSTRUCTOR = 1
+    const val PROVIDED_IN_TOP_LEVEL = 2
+    const val PROVIDED_IN_OBJECT = 3
+    const val PROVIDED_IN_CLASS = 4
+    const val PROVIDED_ALIAS = 5
 }
