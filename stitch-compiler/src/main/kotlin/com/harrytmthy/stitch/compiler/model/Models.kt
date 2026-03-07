@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.compiler
+package com.harrytmthy.stitch.compiler.model
 
 /**
  * Represents a binding.
@@ -33,18 +33,33 @@ open class Binding(val type: String, val qualifier: Qualifier?) {
 }
 
 /**
+ * Represents a binding declaration, which could be a provided or requested binding.
+ * Declaration means the binding has [location] of where it is declared.
+ */
+open class BindingDeclaration(
+    type: String,
+    qualifier: Qualifier?,
+    val location: String,
+) : Binding(type, qualifier)
+
+/**
  * Represents a provided binding that has been finalized by the aggregator module.
+ *
+ * @see com.harrytmthy.stitch.annotations.ContributedBinding
  */
 class ProvidedBinding(
     type: String,
     qualifier: Qualifier?,
     val scope: Scope?,
-    val location: String, // File path + line number
-    val alias: Boolean = false,
+    location: String, // File path + line number
+    val kind: Int,
+    val providerPackageName: String = "",
+    val providerFunctionName: String = "",
+    val providerClassName: String = "",
     val moduleKey: String = "", // Only used by the aggregator
-) : Binding(type, qualifier) {
+) : BindingDeclaration(type, qualifier, location) {
 
-    var dependencies: HashSet<Binding>? = null
+    var dependencies: ArrayList<BindingDeclaration>? = null
 }
 
 /**
@@ -56,8 +71,9 @@ class ProvidedBinding(
 class RequestedBinding(
     type: String,
     qualifier: Qualifier?,
+    location: String,
     val fieldName: String,
-) : Binding(type, qualifier)
+) : BindingDeclaration(type, qualifier, location)
 
 sealed class Qualifier {
 

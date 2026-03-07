@@ -26,11 +26,31 @@ annotation class Contribute(
 )
 
 /**
- * A meta-annotation which represents a binding that is provided and/or requested
- * in each contributor module.
+ * A meta-annotation which represents a binding that is provided and/or requested in each
+ * contributor module. Each binding has a locally unique [id] (per contribution) which is
+ * used by [dependsOn] to represent dependencies.
  *
- * Each binding has a locally unique [id] (per contribution) which is used by [dependsOn]
- * to represent dependencies.
+ * [kind] represents the binding type:
+ * 0 -> Requested binding
+ * 1 -> Provided binding via @Inject-annotated constructor
+ * 2 -> Provided binding via @Provides-annotated top-level function
+ * 3 -> Provided binding via @Provides-annotated function inside an object
+ * 4 -> Provided binding via @Provides-annotated function inside a class
+ * 5 -> Provided alias via @Binds
+ *
+ * Example of a provided binding with `kind = 3`:
+ *
+ * ```
+ *
+ * package com.something.core.di // providerPackageName = "com.something.core.di"
+ *
+ * object CoreModule { // providerClassName = "CoreModule"
+ *
+ *     @Singleton
+ *     @Provides
+ *     fun provideLogger(): Logger // providerFunctionName = "provideLogger"
+ * }
+ * ```
  */
 annotation class ContributedBinding(
     val id: Int,
@@ -38,7 +58,10 @@ annotation class ContributedBinding(
     val qualifier: String,
     val scope: String,
     val location: String,
-    val alias: Boolean,
+    val kind: Int,
+    val providerPackageName: String,
+    val providerFunctionName: String,
+    val providerClassName: String,
     val dependsOn: IntArray,
 )
 

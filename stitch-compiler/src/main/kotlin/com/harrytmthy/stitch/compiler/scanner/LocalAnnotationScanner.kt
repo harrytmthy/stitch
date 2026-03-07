@@ -26,16 +26,17 @@ import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
-import com.harrytmthy.stitch.compiler.Binding
-import com.harrytmthy.stitch.compiler.BindingPool
-import com.harrytmthy.stitch.compiler.ProvidedBinding
-import com.harrytmthy.stitch.compiler.Qualifier
-import com.harrytmthy.stitch.compiler.RequestedBinding
-import com.harrytmthy.stitch.compiler.Scope
+import com.harrytmthy.stitch.compiler.consts.BindingKind
 import com.harrytmthy.stitch.compiler.fatalError
 import com.harrytmthy.stitch.compiler.filePathAndLineNumber
 import com.harrytmthy.stitch.compiler.find
 import com.harrytmthy.stitch.compiler.findArgument
+import com.harrytmthy.stitch.compiler.model.BindingDeclaration
+import com.harrytmthy.stitch.compiler.model.BindingPool
+import com.harrytmthy.stitch.compiler.model.ProvidedBinding
+import com.harrytmthy.stitch.compiler.model.Qualifier
+import com.harrytmthy.stitch.compiler.model.RequestedBinding
+import com.harrytmthy.stitch.compiler.model.Scope
 import com.harrytmthy.stitch.compiler.qualifiedName
 
 class LocalAnnotationScanner(
@@ -62,7 +63,7 @@ class LocalAnnotationScanner(
         scanProvides()
         scanInjects()
         scanBinds()
-        collectDependenciesAndMissingBindings()
+        collectDependencies()
     }
 
     private fun scanRoot() {
@@ -212,6 +213,44 @@ class LocalAnnotationScanner(
         }
     }
 
+    /**
+     * There are 3 supported kinds of binding:
+     * - [BindingKind.PROVIDED_IN_TOP_LEVEL]
+     * - [BindingKind.PROVIDED_IN_OBJECT]
+     * - [BindingKind.PROVIDED_IN_CLASS]
+     *
+     * Example of [BindingKind.PROVIDED_IN_TOP_LEVEL]:
+     *
+     * ```
+     * // Top-level declaration
+     * @Singleton
+     * @Provides
+     * fun providesLogger(): Logger = Logger()
+     * ```
+     *
+     * Example of [BindingKind.PROVIDED_IN_OBJECT]:
+     *
+     * ```
+     * object CoreModule {
+     *
+     *     @Singleton
+     *     @Provides
+     *     fun providesLogger(): Logger = Logger()
+     * }
+     * ```
+     *
+     * Example of [BindingKind.PROVIDED_IN_CLASS]:
+     *
+     * ```
+     * class CoreModule {
+     *
+     *     @Singleton
+     *     @Binds(ILogger::class) // Ignored. It will be registered separately via scanBinds()
+     *     @Provides
+     *     fun providesLogger(): Logger = Logger()
+     * }
+     * ```
+     */
     private fun scanProvides() {
         for (symbol in resolver.getSymbolsWithAnnotation(PROVIDES)) {
             if (symbol !is KSFunctionDeclaration) {
@@ -222,7 +261,38 @@ class LocalAnnotationScanner(
             val qualifier = qualifierBySymbol[symbol]
             val scope = getScopeFromSymbol(symbol)
             val location = symbol.filePathAndLineNumber!!
-            val binding = ProvidedBinding(type, qualifier, scope, location, moduleKey = moduleKey)
+            val parentDeclaration = symbol.parentDeclaration as? KSClassDeclaration
+            val kind = when {
+                parentDeclaration == null -> BindingKind.PROVIDED_IN_TOP_LEVEL
+
+                parentDeclaration.classKind == ClassKind.OBJECT -> BindingKind.PROVIDED_IN_OBJECT
+
+                parentDeclaration.classKind == ClassKind.CLASS -> {
+                    if (!parentDeclaration.primaryConstructor?.parameters.isNullOrEmpty()) {
+                        fatalError(
+                            message = "Class that contains @Provides must have an empty constructor",
+                            symbol = parentDeclaration,
+                        )
+                    }
+                    BindingKind.PROVIDED_IN_CLASS
+                }
+
+                else -> fatalError(
+                    message = "Unsupported class type for @Provides. Please use class or object.",
+                    symbol = parentDeclaration,
+                )
+            }
+            val binding = ProvidedBinding(
+                type = type,
+                qualifier = qualifier,
+                scope = scope,
+                location = location,
+                kind = kind,
+                providerPackageName = symbol.packageName.asString(),
+                providerFunctionName = symbol.simpleName.asString(),
+                providerClassName = parentDeclaration?.simpleName?.asString().orEmpty(),
+                moduleKey = moduleKey,
+            )
 
             // ProvidedBinding is keyed only by type + qualifier, allowing `providedBindings`
             // to detect if there is another symbol providing the same type + qualifier.
@@ -274,7 +344,14 @@ class LocalAnnotationScanner(
         val qualifier = qualifierBySymbol[canonicalSymbol]
         val scope = getScopeFromSymbol(canonicalSymbol)
         val location = canonicalSymbol.filePathAndLineNumber!!
-        val binding = ProvidedBinding(type, qualifier, scope, location, moduleKey = moduleKey)
+        val binding = ProvidedBinding(
+            type = type,
+            qualifier = qualifier,
+            scope = scope,
+            location = location,
+            kind = BindingKind.PROVIDED_IN_CONSTRUCTOR,
+            moduleKey = moduleKey,
+        )
 
         // ProvidedBinding is keyed only by type + qualifier, allowing `providedBindings`
         // to detect if there is another symbol providing the same type + qualifier.
@@ -303,47 +380,24 @@ class LocalAnnotationScanner(
         }
         val type = symbol.type.resolve().declaration.qualifiedName(symbol)
         val qualifier = qualifierBySymbol[symbol]
+        val location = symbol.filePathAndLineNumber!!
         val fieldName = symbol.simpleName.asString()
-        val binding = RequestedBinding(type, qualifier, fieldName)
+        val binding = RequestedBinding(type, qualifier, location, fieldName)
         val parentQualifiedName = symbol.parentDeclaration!!.qualifiedName!!.asString()
         val bindings = scanResult.requestedBindingsByClass.getOrPut(parentQualifiedName) { ArrayList() }
         bindings.add(binding)
     }
 
-    /**
-     * After scanning types + qualifiers, [LocalScanResult.providedBindings] is finalized and can be
-     * used to check if there is any dependency that is not locally provided (or missing bindings).
-     *
-     * Missing bindings will be thrown by the aggregator after collecting all provided bindings
-     * from its contributors + recheck if all elements in [LocalScanResult.missingBindings] exist
-     * inside the combined [LocalScanResult.providedBindings].
-     */
-    private fun collectDependenciesAndMissingBindings() {
+    private fun collectDependencies() {
         for ((providedBinding, parameters) in parametersByBinding) {
             for (parameter in parameters) {
                 val type = parameter.type.resolve().declaration.qualifiedName(parameter)
                 val qualifier = qualifierBySymbol[parameter]
-                val binding = Binding(type, qualifier)
+                val location = parameter.filePathAndLineNumber!!
+                val binding = BindingDeclaration(type, qualifier, location)
                 val dependencies = providedBinding.dependencies
-                    ?: HashSet<Binding>(parameters.size, 1f).also { providedBinding.dependencies = it }
+                    ?: ArrayList<BindingDeclaration>(parameters.size).also { providedBinding.dependencies = it }
                 dependencies.add(binding)
-                if (binding !in scanResult.providedBindings) {
-                    scanResult.missingBindings.add(binding)
-                }
-            }
-        }
-        for ((_, requestedBindings) in scanResult.requestedBindingsByClass) {
-            for (requestedBinding in requestedBindings) {
-                if (requestedBinding !in scanResult.providedBindings) {
-                    scanResult.missingBindings.add(requestedBinding)
-                }
-            }
-        }
-        for ((_, alias) in providedAliases) {
-            // Aliases are guaranteed to have exactly 1 dependency
-            val dependency = alias.dependencies!!.single()
-            if (dependency !in scanResult.providedBindings) {
-                scanResult.missingBindings.add(dependency)
             }
         }
     }
@@ -427,7 +481,8 @@ class LocalAnnotationScanner(
                             )
                         val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
                         val type = parameter.type.resolve().declaration.qualifiedName(parameter)
-                        val dependency = Binding(type, qualifier)
+                        val parameterLocation = parameter.filePathAndLineNumber!!
+                        val dependency = BindingDeclaration(type, qualifier, parameterLocation)
                         registerAlias(returnType, qualifier, location, dependency, symbol)
                         for (alias in (aliasArg.value as List<*>)) {
                             val type = (alias as KSType).declaration.qualifiedName(parameter)
@@ -462,14 +517,21 @@ class LocalAnnotationScanner(
         type: String,
         qualifier: Qualifier?,
         location: String,
-        dependency: Binding,
+        dependency: BindingDeclaration,
         symbol: KSAnnotated,
     ) {
-        val alias = ProvidedBinding(type, qualifier, scope = null, location, alias = true, moduleKey)
+        val alias = ProvidedBinding(
+            type = type,
+            qualifier = qualifier,
+            scope = null,
+            location = location,
+            kind = BindingKind.PROVIDED_ALIAS,
+            moduleKey = moduleKey,
+        )
         providedAliases[alias]?.let { existingBinding ->
             duplicateBindingError(existingBinding, symbol)
         }
-        alias.dependencies = hashSetOf(dependency)
+        alias.dependencies = arrayListOf(dependency)
         providedAliases[alias] = alias
         scanResult.providedBindings[alias] = alias
     }
@@ -505,18 +567,15 @@ class LocalAnnotationScanner(
         return null // Unscoped
     }
 
-    private fun duplicateBindingError(
-        existingBinding: ProvidedBinding,
-        symbol: KSAnnotated,
-    ): Nothing =
+    private fun duplicateBindingError(existing: ProvidedBinding, symbol: KSAnnotated): Nothing =
         fatalError(
             message = buildString {
-                append("Duplicate binding for ${existingBinding.type}")
-                existingBinding.qualifier?.let { append(" (qualifier: $it)") }
-                if (!existingBinding.alias && existingBinding.scope != null) {
-                    append(" in scope \"${existingBinding.scope}\"")
+                append("Duplicate binding for ${existing.type}")
+                existing.qualifier?.let { append(" (qualifier: $it)") }
+                if (existing.kind != BindingKind.PROVIDED_ALIAS && existing.scope != null) {
+                    append(" in scope \"${existing.scope}\"")
                 }
-                append(". Already provided at ${existingBinding.location}")
+                append(". Already provided at ${existing.location}")
             },
             symbol = symbol,
         )

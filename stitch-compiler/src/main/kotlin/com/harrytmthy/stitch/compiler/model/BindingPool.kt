@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.compiler
+package com.harrytmthy.stitch.compiler.model
 
 /**
  * A map of bindings where both key & value point to the same instance (`key == value`).

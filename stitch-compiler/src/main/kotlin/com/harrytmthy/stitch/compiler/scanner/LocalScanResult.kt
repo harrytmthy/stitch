@@ -16,11 +16,10 @@
 
 package com.harrytmthy.stitch.compiler.scanner
 
-import com.harrytmthy.stitch.compiler.Binding
-import com.harrytmthy.stitch.compiler.BindingPool
-import com.harrytmthy.stitch.compiler.ProvidedBinding
-import com.harrytmthy.stitch.compiler.RequestedBinding
-import com.harrytmthy.stitch.compiler.Scope
+import com.harrytmthy.stitch.compiler.model.BindingPool
+import com.harrytmthy.stitch.compiler.model.ProvidedBinding
+import com.harrytmthy.stitch.compiler.model.RequestedBinding
+import com.harrytmthy.stitch.compiler.model.Scope
 
 /**
  * Stores useful local data to build dependency graph and generate code.
@@ -43,15 +42,6 @@ class LocalScanResult {
      * required data to generate DCL instances + `inject(target: T)`.
      */
     val requestedBindingsByClass = HashMap<String, ArrayList<RequestedBinding>>()
-
-    /**
-     * Represents bindings that are missing.
-     *
-     * Each contributor will register bindings that are requested but never provided in its module.
-     * The aggregator will append all provided + missing bindings into their respective fields,
-     * then ensure all missing bindings are actually present in [providedBindings].
-     */
-    val missingBindings = HashSet<Binding>()
 
     /**
      * Represents locally registered custom scopes.
