@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.compiler
+package com.harrytmthy.stitch.compiler.utils
 
 import com.google.devtools.ksp.symbol.FileLocation
 import com.google.devtools.ksp.symbol.KSAnnotated
@@ -22,6 +22,7 @@ import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.symbol.KSValueArgument
+import com.harrytmthy.stitch.compiler.fatalError
 
 fun KSDeclaration.qualifiedName(symbol: KSAnnotated): String =
     qualifiedName?.asString()
