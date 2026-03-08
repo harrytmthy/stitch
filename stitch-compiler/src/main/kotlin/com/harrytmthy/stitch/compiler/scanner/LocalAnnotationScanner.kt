@@ -28,16 +28,16 @@ import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
 import com.harrytmthy.stitch.compiler.consts.BindingKind
 import com.harrytmthy.stitch.compiler.fatalError
-import com.harrytmthy.stitch.compiler.filePathAndLineNumber
-import com.harrytmthy.stitch.compiler.find
-import com.harrytmthy.stitch.compiler.findArgument
 import com.harrytmthy.stitch.compiler.model.BindingDeclaration
 import com.harrytmthy.stitch.compiler.model.BindingPool
 import com.harrytmthy.stitch.compiler.model.ProvidedBinding
 import com.harrytmthy.stitch.compiler.model.Qualifier
 import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
-import com.harrytmthy.stitch.compiler.qualifiedName
+import com.harrytmthy.stitch.compiler.utils.filePathAndLineNumber
+import com.harrytmthy.stitch.compiler.utils.find
+import com.harrytmthy.stitch.compiler.utils.findArgument
+import com.harrytmthy.stitch.compiler.utils.qualifiedName
 
 class LocalAnnotationScanner(
     private val resolver: Resolver,

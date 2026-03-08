@@ -118,4 +118,14 @@ sealed class Scope {
         override fun equals(other: Any?): Boolean =
             other is Custom && other.canonicalName == this.canonicalName
     }
+
+    companion object {
+
+        fun of(value: String): Scope? =
+            when (value) {
+                "Singleton" -> Singleton
+                "" -> null
+                else -> Custom(value)
+            }
+    }
 }

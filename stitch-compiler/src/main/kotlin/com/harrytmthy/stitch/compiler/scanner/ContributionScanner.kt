@@ -27,19 +27,25 @@ import com.harrytmthy.stitch.compiler.model.ProvidedBinding
 import com.harrytmthy.stitch.compiler.model.Qualifier
 import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
+import com.harrytmthy.stitch.compiler.utils.StitchErrorLogger
 
 class ContributionScanner(
     private val resolver: Resolver,
+    private val logger: StitchErrorLogger,
     private val moduleKey: String,
     private val scanResult: LocalScanResult,
 ) {
 
     @OptIn(KspExperimental::class)
     @Suppress("UNCHECKED_CAST")
-    fun scan() {
+    fun scan(): ContributionScanResult {
         val providedBindings = HashMap(scanResult.providedBindings)
         val requestedBindingsByModuleKey = HashMap<String, Map<String, List<RequestedBinding>>>()
         requestedBindingsByModuleKey[moduleKey] = HashMap(scanResult.requestedBindingsByClass)
+
+        // Step 1: Collect all contributed bindings and scopes
+        val contributedBindings = ArrayList<BindingDeclaration>()
+        val contributedDependencies = ArrayList<List<Int>>() // Flattened indices, NOT bindingId
         for (declaration in resolver.getDeclarationsFromPackage(GENERATED_PACKAGE_NAME)) {
             val annotation = declaration.annotations
                 .find { it.shortName.asString() == Contribute::class.simpleName }
@@ -49,32 +55,30 @@ class ContributionScanner(
             val requesterAnnotations = annotation.arguments[2].value as List<KSAnnotation>
             val scopeAnnotations = annotation.arguments[3].value as List<KSAnnotation>
 
-            // Step 1: Collect all provided + requested bindings from the aggregator & contributors
-            val localBindings = ArrayList<BindingDeclaration>()
+            // Step 1.1: Collect all provided + requested bindings from the contributors
+            val lastBindingIndex = contributedBindings.lastIndex
             for (bindingAnnotation in bindingAnnotations) {
                 val id = bindingAnnotation.arguments[0].value as Int
                 val type = bindingAnnotation.arguments[1].value as String
                 val qualifier = Qualifier.of(bindingAnnotation.arguments[2].value as String)
-                val scope = bindingAnnotation.arguments[3].value as String
+                val scope = Scope.of(bindingAnnotation.arguments[3].value as String)
                 val location = bindingAnnotation.arguments[4].value as String
                 val kind = bindingAnnotation.arguments[5].value as Int
                 val providerPackageName = bindingAnnotation.arguments[6].value as String
                 val providerFunctionName = bindingAnnotation.arguments[7].value as String
                 val providerClassName = bindingAnnotation.arguments[8].value as String
                 val dependsOn = bindingAnnotation.arguments[9].value as List<Int>
-                val bindingKey = BindingDeclaration(type, qualifier, location)
-                localBindings.add(bindingKey)
+                val binding = BindingDeclaration(type, qualifier, location)
+                contributedBindings.add(binding)
+                contributedDependencies += dependsOn.map {
+                    lastBindingIndex + it // Converts bindingId to contributedBindings's index
+                }
                 if (kind != BindingKind.REQUESTED) {
-                    // ProvidedBinding path
-                    if (bindingKey in providedBindings) {
-                        // TODO(#120): Throw duplicate binding exception
+                    providedBindings[binding]?.let {
+                        duplicateBindingError(it)
+                        continue
                     }
-                    val scope = when (scope) {
-                        "Singleton" -> Scope.Singleton
-                        "" -> null
-                        else -> Scope.Custom(scope)
-                    }
-                    val binding = ProvidedBinding(
+                    val providedBinding = ProvidedBinding(
                         type = type,
                         qualifier = qualifier,
                         scope = scope,
@@ -85,11 +89,11 @@ class ContributionScanner(
                         providerClassName = providerClassName,
                         moduleKey = moduleKey,
                     )
-                    providedBindings[bindingKey] = binding
+                    providedBindings[binding] = providedBinding
                 }
             }
 
-            // Step 2: Collect all requesters, grouped by moduleKey
+            // Step 1.2: Collect all requesters, grouped by moduleKey
             val requestedBindingsByRequester = HashMap<String, List<RequestedBinding>>()
             for (requesterAnnotation in requesterAnnotations) {
                 val requesterQualifiedName = requesterAnnotation.arguments[0].value as String
@@ -98,10 +102,7 @@ class ContributionScanner(
                 for (field in fields) {
                     val bindingId = field.arguments[0].value as Int
                     val fieldName = field.arguments[1].value as String
-                    val binding = localBindings[bindingId - 1] // -1 since ID starts from 1
-                    if (binding !in providedBindings) {
-                        // TODO(#120): Throw missing binding exception
-                    }
+                    val binding = contributedBindings[lastBindingIndex + bindingId]
                     val requestedBinding = RequestedBinding(
                         type = binding.type,
                         qualifier = binding.qualifier,
@@ -114,7 +115,7 @@ class ContributionScanner(
             }
             requestedBindingsByModuleKey[moduleKey] = requestedBindingsByRequester
 
-            // Step 3: Collect all scopes
+            // Step 1.3: Collect all scopes
             for (scopeAnnotation in scopeAnnotations) {
                 val id = scopeAnnotation.arguments[0].value as Int
                 val canonicalName = scopeAnnotation.arguments[1].value as String
@@ -122,12 +123,64 @@ class ContributionScanner(
                 val location = scopeAnnotation.arguments[3].value as String
                 val dependsOn = scopeAnnotation.arguments[4].value as Int
             }
-
-            // Step 4: Build binding edges
-            // TODO(#120): Implement this step
-
-            // Step 5: Build scope edges
-            // TODO(#126): Implement this step
         }
+        if (logger.hasError) {
+            return ContributionScanResult.Error
+        }
+
+        // Step 2: Ensure all requested bindings are actually provided
+        for (requestedBindingsByRequester in requestedBindingsByModuleKey.values) {
+            for (requestedBindings in requestedBindingsByRequester.values) {
+                for (requestedBinding in requestedBindings) {
+                    if (requestedBinding !in providedBindings) {
+                        missingBindingError(requestedBinding)
+                    }
+                }
+            }
+        }
+        if (logger.hasError) {
+            return ContributionScanResult.Error
+        }
+
+        // Step 3: Build binding edges
+        for (index in contributedBindings.indices) {
+            val binding = contributedBindings[index]
+            val dependencies = contributedDependencies[index]
+            val providedBinding = providedBindings.getValue(binding)
+            val providedBindingDependencies = providedBinding.dependencies
+                ?: ArrayList<BindingDeclaration>(dependencies.size).also { providedBinding.dependencies = it }
+            for (index in dependencies) {
+                val bindingDependency = contributedBindings[index]
+                providedBindingDependencies.add(bindingDependency)
+            }
+        }
+
+        // Step 4: Build scope edges
+        // TODO(#126): Implement this step
+
+        return ContributionScanResult.Success(providedBindings, requestedBindingsByModuleKey)
+    }
+
+    private fun duplicateBindingError(existing: ProvidedBinding) {
+        logger.error(
+            message = buildString {
+                append("Duplicate binding for ${existing.type}")
+                existing.qualifier?.let { append(" (qualifier: $it)") }
+                if (existing.scope != null) {
+                    append(" in scope \"${existing.scope}\"")
+                }
+                append(". Already provided at ${existing.location}")
+            },
+        )
+    }
+
+    private fun missingBindingError(binding: BindingDeclaration) {
+        logger.error(
+            message = buildString {
+                append("Binding with type '${binding.type}'")
+                binding.qualifier?.let { append(" (qualifier: $it)") }
+                append(" is never provided, but requested in ${binding.location}")
+            },
+        )
     }
 }

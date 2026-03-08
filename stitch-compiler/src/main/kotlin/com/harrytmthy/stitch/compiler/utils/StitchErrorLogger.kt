@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Harry Timothy Tumalewa
+ * Copyright 2026 Harry Timothy Tumalewa
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.compiler
+package com.harrytmthy.stitch.compiler.utils
 
-import com.google.devtools.ksp.symbol.KSAnnotated
-import com.google.devtools.ksp.symbol.KSNode
+import com.google.devtools.ksp.processing.KSPLogger
 
-internal open class StitchProcessingException(
-    override val message: String? = null,
-    val symbol: KSNode? = null,
-) : IllegalStateException(message)
+class StitchErrorLogger(private val logger: KSPLogger) {
 
-fun fatalError(message: String, symbol: KSAnnotated?): Nothing =
-    throw StitchProcessingException(message, symbol)
+    var hasError = false
+
+    fun error(message: String) {
+        hasError = true
+        logger.error(message, null)
+    }
+}
