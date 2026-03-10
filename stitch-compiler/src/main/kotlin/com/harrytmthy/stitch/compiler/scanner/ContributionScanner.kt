@@ -39,11 +39,14 @@ class ContributionScanner(
     @OptIn(KspExperimental::class)
     @Suppress("UNCHECKED_CAST")
     fun scan(): ContributionScanResult {
+        // Step 1: Collect all bindings and scopes from the aggregator
         val providedBindings = HashMap(scanResult.providedBindings)
         val requestedBindingsByModuleKey = HashMap<String, Map<String, List<RequestedBinding>>>()
         requestedBindingsByModuleKey[moduleKey] = HashMap(scanResult.requestedBindingsByClass)
+        val customScopeByCanonicalName = HashMap<String, Scope.Custom>(scanResult.customScopeByCanonicalName)
+        val scopeDependencies = HashMap<Scope, Scope>(scanResult.scopeDependencies)
 
-        // Step 1: Collect all contributed bindings and scopes
+        // Step 2: Collect all bindings and scopes from the contributors
         val contributedBindings = ArrayList<BindingDeclaration>()
         val contributedDependencies = ArrayList<List<Int>>() // Flattened indices, NOT bindingId
         for (declaration in resolver.getDeclarationsFromPackage(GENERATED_PACKAGE_NAME)) {
@@ -55,7 +58,7 @@ class ContributionScanner(
             val requesterAnnotations = annotation.arguments[2].value as List<KSAnnotation>
             val scopeAnnotations = annotation.arguments[3].value as List<KSAnnotation>
 
-            // Step 1.1: Collect all provided + requested bindings from the contributors
+            // Step 2.1: Collect all provided + requested bindings from the contributors
             val lastBindingIndex = contributedBindings.lastIndex
             for (bindingAnnotation in bindingAnnotations) {
                 val id = bindingAnnotation.arguments[0].value as Int
@@ -93,7 +96,7 @@ class ContributionScanner(
                 }
             }
 
-            // Step 1.2: Collect all requesters, grouped by moduleKey
+            // Step 2.2: Collect all requesters, grouped by moduleKey
             val requestedBindingsByRequester = HashMap<String, List<RequestedBinding>>()
             for (requesterAnnotation in requesterAnnotations) {
                 val requesterQualifiedName = requesterAnnotation.arguments[0].value as String
@@ -115,20 +118,50 @@ class ContributionScanner(
             }
             requestedBindingsByModuleKey[moduleKey] = requestedBindingsByRequester
 
-            // Step 1.3: Collect all scopes
+            // Step 2.3: Collect all scopes
+            val localScopes = ArrayList<Scope.Custom>(scopeAnnotations.size)
+            val localScopeDependencyIndices = ArrayList<Int>(scopeAnnotations.size)
             for (scopeAnnotation in scopeAnnotations) {
                 val id = scopeAnnotation.arguments[0].value as Int
                 val canonicalName = scopeAnnotation.arguments[1].value as String
                 val qualifiedName = scopeAnnotation.arguments[2].value as String
                 val location = scopeAnnotation.arguments[3].value as String
                 val dependsOn = scopeAnnotation.arguments[4].value as Int
+                customScopeByCanonicalName[canonicalName]?.let { scope ->
+                    // Existing scope path
+                    if (scope.qualifiedName.isNotEmpty() && qualifiedName.isNotEmpty()) {
+                        // There is more than 1 annotation class (for scope) with a same name
+                        logger.error("Duplicate scope: $scope. Already provided at ${scope.location}")
+                    }
+                    if (qualifiedName.isEmpty()) {
+                        // Avoid scope re-registration, unless it's an annotation class declaration
+                        continue
+                    }
+                }
+                val registeredScope = Scope.Custom(canonicalName, qualifiedName, location)
+                customScopeByCanonicalName[canonicalName] = registeredScope
+                localScopes.add(registeredScope)
+                localScopeDependencyIndices.add(dependsOn - 1) // -1 since ID starts from 1
+            }
+
+            // Step 2.4: Collect scope dependencies
+            for (index in localScopes.indices) {
+                val scope = localScopes[index]
+                val dependencyIndex = localScopeDependencyIndices[index]
+                if (dependencyIndex == -1) {
+                    // Singleton path (scopeId = 0 - 1 = -1)
+                    scopeDependencies[scope] = Scope.Singleton
+                } else {
+                    // Custom scope path
+                    scopeDependencies[scope] = localScopes[dependencyIndex]
+                }
             }
         }
         if (logger.hasError) {
             return ContributionScanResult.Error
         }
 
-        // Step 2: Ensure all requested bindings are actually provided
+        // Step 3: Ensure all requested bindings are actually provided
         for (requestedBindingsByRequester in requestedBindingsByModuleKey.values) {
             for (requestedBindings in requestedBindingsByRequester.values) {
                 for (requestedBinding in requestedBindings) {
@@ -142,7 +175,7 @@ class ContributionScanner(
             return ContributionScanResult.Error
         }
 
-        // Step 3: Build binding edges
+        // Step 4: Build binding edges
         for (index in contributedBindings.indices) {
             val binding = contributedBindings[index]
             val dependencies = contributedDependencies[index]
@@ -155,10 +188,12 @@ class ContributionScanner(
             }
         }
 
-        // Step 4: Build scope edges
-        // TODO(#126): Implement this step
-
-        return ContributionScanResult.Success(providedBindings, requestedBindingsByModuleKey)
+        return ContributionScanResult.Success(
+            providedBindings,
+            requestedBindingsByModuleKey,
+            customScopeByCanonicalName,
+            scopeDependencies,
+        )
     }
 
     private fun duplicateBindingError(existing: ProvidedBinding) {

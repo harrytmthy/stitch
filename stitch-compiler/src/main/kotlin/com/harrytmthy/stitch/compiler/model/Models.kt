@@ -103,15 +103,27 @@ sealed class Qualifier {
 
 sealed class Scope {
 
-    data object Singleton : Scope()
+    abstract val canonicalName: String
+
+    object Singleton : Scope() {
+
+        override val canonicalName: String = "singleton"
+
+        override fun toString(): String = canonicalName
+
+        override fun hashCode(): Int = canonicalName.hashCode()
+
+        override fun equals(other: Any?): Boolean =
+            other is Singleton && other.canonicalName == this.canonicalName
+    }
 
     class Custom(
-        val canonicalName: String,
+        override val canonicalName: String,
         val qualifiedName: String = "",
         val location: String = "",
     ) : Scope() {
 
-        override fun toString(): String = canonicalName
+        override fun toString(): String = qualifiedName.ifBlank { canonicalName }
 
         override fun hashCode(): Int = canonicalName.hashCode()
 

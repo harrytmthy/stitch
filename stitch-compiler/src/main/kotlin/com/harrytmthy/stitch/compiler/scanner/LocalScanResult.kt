@@ -49,14 +49,6 @@ class LocalScanResult {
     val customScopeByCanonicalName = HashMap<String, Scope.Custom>()
 
     /**
-     * Represents custom scopes grouped by their FQN, which is intended for fast-lookup.
-     *
-     * This includes scopes that are registered via custom annotation (e.g. `@Session`) and
-     * scope dependencies (`@DependsOn(...)`). **Do not use this to query registered scopes!**
-     */
-    val customScopeByQualifiedName = HashMap<String, Scope.Custom>()
-
-    /**
      * Represents scope dependencies that are registered via `@DependsOn`.
      * - Key: The registered scope
      * - Value: Its dependency
