@@ -19,6 +19,7 @@ package com.harrytmthy.stitch.compiler.scanner
 import com.harrytmthy.stitch.compiler.model.Binding
 import com.harrytmthy.stitch.compiler.model.ProvidedBinding
 import com.harrytmthy.stitch.compiler.model.RequestedBinding
+import com.harrytmthy.stitch.compiler.model.Scope
 
 sealed class ContributionScanResult {
 
@@ -27,5 +28,7 @@ sealed class ContributionScanResult {
     data class Success(
         val providedBindings: Map<Binding, ProvidedBinding>,
         val requestedBindingsByModuleKey: Map<String, Map<String, List<RequestedBinding>>>,
+        val customScopeByCanonicalName: Map<String, Scope.Custom>,
+        val scopeDependencies: Map<Scope, Scope>,
     ) : ContributionScanResult()
 }

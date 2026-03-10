@@ -47,6 +47,8 @@ class LocalAnnotationScanner(
 
     private val scopeBySymbol = HashMap<KSAnnotated, Scope>()
 
+    private val customScopeByQualifiedName = HashMap<String, Scope.Custom>()
+
     private val qualifierBySymbol = HashMap<KSAnnotated, Qualifier>()
 
     private val providedBindingBySymbol = HashMap<KSAnnotated, ProvidedBinding>()
@@ -127,13 +129,22 @@ class LocalAnnotationScanner(
                 is KSClassDeclaration -> {
                     if (symbol.classKind == ClassKind.ANNOTATION_CLASS) {
                         // Case #1 path: Register both FQN + canonical name
-                        val qualifiedName = symbol.qualifiedName(symbol)
                         val canonicalName = scopeName.ifBlank { symbol.simpleName.asString() }
                             .lowercase()
+                        if (canonicalName == "singleton") {
+                            fatalError("@Singleton already exists!", symbol)
+                        }
+                        scanResult.customScopeByCanonicalName[canonicalName]?.let {
+                            fatalError(
+                                message = "Duplicate scope: $it. Already provided at ${it.location}",
+                                symbol = symbol,
+                            )
+                        }
+                        val qualifiedName = symbol.qualifiedName(symbol)
                         val location = symbol.filePathAndLineNumber.orEmpty()
                         val scope = Scope.Custom(canonicalName, qualifiedName, location)
                         scanResult.customScopeByCanonicalName[canonicalName] = scope
-                        scanResult.customScopeByQualifiedName[qualifiedName] = scope
+                        customScopeByQualifiedName[qualifiedName] = scope
                         scopeBySymbol[symbol] = scope
                         continue
                     }
@@ -141,7 +152,12 @@ class LocalAnnotationScanner(
                     if (scopeName.isEmpty()) {
                         fatalError("Scope name cannot be empty", symbol)
                     }
-                    val scope = Scope.Custom(canonicalName = scopeName.lowercase())
+                    val canonicalName = scopeName.lowercase()
+                    if (canonicalName == "singleton") {
+                        scopeBySymbol[symbol] = Scope.Singleton
+                        continue
+                    }
+                    val scope = Scope.Custom(canonicalName)
                     if (scope.canonicalName !in scanResult.customScopeByCanonicalName) {
                         scanResult.customScopeByCanonicalName[scope.canonicalName] = scope
                     }
@@ -156,7 +172,12 @@ class LocalAnnotationScanner(
                     if (scopeName.isEmpty()) {
                         fatalError("Scope name cannot be empty", symbol)
                     }
-                    val scope = Scope.Custom(canonicalName = scopeName.lowercase())
+                    val canonicalName = scopeName.lowercase()
+                    if (canonicalName == "singleton") {
+                        scopeBySymbol[symbol] = Scope.Singleton
+                        continue
+                    }
+                    val scope = Scope.Custom(canonicalName)
                     if (scope.canonicalName !in scanResult.customScopeByCanonicalName) {
                         scanResult.customScopeByCanonicalName[scope.canonicalName] = scope
                     }
@@ -173,7 +194,7 @@ class LocalAnnotationScanner(
             val annotation = symbol.annotations.find(DEPENDS_ON)
             val dependency = annotation.arguments[0].value as KSType
             val qualifiedName = dependency.declaration.qualifiedName(symbol)
-            scanResult.customScopeByQualifiedName[qualifiedName]?.let { dependency ->
+            customScopeByQualifiedName[qualifiedName]?.let { dependency ->
                 scanResult.scopeDependencies[scope] = dependency
                 continue
             }
@@ -191,7 +212,7 @@ class LocalAnnotationScanner(
             if (canonicalName !in scanResult.customScopeByCanonicalName) {
                 scanResult.customScopeByCanonicalName[canonicalName] = scopeDependency
             }
-            scanResult.customScopeByQualifiedName[qualifiedName] = scopeDependency
+            customScopeByQualifiedName[qualifiedName] = scopeDependency
             scanResult.scopeDependencies[scope] = scopeDependency
         }
     }
@@ -547,7 +568,7 @@ class LocalAnnotationScanner(
         for (annotation in symbol.annotations) {
             val declaration = annotation.annotationType.resolve().declaration
             val qualifiedName = declaration.qualifiedName(symbol)
-            scanResult.customScopeByQualifiedName[qualifiedName]?.let { return it }
+            customScopeByQualifiedName[qualifiedName]?.let { return it }
             for (metaAnnotation in declaration.annotations) {
                 val fqn = metaAnnotation.annotationType.resolve().declaration.qualifiedName(symbol)
                 if (fqn == SCOPE) {
@@ -558,7 +579,7 @@ class LocalAnnotationScanner(
                     if (canonicalName !in scanResult.customScopeByCanonicalName) {
                         scanResult.customScopeByCanonicalName[canonicalName] = scope
                     }
-                    scanResult.customScopeByQualifiedName[qualifiedName] = scope
+                    customScopeByQualifiedName[qualifiedName] = scope
                     scopeBySymbol[symbol] = scope
                     return scope
                 }
