@@ -194,6 +194,9 @@ class LocalAnnotationScanner(
             val annotation = symbol.annotations.find(DEPENDS_ON)
             val dependency = annotation.arguments[0].value as KSType
             val qualifiedName = dependency.declaration.qualifiedName(symbol)
+            if (scope is Scope.Custom && scope.qualifiedName == qualifiedName) {
+                fatalError("Scope '$scope' depends on itself", symbol)
+            }
             customScopeByQualifiedName[qualifiedName]?.let { dependency ->
                 scanResult.scopeDependencies[scope] = dependency
                 continue

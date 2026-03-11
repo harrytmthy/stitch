@@ -88,7 +88,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 add("type = %S,\n", binding.type)
                 add("qualifier = %S,\n", binding.qualifier?.encode().orEmpty())
                 if (binding is ProvidedBinding) {
-                    add("scope = %S,\n", binding.scope?.toString().orEmpty())
+                    add("scope = %S,\n", binding.scope?.canonicalName.orEmpty())
                     add("location = %S,\n", binding.location)
                     add("kind = %L,\n", binding.kind)
                     add("providerPackageName = %S,\n", binding.providerPackageName)

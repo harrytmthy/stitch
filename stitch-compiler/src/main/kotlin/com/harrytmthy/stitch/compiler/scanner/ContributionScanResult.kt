@@ -21,14 +21,9 @@ import com.harrytmthy.stitch.compiler.model.ProvidedBinding
 import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
 
-sealed class ContributionScanResult {
-
-    data object Error : ContributionScanResult()
-
-    data class Success(
-        val providedBindings: Map<Binding, ProvidedBinding>,
-        val requestedBindingsByModuleKey: Map<String, Map<String, List<RequestedBinding>>>,
-        val customScopeByCanonicalName: Map<String, Scope.Custom>,
-        val scopeDependencies: Map<Scope, Scope>,
-    ) : ContributionScanResult()
-}
+class ContributionScanResult(
+    val providedBindings: Map<Binding, ProvidedBinding>,
+    val requestedBindingsByModuleKey: Map<String, Map<String, List<RequestedBinding>>>,
+    val customScopeByCanonicalName: Map<String, Scope.Custom>,
+    val scopeDependencies: Map<Scope, Scope>,
+)

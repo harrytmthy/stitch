@@ -38,7 +38,7 @@ class ContributionScanner(
 
     @OptIn(KspExperimental::class)
     @Suppress("UNCHECKED_CAST")
-    fun scan(): ContributionScanResult {
+    fun scan(): ContributionScanResult? {
         // Step 1: Collect all bindings and scopes from the aggregator
         val providedBindings = HashMap(scanResult.providedBindings)
         val requestedBindingsByModuleKey = HashMap<String, Map<String, List<RequestedBinding>>>()
@@ -158,7 +158,7 @@ class ContributionScanner(
             }
         }
         if (logger.hasError) {
-            return ContributionScanResult.Error
+            return null
         }
 
         // Step 3: Ensure all requested bindings are actually provided
@@ -172,7 +172,7 @@ class ContributionScanner(
             }
         }
         if (logger.hasError) {
-            return ContributionScanResult.Error
+            return null
         }
 
         // Step 4: Build binding edges
@@ -188,7 +188,7 @@ class ContributionScanner(
             }
         }
 
-        return ContributionScanResult.Success(
+        return ContributionScanResult(
             providedBindings,
             requestedBindingsByModuleKey,
             customScopeByCanonicalName,

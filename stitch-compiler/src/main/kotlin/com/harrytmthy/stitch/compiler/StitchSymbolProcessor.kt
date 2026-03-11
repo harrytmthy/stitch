@@ -20,6 +20,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
+import com.harrytmthy.stitch.compiler.provider.ScopeAncestorsProvider
 import com.harrytmthy.stitch.compiler.scanner.ContributionScanner
 import com.harrytmthy.stitch.compiler.scanner.LocalAnnotationScanner
 import com.harrytmthy.stitch.compiler.scanner.LocalScanResult
@@ -53,11 +54,12 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
                     .generate(moduleName, moduleKey, localScanResult)
             } else {
                 val logger = StitchErrorLogger(environment.logger)
-                ContributionScanner(resolver, logger, moduleKey, localScanResult).scan()
-                if (logger.hasError) {
+                val scanResult = ContributionScanner(resolver, logger, moduleKey, localScanResult)
+                    .scan()
+                if (scanResult == null) {
                     return emptyList()
                 }
-                // TODO: Add scope graph builder
+                ScopeAncestorsProvider(scanResult).get()
                 // TODO: Add binding graph builder
                 // TODO: Add codegen for InjectorScope's implementation
             }
