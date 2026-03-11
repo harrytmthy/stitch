@@ -21,6 +21,12 @@ package com.harrytmthy.stitch.compiler.model
  */
 open class Binding(val type: String, val qualifier: Qualifier?) {
 
+    override fun toString(): String =
+        buildString {
+            append(type)
+            qualifier?.let(::append)
+        }
+
     override fun hashCode(): Int =
         if (qualifier != null) {
             type.hashCode() + (31 * qualifier.hashCode())
@@ -109,7 +115,7 @@ sealed class Scope {
 
         override val canonicalName: String = "singleton"
 
-        override fun toString(): String = canonicalName
+        override fun toString(): String = "Singleton"
 
         override fun hashCode(): Int = canonicalName.hashCode()
 
