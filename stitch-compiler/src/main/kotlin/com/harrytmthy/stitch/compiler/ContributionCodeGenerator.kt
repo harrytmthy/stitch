@@ -66,7 +66,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
             .addType(outputObject)
             .build()
         val outputStream = codeGenerator.createNewFile(
-            dependencies = Dependencies(aggregating = true),
+            dependencies = Dependencies.ALL_FILES,
             packageName = GENERATED_PACKAGE_NAME,
             fileName = fileName,
         )
@@ -187,12 +187,26 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
      * Returns sorted bindings by stable IDs, which includes:
      * - provided bindings + their dependencies
      * - requested bindings
+     *
+     * Bindings that are already provided will be prioritized.
      */
     private fun LocalScanResult.getSortedBindingsWithId(): Map<BindingDeclaration, Int> {
         val bindings = LinkedHashSet<BindingDeclaration>()
         bindings += providedBindings.values
-        providedBindings.values.forEach { it.dependencies?.let(bindings::addAll) }
-        bindings += requestedBindingsByClass.values.flatten()
+        for (providedBinding in providedBindings.values) {
+            providedBinding.dependencies?.forEach { dependency ->
+                if (dependency !in providedBindings) {
+                    bindings.add(dependency)
+                }
+            }
+        }
+        for (requestedBindings in requestedBindingsByClass.values) {
+            for (requestedBinding in requestedBindings) {
+                if (requestedBinding !in providedBindings) {
+                    bindings.add(requestedBinding)
+                }
+            }
+        }
         var nextId = 1
         return bindings.sortedWith(compareBy({ it.type }, { it.qualifier?.toString().orEmpty() }))
             .associateWith { nextId++ }
