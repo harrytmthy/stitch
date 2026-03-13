@@ -30,6 +30,7 @@ import com.harrytmthy.stitch.compiler.consts.BindingKind
 import com.harrytmthy.stitch.compiler.fatalError
 import com.harrytmthy.stitch.compiler.model.BindingDeclaration
 import com.harrytmthy.stitch.compiler.model.BindingPool
+import com.harrytmthy.stitch.compiler.model.LocalScanResult
 import com.harrytmthy.stitch.compiler.model.ProvidedBinding
 import com.harrytmthy.stitch.compiler.model.Qualifier
 import com.harrytmthy.stitch.compiler.model.RequestedBinding
