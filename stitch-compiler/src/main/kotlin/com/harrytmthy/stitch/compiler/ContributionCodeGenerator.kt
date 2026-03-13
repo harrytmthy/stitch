@@ -22,10 +22,10 @@ import com.harrytmthy.stitch.annotations.Contribute
 import com.harrytmthy.stitch.compiler.StitchSymbolProcessor.Companion.GENERATED_PACKAGE_NAME
 import com.harrytmthy.stitch.compiler.consts.BindingKind
 import com.harrytmthy.stitch.compiler.model.BindingDeclaration
+import com.harrytmthy.stitch.compiler.model.LocalScanResult
 import com.harrytmthy.stitch.compiler.model.ProvidedBinding
 import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
-import com.harrytmthy.stitch.compiler.scanner.LocalScanResult
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock

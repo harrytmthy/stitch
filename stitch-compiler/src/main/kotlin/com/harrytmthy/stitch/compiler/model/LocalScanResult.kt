@@ -14,12 +14,7 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.compiler.scanner
-
-import com.harrytmthy.stitch.compiler.model.BindingPool
-import com.harrytmthy.stitch.compiler.model.ProvidedBinding
-import com.harrytmthy.stitch.compiler.model.RequestedBinding
-import com.harrytmthy.stitch.compiler.model.Scope
+package com.harrytmthy.stitch.compiler.model
 
 /**
  * Stores useful local data to build dependency graph and generate code.
