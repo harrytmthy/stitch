@@ -111,7 +111,13 @@ sealed class Scope {
 
     abstract val canonicalName: String
 
+    var depth: Int = 0 // Only used by the aggregator
+
     object Singleton : Scope() {
+
+        init {
+            depth = 1
+        }
 
         override val canonicalName: String = "singleton"
 
@@ -141,7 +147,7 @@ sealed class Scope {
 
         fun of(value: String): Scope? =
             when (value) {
-                "Singleton" -> Singleton
+                "singleton" -> Singleton
                 "" -> null
                 else -> Custom(value)
             }

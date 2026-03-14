@@ -21,7 +21,7 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.harrytmthy.stitch.compiler.model.LocalScanResult
-import com.harrytmthy.stitch.compiler.provider.ScopeMetadataProvider
+import com.harrytmthy.stitch.compiler.provider.ScopeAncestorsProvider
 import com.harrytmthy.stitch.compiler.scanner.ContributionScanner
 import com.harrytmthy.stitch.compiler.scanner.LocalAnnotationScanner
 import com.harrytmthy.stitch.compiler.utils.StitchErrorLogger
@@ -59,7 +59,7 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
                 if (scanResult == null) {
                     return emptyList()
                 }
-                ScopeMetadataProvider(scanResult).get()
+                ScopeAncestorsProvider(scanResult).get()
                 // TODO: Add binding graph builder
                 // TODO: Add codegen for InjectorScope's implementation
             }
