@@ -19,38 +19,38 @@ package com.harrytmthy.stitch.compiler.provider
 import com.harrytmthy.stitch.compiler.fatalError
 import com.harrytmthy.stitch.compiler.model.ContributionScanResult
 import com.harrytmthy.stitch.compiler.model.Scope
-import com.harrytmthy.stitch.compiler.model.ScopeMetadata
 
-class ScopeMetadataProvider(private val scanResult: ContributionScanResult) {
+class ScopeAncestorsProvider(private val scanResult: ContributionScanResult) {
 
-    fun get(): Map<Scope, ScopeMetadata> {
-        val scopeMetadata = HashMap<Scope, ScopeMetadata>()
+    fun get(): Map<Scope, Set<Scope>> {
+        val scopeAncestors = HashMap<Scope, LinkedHashSet<Scope>>()
         for (scope in scanResult.customScopeByCanonicalName.values) {
-            collectMetadata(scope, scanResult.scopeDependencies, scopeMetadata)
+            collectAncestors(scope, scanResult.scopeDependencies, scopeAncestors)
         }
-        return scopeMetadata
+        scopeAncestors[Scope.Singleton] = linkedSetOf(Scope.Singleton)
+        return scopeAncestors
     }
 
-    private fun collectMetadata(
+    private fun collectAncestors(
         scope: Scope,
         scopeDependencies: Map<Scope, Scope>,
-        scopeMetadata: HashMap<Scope, ScopeMetadata>,
+        scopeAncestors: HashMap<Scope, LinkedHashSet<Scope>>,
     ) {
-        if (scope in scopeMetadata) {
+        if (scope in scopeAncestors) {
             // Already visited
             return
         }
         val ancestors = linkedSetOf(scope)
-        scopeMetadata[scope] = ScopeMetadata(ancestors)
+        scopeAncestors[scope] = ancestors
         val directAncestor = scopeDependencies[scope]
         if (directAncestor == null || directAncestor == Scope.Singleton) {
             // Direct child of Singleton
             ancestors.add(Scope.Singleton)
-            scopeMetadata[scope] = ScopeMetadata(ancestors, depth = 2)
+            scope.depth = 2
             return
         }
-        collectMetadata(directAncestor, scopeDependencies, scopeMetadata)
-        val directAncestorAncestors = scopeMetadata.getValue(directAncestor).ancestors
+        collectAncestors(directAncestor, scopeDependencies, scopeAncestors)
+        val directAncestorAncestors = scopeAncestors.getValue(directAncestor)
         if (scope in directAncestorAncestors) {
             val cyclePath = directAncestorAncestors.joinToString(" → ")
             fatalError(
@@ -59,7 +59,6 @@ class ScopeMetadataProvider(private val scanResult: ContributionScanResult) {
             )
         }
         ancestors.addAll(directAncestorAncestors)
-        val depth = scopeMetadata.getValue(directAncestor).depth + 1
-        scopeMetadata.getValue(scope).depth = depth
+        scope.depth = directAncestor.depth + 1
     }
 }
