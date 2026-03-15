@@ -59,7 +59,8 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
                 if (scanResult == null) {
                     return emptyList()
                 }
-                ScopeAncestorsProvider(scanResult).get()
+                val scopeAncestors = ScopeAncestorsProvider(scanResult).get()
+                BindingGraphValidator(scanResult, scopeAncestors).validate()
                 // TODO: Add binding graph builder
                 // TODO: Add codegen for InjectorScope's implementation
             }

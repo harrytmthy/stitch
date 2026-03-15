@@ -24,7 +24,7 @@ open class Binding(val type: String, val qualifier: Qualifier?) {
     override fun toString(): String =
         buildString {
             append(type)
-            qualifier?.let(::append)
+            qualifier?.let { append(" (qualifier: $it)") }
         }
 
     override fun hashCode(): Int =
