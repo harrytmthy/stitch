@@ -26,8 +26,9 @@ dependencies {
     implementation(libs.kotlinpoet)
     implementation(libs.kotlinpoet.ksp)
     implementation(libs.ksp.api)
+    testImplementation(libs.kotlin.test)
 
-    // Support for Dagger annotations
+    // Support for javax annotations
     compileOnly(libs.javax.inject)
 }
 
