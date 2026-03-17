@@ -33,10 +33,10 @@ class LocalScanResult {
     val providedBindings = BindingPool<ProvidedBinding>()
 
     /**
-     * Represents bindings that are requested via field injections. This map collects the
-     * required data to generate DCL instances + `inject(target: T)`.
+     * Represents bindings that are requested via field injections, grouped by requester's FQN.
+     * This map collects the required data to generate DCL instances + `inject(target: T)`.
      */
-    val requestedBindingsByClass = HashMap<String, ArrayList<RequestedBinding>>()
+    val requestedBindings = HashMap<String, ArrayList<RequestedBinding>>()
 
     /**
      * Represents locally registered custom scopes.

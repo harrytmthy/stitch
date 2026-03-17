@@ -34,7 +34,6 @@ import com.harrytmthy.stitch.compiler.utils.StitchErrorLogger
 class ContributionScanner(
     private val resolver: Resolver,
     private val logger: StitchErrorLogger,
-    private val moduleKey: String,
     private val scanResult: LocalScanResult,
 ) {
 
@@ -43,10 +42,9 @@ class ContributionScanner(
     fun scan(): ContributionScanResult? {
         // Step 1: Collect all bindings and scopes from the aggregator
         val providedBindings = HashMap(scanResult.providedBindings)
-        val requestedBindingsByModuleKey = HashMap<String, Map<String, List<RequestedBinding>>>()
-        requestedBindingsByModuleKey[moduleKey] = HashMap(scanResult.requestedBindingsByClass)
-        val customScopeByCanonicalName = HashMap<String, Scope.Custom>(scanResult.customScopeByCanonicalName)
-        val scopeDependencies = HashMap<Scope, Scope>(scanResult.scopeDependencies)
+        val requestedBindings = HashMap(scanResult.requestedBindings)
+        val customScopeByCanonicalName = HashMap(scanResult.customScopeByCanonicalName)
+        val scopeDependencies = HashMap(scanResult.scopeDependencies)
 
         // Step 2: Collect all bindings and scopes from the contributors
         val contributedBindings = ArrayList<BindingDeclaration>()
@@ -55,10 +53,9 @@ class ContributionScanner(
             val annotation = declaration.annotations
                 .find { it.shortName.asString() == Contribute::class.simpleName }
                 ?: continue
-            val moduleKey = annotation.arguments[0].value as String
-            val bindingAnnotations = annotation.arguments[1].value as List<KSAnnotation>
-            val requesterAnnotations = annotation.arguments[2].value as List<KSAnnotation>
-            val scopeAnnotations = annotation.arguments[3].value as List<KSAnnotation>
+            val bindingAnnotations = annotation.arguments[0].value as List<KSAnnotation>
+            val requesterAnnotations = annotation.arguments[1].value as List<KSAnnotation>
+            val scopeAnnotations = annotation.arguments[2].value as List<KSAnnotation>
 
             // Step 2.1: Collect all provided + requested bindings from the contributors
             val lastBindingIndex = contributedBindings.lastIndex
@@ -92,18 +89,18 @@ class ContributionScanner(
                         providerPackageName = providerPackageName,
                         providerFunctionName = providerFunctionName,
                         providerClassName = providerClassName,
-                        moduleKey = moduleKey,
                     )
                     providedBindings[binding] = providedBinding
                 }
             }
 
-            // Step 2.2: Collect all requesters, grouped by moduleKey
-            val requestedBindingsByRequester = HashMap<String, List<RequestedBinding>>()
+            // Step 2.2: Collect all requested bindings, grouped by requester's FQN
             for (requesterAnnotation in requesterAnnotations) {
                 val requesterQualifiedName = requesterAnnotation.arguments[0].value as String
                 val fields = requesterAnnotation.arguments[1].value as List<KSAnnotation>
-                val requestedBindings = ArrayList<RequestedBinding>(fields.size)
+                val requested = requestedBindings.getOrPut(requesterQualifiedName) {
+                    ArrayList(fields.size)
+                }
                 for (field in fields) {
                     val bindingId = field.arguments[0].value as Int
                     val fieldName = field.arguments[1].value as String
@@ -114,11 +111,9 @@ class ContributionScanner(
                         location = binding.location,
                         fieldName = fieldName,
                     )
-                    requestedBindings.add(requestedBinding)
-                    requestedBindingsByRequester[requesterQualifiedName] = requestedBindings
+                    requested.add(requestedBinding)
                 }
             }
-            requestedBindingsByModuleKey[moduleKey] = requestedBindingsByRequester
 
             // Step 2.3: Collect all scopes
             val localScopes = ArrayList<Scope.Custom>(scopeAnnotations.size)
@@ -164,12 +159,10 @@ class ContributionScanner(
         }
 
         // Step 3: Ensure all requested bindings are actually provided
-        for (requestedBindingsByRequester in requestedBindingsByModuleKey.values) {
-            for (requestedBindings in requestedBindingsByRequester.values) {
-                for (requestedBinding in requestedBindings) {
-                    if (requestedBinding !in providedBindings) {
-                        missingBindingError(requestedBinding)
-                    }
+        for (requested in requestedBindings.values) {
+            for (requestedBinding in requested) {
+                if (requestedBinding !in providedBindings) {
+                    missingBindingError(requestedBinding)
                 }
             }
         }
@@ -192,7 +185,7 @@ class ContributionScanner(
 
         return ContributionScanResult(
             providedBindings,
-            requestedBindingsByModuleKey,
+            requestedBindings,
             customScopeByCanonicalName,
             scopeDependencies,
         )

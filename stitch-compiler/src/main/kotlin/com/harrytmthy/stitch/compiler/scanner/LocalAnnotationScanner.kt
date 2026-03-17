@@ -42,7 +42,6 @@ import com.harrytmthy.stitch.compiler.utils.qualifiedName
 
 class LocalAnnotationScanner(
     private val resolver: Resolver,
-    private val moduleKey: String,
     private val scanResult: LocalScanResult,
 ) {
 
@@ -316,7 +315,6 @@ class LocalAnnotationScanner(
                 providerPackageName = symbol.packageName.asString(),
                 providerFunctionName = symbol.simpleName.asString(),
                 providerClassName = parentDeclaration?.simpleName?.asString().orEmpty(),
-                moduleKey = moduleKey,
             )
 
             // ProvidedBinding is keyed only by type + qualifier, allowing `providedBindings`
@@ -375,7 +373,6 @@ class LocalAnnotationScanner(
             scope = scope,
             location = location,
             kind = BindingKind.PROVIDED_IN_CONSTRUCTOR,
-            moduleKey = moduleKey,
         )
 
         // ProvidedBinding is keyed only by type + qualifier, allowing `providedBindings`
@@ -409,7 +406,7 @@ class LocalAnnotationScanner(
         val fieldName = symbol.simpleName.asString()
         val binding = RequestedBinding(type, qualifier, location, fieldName)
         val parentQualifiedName = symbol.parentDeclaration!!.qualifiedName!!.asString()
-        val bindings = scanResult.requestedBindingsByClass.getOrPut(parentQualifiedName) { ArrayList() }
+        val bindings = scanResult.requestedBindings.getOrPut(parentQualifiedName) { ArrayList() }
         bindings.add(binding)
     }
 
@@ -551,7 +548,6 @@ class LocalAnnotationScanner(
             scope = null,
             location = location,
             kind = BindingKind.PROVIDED_ALIAS,
-            moduleKey = moduleKey,
         )
         providedAliases[alias]?.let { existingBinding ->
             duplicateBindingError(existingBinding, symbol)

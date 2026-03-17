@@ -144,7 +144,7 @@ class BindingGraphValidatorTest {
         bindings.forEach { providedBindings[it] = it }
         return ContributionScanResult(
             providedBindings = providedBindings,
-            requestedBindingsByModuleKey = emptyMap(),
+            requestedBindings = emptyMap(),
             customScopeByCanonicalName = bindings.mapNotNull { it.scope as? Scope.Custom }
                 .associateBy { it.canonicalName },
             scopeDependencies = emptyMap(),
@@ -163,7 +163,6 @@ class BindingGraphValidatorTest {
             scope = scope,
             location = "$type.kt:1",
             kind = BindingKind.PROVIDED_IN_CONSTRUCTOR,
-            moduleKey = "TEST",
         ).apply {
             this.dependencies = ArrayList(dependencies)
         }

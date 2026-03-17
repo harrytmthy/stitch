@@ -48,13 +48,13 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
             val moduleName = getOption("stitch.moduleName")
             val moduleKey = moduleName.toModuleKey()
             val localScanResult = LocalScanResult()
-            LocalAnnotationScanner(resolver, moduleKey, localScanResult).scan()
+            LocalAnnotationScanner(resolver, localScanResult).scan()
             if (!localScanResult.isAggregator) {
                 ContributionCodeGenerator(environment.codeGenerator)
                     .generate(moduleName, moduleKey, localScanResult)
             } else {
                 val logger = StitchErrorLogger(environment.logger)
-                val scanResult = ContributionScanner(resolver, logger, moduleKey, localScanResult)
+                val scanResult = ContributionScanner(resolver, logger, localScanResult)
                     .scan()
                 if (scanResult == null) {
                     return emptyList()

@@ -39,9 +39,8 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
         val sortedBindings = localScanResult.getSortedBindingsWithId()
         val contributedBindings = buildContributedBindings(sortedBindings)
         val contributeAnnotation = AnnotationSpec.builder(Contribute::class).apply {
-            addMember("moduleKey = %S", moduleKey)
             addMember("bindings = %L", contributedBindings)
-            if (localScanResult.requestedBindingsByClass.isNotEmpty()) {
+            if (localScanResult.requestedBindings.isNotEmpty()) {
                 val sortedRequestedBindings = localScanResult.getSortedRequestedBindings()
                 val requesters = buildBindingRequesters(sortedBindings, sortedRequestedBindings)
                 addMember("requesters = %L", requesters)
@@ -200,7 +199,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 }
             }
         }
-        for (requestedBindings in requestedBindingsByClass.values) {
+        for (requestedBindings in requestedBindings.values) {
             for (requestedBinding in requestedBindings) {
                 if (requestedBinding !in providedBindings) {
                     bindings.add(requestedBinding)
@@ -216,7 +215,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
      * Produces stable ordering for Gradle cache hits.
      */
     private fun LocalScanResult.getSortedRequestedBindings(): Map<String, List<RequestedBinding>> =
-        requestedBindingsByClass.toSortedMap() // sort by requester's FQN
+        requestedBindings.toSortedMap() // sort by requester's FQN
             .mapValues { (_, fields) ->
                 val comparator = compareBy<RequestedBinding>(
                     { it.fieldName },

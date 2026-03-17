@@ -19,7 +19,6 @@ package com.harrytmthy.stitch.annotations
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)
 annotation class Contribute(
-    val moduleKey: String,
     val bindings: Array<ContributedBinding>,
     val requesters: Array<BindingRequester>,
     val scopes: Array<RegisteredScope>,

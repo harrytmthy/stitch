@@ -18,7 +18,7 @@ package com.harrytmthy.stitch.compiler.model
 
 class ContributionScanResult(
     val providedBindings: Map<Binding, ProvidedBinding>,
-    val requestedBindingsByModuleKey: Map<String, Map<String, List<RequestedBinding>>>,
+    val requestedBindings: Map<String, List<RequestedBinding>>,
     val customScopeByCanonicalName: Map<String, Scope.Custom>,
     val scopeDependencies: Map<Scope, Scope>,
 )

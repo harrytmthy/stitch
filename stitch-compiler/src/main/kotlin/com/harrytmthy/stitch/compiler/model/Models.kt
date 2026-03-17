@@ -62,7 +62,6 @@ class ProvidedBinding(
     val providerPackageName: String = "",
     val providerFunctionName: String = "",
     val providerClassName: String = "",
-    val moduleKey: String = "", // Only used by the aggregator
 ) : BindingDeclaration(type, qualifier, location) {
 
     var dependencies: ArrayList<BindingDeclaration>? = null
