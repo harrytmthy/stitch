@@ -29,7 +29,7 @@ import kotlin.reflect.KClass
  * - Call `scope.open()` before resolving.
  * - Avoid holding on to references after `scope.close()`.
  */
-class ScopeClosedException internal constructor(
+class ScopeClosedException(
     type: KClass<*>,
     qualifier: Qualifier?,
     scopeId: Int,

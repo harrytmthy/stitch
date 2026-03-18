@@ -18,14 +18,14 @@ package com.harrytmthy.stitch.internal
 
 import com.harrytmthy.stitch.api.DefaultQualifier
 import com.harrytmthy.stitch.api.Qualifier
-import com.harrytmthy.stitch.api.ScopeRef
+import com.harrytmthy.stitch.api.ScopeManager
 import kotlin.reflect.KClass
 
 internal object Registry {
 
     val definitions = HashMap<KClass<*>, HashMap<Qualifier?, Node>>()
 
-    val scopedDefinitions = HashMap<ScopeRef, HashMap<KClass<*>, HashMap<Qualifier?, Node>>>()
+    val scopedDefinitions = HashMap<String, HashMap<KClass<*>, HashMap<Qualifier?, Node>>>()
 
     val singletons = ConcurrentHashMap<KClass<*>, ConcurrentHashMap<Qualifier, Any>>()
 
@@ -33,19 +33,19 @@ internal object Registry {
 
     fun remove(nodes: List<Node>) {
         for (node in nodes) {
-            if (node.scopeRef != null) {
-                scopedDefinitions[node.scopeRef]?.let { qualifiersByType ->
+            if (node.scopeName != null) {
+                scopedDefinitions[node.scopeName]?.let { qualifiersByType ->
                     qualifiersByType[node.type]?.let { nodeByQualifier ->
                         nodeByQualifier.remove(node.qualifier)
                         if (nodeByQualifier.isEmpty()) {
                             qualifiersByType.removeFamily(node.type)
                             if (qualifiersByType.isEmpty()) {
-                                scopedDefinitions.remove(node.scopeRef)
+                                scopedDefinitions.remove(node.scopeName)
                             }
                         }
                     }
                 }
-                val scopeIds = ScopeRef.getScopeIds(node.scopeRef) ?: continue
+                val scopeIds = ScopeManager.getScopeIdsByName(node.scopeName) ?: continue
                 val iterator = scopeIds.iterator()
                 while (iterator.hasNext()) {
                     val scopeId = iterator.next()

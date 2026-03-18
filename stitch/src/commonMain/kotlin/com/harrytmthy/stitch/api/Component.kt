@@ -50,7 +50,7 @@ class Component internal constructor() {
         }
 
         // Resolve once to learn the canonical cache key
-        val node = lookupNode(type, qualifier, scope?.reference)
+        val node = lookupNode(type, qualifier, scope?.name)
 
         // Fast-path: If alias, recheck caches under canonical key
         if (node.type !== type) {
@@ -109,8 +109,8 @@ class Component internal constructor() {
         }
     }
 
-    private fun lookupNode(type: KClass<*>, qualifier: Qualifier?, scopeRef: ScopeRef?): Node {
-        Registry.scopedDefinitions[scopeRef]?.get(type)?.get(qualifier)?.let { return it }
+    private fun lookupNode(type: KClass<*>, qualifier: Qualifier?, scopeName: String?): Node {
+        Registry.scopedDefinitions[scopeName]?.get(type)?.get(qualifier)?.let { return it }
         val inner = Registry.definitions[type] ?: throw MissingBindingException.missingType(type)
         return inner.getOrElse(qualifier) {
             throw MissingBindingException.missingQualifier(type, qualifier, inner.keys)
