@@ -55,7 +55,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         qualifier: Qualifier? = null,
         noinline factory: ResolutionContext.() -> T,
     ): Bindable {
-        return define(T::class, qualifier, Scoped, false, scopeRef, null, factory)
+        return define(T::class, qualifier, Scoped, false, scopeRef.name, null, factory)
     }
 
     @PublishedApi
@@ -64,7 +64,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         qualifier: Qualifier?,
         definitionType: DefinitionType,
         eager: Boolean,
-        scopeRef: ScopeRef?,
+        scopeName: String?,
         factory: (ResolutionContext.() -> T)?,
         scopedFactory: (ResolutionContext.() -> T)?,
     ): Bindable {
@@ -81,7 +81,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
                     }
                 }
 
-            Scoped -> createAndRegisterScopedNode(type, qualifier, scopeRef!!, scopedFactory!!)
+            Scoped -> createAndRegisterScopedNode(type, qualifier, scopeName!!, scopedFactory!!)
                 .also(registeredNodes::add)
         }
     }
@@ -95,14 +95,14 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         val node = Node(
             type = type,
             qualifier = qualifier,
-            scopeRef = null,
+            scopeName = null,
             definitionType = definitionType,
             factory = factory,
             onBind = ::registerAlias,
         )
         val inner = Registry.definitions.getOrPut(type) { HashMap() }
         if (inner.containsKey(qualifier)) {
-            throw DuplicateBindingException(type, qualifier, scopeRef = null)
+            throw DuplicateBindingException(type, qualifier, scopeName = null)
         }
         inner[qualifier] = node
         return node
@@ -111,28 +111,28 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
     private fun <T : Any> createAndRegisterScopedNode(
         type: KClass<T>,
         qualifier: Qualifier?,
-        scopeRef: ScopeRef,
+        scopeName: String,
         factory: ResolutionContext.() -> T,
     ): Node {
         val node = Node(
             type = type,
             qualifier = qualifier,
-            scopeRef = scopeRef,
+            scopeName = scopeName,
             definitionType = Scoped,
             factory = factory,
             onBind = ::registerAlias,
         )
-        val qualifiersByType = Registry.scopedDefinitions.getOrPut(scopeRef) { HashMap() }
+        val qualifiersByType = Registry.scopedDefinitions.getOrPut(scopeName) { HashMap() }
         val nodeByQualifier = qualifiersByType.getOrPut(type) { HashMap() }
         if (nodeByQualifier.containsKey(qualifier)) {
-            throw DuplicateBindingException(type, qualifier, scopeRef)
+            throw DuplicateBindingException(type, qualifier, scopeName)
         }
         nodeByQualifier[qualifier] = node
         return node
     }
 
     private fun registerAlias(aliasType: KClass<*>, target: Node) {
-        if (target.scopeRef == null) {
+        if (target.scopeName == null) {
             val primary = Registry.definitions[target.type] ?: return
             val existing = Registry.definitions[aliasType]
             check(existing == null || existing === primary) {
@@ -140,7 +140,7 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
             }
             Registry.definitions[aliasType] = primary
         } else {
-            val scopedByType = Registry.scopedDefinitions[target.scopeRef] ?: return
+            val scopedByType = Registry.scopedDefinitions[target.scopeName] ?: return
             val primaryScoped = scopedByType[target.type] ?: return
             val existingScoped = scopedByType[aliasType]
             check(existingScoped == null || existingScoped === primaryScoped) {

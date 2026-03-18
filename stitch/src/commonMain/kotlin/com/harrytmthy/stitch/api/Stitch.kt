@@ -70,7 +70,7 @@ object Stitch {
     fun reset() {
         unregisterAll()
         Named.clear()
-        ScopeRef.clear()
+        ScopeManager.clear()
     }
 
     inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =

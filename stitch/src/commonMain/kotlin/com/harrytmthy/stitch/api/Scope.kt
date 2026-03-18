@@ -16,11 +16,12 @@
 
 package com.harrytmthy.stitch.api
 
+import com.harrytmthy.stitch.exception.ScopeClosedException
 import com.harrytmthy.stitch.internal.ConcurrentHashMap
 import com.harrytmthy.stitch.internal.Registry
 import kotlinx.atomicfu.atomic
 
-class Scope internal constructor(internal val id: Int, internal val reference: ScopeRef) {
+class Scope internal constructor(val id: Int, val name: String) {
 
     private val open = atomic(false)
 
@@ -31,56 +32,72 @@ class Scope internal constructor(internal val id: Int, internal val reference: S
     fun close() {
         open.value = false
         Registry.scoped.remove(id)
-        ScopeRef.getScopeIds(reference)?.remove(id)
+        ScopeManager.getScopeIdsByName(name)?.remove(id)
     }
 
-    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T =
-        Stitch.get(qualifier, scope = this)
+    fun isOpen(): Boolean = open.value
+
+    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T {
+        if (!isOpen()) {
+            // Fail-fast: We already have this exception
+            throw ScopeClosedException(T::class, qualifier, id)
+        }
+        val value = Stitch.get<T>(qualifier, scope = this)
+        if (!isOpen()) {
+            throw ScopeClosedException(T::class, qualifier, id)
+        }
+        return value
+    }
 
     inline fun <reified T : Any> inject(qualifier: Qualifier? = null): Lazy<T> =
-        Stitch.inject(qualifier, scope = this)
-
-    internal fun isOpen(): Boolean = open.value
-}
-
-class ScopeRef private constructor(val name: String) {
-
-    private val id = nextId()
+        lazy(LazyThreadSafetyMode.NONE) { get(qualifier) }
 
     override fun hashCode(): Int = id
 
-    override fun equals(other: Any?): Boolean = other is ScopeRef && other.id == this.id
+    override fun equals(other: Any?): Boolean = other is Scope && other.id == this.id
+}
+
+sealed class ScopeRef(val name: String) {
+
+    override fun hashCode(): Int = name.hashCode()
+
+    override fun equals(other: Any?): Boolean = other is ScopeRef && other.name == this.name
+}
+
+class RetrievableScopeRef(name: String) : ScopeRef(name) {
 
     fun createScope(): Scope {
-        val id = nextId()
-        val inner = idsByScopeRef.computeIfAbsent(this) { HashSet() }
+        val id = ScopeManager.nextId()
+        val inner = ScopeManager.idsByScopeName.computeIfAbsent(name) { HashSet() }
         inner.add(id)
-        return Scope(id, reference = this)
-    }
-
-    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T =
-        Stitch.get(qualifier)
-
-    companion object {
-
-        private val pool = ConcurrentHashMap<String, ScopeRef>()
-
-        private val idsByScopeRef = ConcurrentHashMap<ScopeRef, HashSet<Int>>()
-
-        private val nextId = atomic(1)
-
-        fun of(name: String): ScopeRef = pool.computeIfAbsent(name, ::ScopeRef)
-
-        internal fun nextId(): Int = nextId.getAndIncrement()
-
-        internal fun getScopeIds(scopeRef: ScopeRef): HashSet<Int>? = idsByScopeRef[scopeRef]
-
-        internal fun clear() {
-            pool.clear()
-            idsByScopeRef.clear()
-            nextId.value = 1
-        }
+        return Scope(id, name)
     }
 }
 
-fun scope(name: String): ScopeRef = ScopeRef.of(name)
+internal object ScopeManager {
+
+    val pool = ConcurrentHashMap<String, RetrievableScopeRef>()
+
+    val idsByScopeName = ConcurrentHashMap<String, HashSet<Int>>()
+
+    val nextId = atomic(1)
+
+    fun getOrCreate(name: String): RetrievableScopeRef {
+        if (name.isEmpty()) {
+            error("Scope name cannot be empty")
+        }
+        return pool.computeIfAbsent(name, ::RetrievableScopeRef)
+    }
+
+    fun nextId(): Int = nextId.getAndIncrement()
+
+    fun getScopeIdsByName(name: String): HashSet<Int>? = idsByScopeName[name]
+
+    fun clear() {
+        pool.clear()
+        idsByScopeName.clear()
+        nextId.value = 1
+    }
+}
+
+fun scope(name: String): RetrievableScopeRef = ScopeManager.getOrCreate(name)

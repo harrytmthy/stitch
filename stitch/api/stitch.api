@@ -13,7 +13,7 @@ public abstract interface class com/harrytmthy/stitch/api/InjectorScope {
 
 public final class com/harrytmthy/stitch/api/Module {
 	public fun <init> (ZLkotlin/jvm/functions/Function1;)V
-	public final fun define (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/internal/DefinitionType;ZLcom/harrytmthy/stitch/api/ScopeRef;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
+	public final fun define (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/internal/DefinitionType;ZLjava/lang/String;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
 }
 
 public final class com/harrytmthy/stitch/api/ModuleKt {
@@ -45,26 +45,30 @@ public final class com/harrytmthy/stitch/api/ResolutionContext {
 	public final fun getScope ()Lcom/harrytmthy/stitch/api/Scope;
 }
 
+public final class com/harrytmthy/stitch/api/RetrievableScopeRef : com/harrytmthy/stitch/api/ScopeRef {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun createScope ()Lcom/harrytmthy/stitch/api/Scope;
+}
+
 public final class com/harrytmthy/stitch/api/Scope {
 	public final fun close ()V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getId ()I
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public final fun isOpen ()Z
 	public final fun open ()V
 }
 
 public final class com/harrytmthy/stitch/api/ScopeKt {
-	public static final fun scope (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/ScopeRef;
+	public static final fun scope (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/RetrievableScopeRef;
 }
 
-public final class com/harrytmthy/stitch/api/ScopeRef {
-	public static final field Companion Lcom/harrytmthy/stitch/api/ScopeRef$Companion;
+public abstract class com/harrytmthy/stitch/api/ScopeRef {
 	public synthetic fun <init> (Ljava/lang/String;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun createScope ()Lcom/harrytmthy/stitch/api/Scope;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getName ()Ljava/lang/String;
 	public fun hashCode ()I
-}
-
-public final class com/harrytmthy/stitch/api/ScopeRef$Companion {
-	public final fun of (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/ScopeRef;
 }
 
 public final class com/harrytmthy/stitch/api/Stitch {
@@ -98,6 +102,7 @@ public final class com/harrytmthy/stitch/exception/MissingScopeException : com/h
 }
 
 public final class com/harrytmthy/stitch/exception/ScopeClosedException : com/harrytmthy/stitch/exception/GetFailedException {
+	public fun <init> (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;I)V
 }
 
 public final class com/harrytmthy/stitch/internal/DefinitionType : java/lang/Enum {
