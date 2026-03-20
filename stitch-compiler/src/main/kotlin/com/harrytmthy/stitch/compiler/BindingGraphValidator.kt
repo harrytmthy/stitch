@@ -19,7 +19,9 @@ package com.harrytmthy.stitch.compiler
 import com.harrytmthy.stitch.compiler.model.BindingDeclaration
 import com.harrytmthy.stitch.compiler.model.ContributionScanResult
 import com.harrytmthy.stitch.compiler.model.ProvidedBinding
+import com.harrytmthy.stitch.compiler.model.ResolvedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
+import com.harrytmthy.stitch.compiler.model.ScopedOwner
 
 class BindingGraphValidator(
     private val scanResult: ContributionScanResult,
@@ -185,14 +187,4 @@ class BindingGraphValidator(
             },
             symbol = null,
         )
-
-    data class ResolvedBinding(
-        val owningScope: Scope,
-        val scopedOwnersInClosure: Set<ScopedOwner>,
-    )
-
-    data class ScopedOwner(
-        val binding: ProvidedBinding,
-        val scope: Scope.Custom,
-    )
 }

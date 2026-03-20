@@ -31,15 +31,15 @@ import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
 import com.harrytmthy.stitch.compiler.utils.StitchErrorLogger
 
-class ContributionScanner(
-    private val resolver: Resolver,
-    private val logger: StitchErrorLogger,
-    private val scanResult: LocalScanResult,
-) {
+object ContributionScanner {
 
     @OptIn(KspExperimental::class)
     @Suppress("UNCHECKED_CAST")
-    fun scan(): ContributionScanResult? {
+    fun scan(
+        resolver: Resolver,
+        logger: StitchErrorLogger,
+        scanResult: LocalScanResult,
+    ): ContributionScanResult? {
         // Step 1: Collect all bindings and scopes from the aggregator
         val providedBindings = HashMap(scanResult.providedBindings)
         val requestedBindings = HashMap(scanResult.requestedBindings)
@@ -77,7 +77,7 @@ class ContributionScanner(
                 }
                 if (kind != BindingKind.REQUESTED) {
                     providedBindings[binding]?.let {
-                        duplicateBindingError(it)
+                        logger.duplicateBindingError(it)
                         continue
                     }
                     val providedBinding = ProvidedBinding(
@@ -162,7 +162,7 @@ class ContributionScanner(
         for (requested in requestedBindings.values) {
             for (requestedBinding in requested) {
                 if (requestedBinding !in providedBindings) {
-                    missingBindingError(requestedBinding)
+                    logger.missingBindingError(requestedBinding)
                 }
             }
         }
@@ -191,8 +191,8 @@ class ContributionScanner(
         )
     }
 
-    private fun duplicateBindingError(existing: ProvidedBinding) {
-        logger.error(
+    private fun StitchErrorLogger.duplicateBindingError(existing: ProvidedBinding) {
+        error(
             message = buildString {
                 append("Duplicate binding for ${existing.type}")
                 existing.qualifier?.let { append(" (qualifier: $it)") }
@@ -204,8 +204,8 @@ class ContributionScanner(
         )
     }
 
-    private fun missingBindingError(binding: BindingDeclaration) {
-        logger.error(
+    private fun StitchErrorLogger.missingBindingError(binding: BindingDeclaration) {
+        error(
             message = buildString {
                 append("Binding with type '${binding.type}'")
                 binding.qualifier?.let { append(" (qualifier: $it)") }

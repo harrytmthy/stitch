@@ -21,7 +21,8 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.harrytmthy.stitch.compiler.model.LocalScanResult
-import com.harrytmthy.stitch.compiler.provider.ScopeAncestorsProvider
+import com.harrytmthy.stitch.compiler.provider.InjectorPlanProvider
+import com.harrytmthy.stitch.compiler.provider.ScopeMetadataProvider
 import com.harrytmthy.stitch.compiler.scanner.ContributionScanner
 import com.harrytmthy.stitch.compiler.scanner.LocalAnnotationScanner
 import com.harrytmthy.stitch.compiler.utils.StitchErrorLogger
@@ -54,13 +55,21 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
                     .generate(moduleName, moduleKey, localScanResult)
             } else {
                 val logger = StitchErrorLogger(environment.logger)
-                val scanResult = ContributionScanner(resolver, logger, localScanResult)
-                    .scan()
-                if (scanResult == null) {
-                    return emptyList()
-                }
-                val scopeAncestors = ScopeAncestorsProvider(scanResult).get()
-                BindingGraphValidator(scanResult, scopeAncestors).validate()
+                val scanResult = ContributionScanner.scan(resolver, logger, localScanResult)
+                    ?: return emptyList() // Null when there is an error
+                val scopeMetadata = ScopeMetadataProvider.get(scanResult)
+                val resolvedBindings = BindingGraphValidator(scanResult, scopeMetadata.ancestors)
+                    .validate()
+                val injectorPlan = InjectorPlanProvider.get(
+                    scanResult = scanResult,
+                    scopeDirectChildren = scopeMetadata.directChildren,
+                    resolvedBindings = resolvedBindings,
+                )
+//                val codegenPlan = InjectorScopePlanProvider.get(
+//                    scanResult,
+//                    scopeAncestors,
+//                    resolvedBindings,
+//                )
                 // TODO: Add binding graph builder
                 // TODO: Add codegen for InjectorScope's implementation
             }
