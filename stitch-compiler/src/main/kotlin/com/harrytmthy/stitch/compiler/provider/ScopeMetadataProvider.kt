@@ -19,22 +19,25 @@ package com.harrytmthy.stitch.compiler.provider
 import com.harrytmthy.stitch.compiler.fatalError
 import com.harrytmthy.stitch.compiler.model.ContributionScanResult
 import com.harrytmthy.stitch.compiler.model.Scope
+import com.harrytmthy.stitch.compiler.model.ScopeMetadata
 
-class ScopeAncestorsProvider(private val scanResult: ContributionScanResult) {
+object ScopeMetadataProvider {
 
-    fun get(): Map<Scope, Set<Scope>> {
+    fun get(scanResult: ContributionScanResult): ScopeMetadata {
         val scopeAncestors = HashMap<Scope, LinkedHashSet<Scope>>()
+        val directChildren = HashMap<Scope, ArrayList<Scope.Custom>>()
         for (scope in scanResult.customScopeByCanonicalName.values) {
-            collectAncestors(scope, scanResult.scopeDependencies, scopeAncestors)
+            collectAncestors(scope, scanResult.scopeDependencies, scopeAncestors, directChildren)
         }
         scopeAncestors[Scope.Singleton] = linkedSetOf(Scope.Singleton)
-        return scopeAncestors
+        return ScopeMetadata(scopeAncestors, directChildren)
     }
 
     private fun collectAncestors(
         scope: Scope,
         scopeDependencies: Map<Scope, Scope>,
         scopeAncestors: HashMap<Scope, LinkedHashSet<Scope>>,
+        directChildren: HashMap<Scope, ArrayList<Scope.Custom>>,
     ) {
         if (scope in scopeAncestors) {
             // Already visited
@@ -46,10 +49,12 @@ class ScopeAncestorsProvider(private val scanResult: ContributionScanResult) {
         if (directAncestor == null || directAncestor == Scope.Singleton) {
             // Direct child of Singleton
             ancestors.add(Scope.Singleton)
+            val singletonChildren = directChildren.getOrPut(Scope.Singleton) { ArrayList() }
+            singletonChildren.add(scope as Scope.Custom)
             scope.depth = 2
             return
         }
-        collectAncestors(directAncestor, scopeDependencies, scopeAncestors)
+        collectAncestors(directAncestor, scopeDependencies, scopeAncestors, directChildren)
         val directAncestorAncestors = scopeAncestors.getValue(directAncestor)
         if (scope in directAncestorAncestors) {
             val cyclePath = directAncestorAncestors.joinToString(" → ")
@@ -59,6 +64,8 @@ class ScopeAncestorsProvider(private val scanResult: ContributionScanResult) {
             )
         }
         ancestors.addAll(directAncestorAncestors)
+        val directAncestorChildren = directChildren.getOrPut(directAncestor) { ArrayList() }
+        directAncestorChildren.add(scope as Scope.Custom)
         scope.depth = directAncestor.depth + 1
     }
 }
