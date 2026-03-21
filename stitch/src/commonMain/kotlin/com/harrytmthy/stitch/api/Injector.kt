@@ -16,7 +16,13 @@
 
 package com.harrytmthy.stitch.api
 
-interface InjectorScope {
-    fun inject(target: Any)
-    fun close()
+interface Injector {
+
+    val id: Int
+
+    val currentScope: String
+
+    fun inject(target: Any) {}
+
+    fun createInjectorForChildScope(scopeName: String): Injector
 }

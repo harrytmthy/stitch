@@ -8,9 +8,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.harrytmthy.stitch.R
 import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.annotations.Named
-import com.harrytmthy.stitch.annotations.Scope
 import com.harrytmthy.stitch.api.Stitch
-import com.harrytmthy.stitch.api.InjectorScope
 import com.harrytmthy.stitch.core.Logger
 import com.harrytmthy.stitch.di.ApiService
 import com.harrytmthy.stitch.di.AppModule.BASE_URL

@@ -6,9 +6,15 @@ public final class com/harrytmthy/stitch/api/Component {
 	public final fun getInternal (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;Lcom/harrytmthy/stitch/api/ResolutionContext;)Ljava/lang/Object;
 }
 
-public abstract interface class com/harrytmthy/stitch/api/InjectorScope {
-	public abstract fun close ()V
-	public abstract fun inject (Ljava/lang/Object;)V
+public abstract interface class com/harrytmthy/stitch/api/Injector {
+	public abstract fun createInjectorForChildScope (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/Injector;
+	public abstract fun getCurrentScope ()Ljava/lang/String;
+	public abstract fun getId ()I
+	public fun inject (Ljava/lang/Object;)V
+}
+
+public final class com/harrytmthy/stitch/api/Injector$DefaultImpls {
+	public static fun inject (Lcom/harrytmthy/stitch/api/Injector;Ljava/lang/Object;)V
 }
 
 public final class com/harrytmthy/stitch/api/Module {
@@ -45,11 +51,6 @@ public final class com/harrytmthy/stitch/api/ResolutionContext {
 	public final fun getScope ()Lcom/harrytmthy/stitch/api/Scope;
 }
 
-public final class com/harrytmthy/stitch/api/RetrievableScopeRef : com/harrytmthy/stitch/api/ScopeRef {
-	public fun <init> (Ljava/lang/String;)V
-	public final fun createScope ()Lcom/harrytmthy/stitch/api/Scope;
-}
-
 public final class com/harrytmthy/stitch/api/Scope {
 	public final fun close ()V
 	public fun equals (Ljava/lang/Object;)Z
@@ -61,11 +62,12 @@ public final class com/harrytmthy/stitch/api/Scope {
 }
 
 public final class com/harrytmthy/stitch/api/ScopeKt {
-	public static final fun scope (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/RetrievableScopeRef;
+	public static final fun scope (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/ScopeRef;
 }
 
-public abstract class com/harrytmthy/stitch/api/ScopeRef {
-	public synthetic fun <init> (Ljava/lang/String;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+public final class com/harrytmthy/stitch/api/ScopeRef {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun createScope ()Lcom/harrytmthy/stitch/api/Scope;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getName ()Ljava/lang/String;
 	public fun hashCode ()I
@@ -112,14 +114,5 @@ public final class com/harrytmthy/stitch/internal/DefinitionType : java/lang/Enu
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lcom/harrytmthy/stitch/internal/DefinitionType;
 	public static fun values ()[Lcom/harrytmthy/stitch/internal/DefinitionType;
-}
-
-public abstract class com/harrytmthy/stitch/internal/StitchComponent {
-	public fun <init> ()V
-	public final fun inject (Ljava/lang/Object;)V
-}
-
-public abstract interface class com/harrytmthy/stitch/internal/StitchScopedInjector {
-	public abstract fun inject (Ljava/lang/Object;Ljava/lang/Object;)V
 }
 
