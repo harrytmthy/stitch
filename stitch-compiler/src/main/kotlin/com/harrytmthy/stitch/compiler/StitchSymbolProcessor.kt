@@ -65,13 +65,6 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
                     scopeDirectChildren = scopeMetadata.directChildren,
                     resolvedBindings = resolvedBindings,
                 )
-//                val codegenPlan = InjectorScopePlanProvider.get(
-//                    scanResult,
-//                    scopeAncestors,
-//                    resolvedBindings,
-//                )
-                // TODO: Add binding graph builder
-                // TODO: Add codegen for InjectorScope's implementation
             }
             processed = true
         } catch (e: StitchProcessingException) {

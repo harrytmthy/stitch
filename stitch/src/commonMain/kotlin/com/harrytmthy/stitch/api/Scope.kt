@@ -57,14 +57,7 @@ class Scope internal constructor(val id: Int, val name: String) {
     override fun equals(other: Any?): Boolean = other is Scope && other.id == this.id
 }
 
-sealed class ScopeRef(val name: String) {
-
-    override fun hashCode(): Int = name.hashCode()
-
-    override fun equals(other: Any?): Boolean = other is ScopeRef && other.name == this.name
-}
-
-class RetrievableScopeRef(name: String) : ScopeRef(name) {
+class ScopeRef(val name: String) {
 
     fun createScope(): Scope {
         val id = ScopeManager.nextId()
@@ -72,21 +65,25 @@ class RetrievableScopeRef(name: String) : ScopeRef(name) {
         inner.add(id)
         return Scope(id, name)
     }
+
+    override fun hashCode(): Int = name.hashCode()
+
+    override fun equals(other: Any?): Boolean = other is ScopeRef && other.name == this.name
 }
 
 internal object ScopeManager {
 
-    val pool = ConcurrentHashMap<String, RetrievableScopeRef>()
+    val pool = ConcurrentHashMap<String, ScopeRef>()
 
     val idsByScopeName = ConcurrentHashMap<String, HashSet<Int>>()
 
     val nextId = atomic(1)
 
-    fun getOrCreate(name: String): RetrievableScopeRef {
+    fun getOrCreate(name: String): ScopeRef {
         if (name.isEmpty()) {
             error("Scope name cannot be empty")
         }
-        return pool.computeIfAbsent(name, ::RetrievableScopeRef)
+        return pool.computeIfAbsent(name, ::ScopeRef)
     }
 
     fun nextId(): Int = nextId.getAndIncrement()
@@ -100,4 +97,4 @@ internal object ScopeManager {
     }
 }
 
-fun scope(name: String): RetrievableScopeRef = ScopeManager.getOrCreate(name)
+fun scope(name: String): ScopeRef = ScopeManager.getOrCreate(name)

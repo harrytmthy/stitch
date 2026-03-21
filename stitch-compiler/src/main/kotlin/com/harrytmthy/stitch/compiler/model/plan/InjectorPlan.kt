@@ -20,7 +20,7 @@ import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
 
 /**
- * Represents the generated 'per scope' ScopeRef used for the code generation.
+ * Represents the generated 'scoped graph' used for the code generation.
  *
  * Example:
  *
@@ -30,10 +30,12 @@ import com.harrytmthy.stitch.compiler.model.Scope
  * import com.harrytmthy.stitch.generated.StitchActivityGraph
  * import com.harrytmthy.stitch.generated.StitchFragmentGraph
  * import com.harrytmthy.stitch.generated.StitchSingletonGraph
+ * import kotlinx.atomicfu.atomic
  *
  * // Step 1: Transform each registered scope into `<scopeName>Graph: Stitch<ScopeName>Graph`
  * class StitchInjector private constructor(
- *   val currentScope: String,
+ *   override val id: Int,
+ *   override val currentScope: String,
  *   private val singletonGraph: StitchSingletonGraph,
  *   private val activityGraph: StitchActivityGraph? = null,
  *   private val fragmentGraph: StitchFragmentGraph? = null,
@@ -49,8 +51,8 @@ import com.harrytmthy.stitch.compiler.model.Scope
  *
  *   // Step 3: Wire each requested field per requester
  *   fun inject(target: HomeActivity) {
- *     target.logger = singletonInjectorScope.logger()
- *     target.viewModel = activityInjectorScope?.homeViewModel()
+ *     target.logger = singletonGraph.logger()
+ *     target.viewModel = activityGraph?.homeViewModel()
  *   }
  *
  *   override fun createInjectorForChildScope(scopeName: String): Injector {
@@ -58,15 +60,17 @@ import com.harrytmthy.stitch.compiler.model.Scope
  *       childNotFoundError(scopeName)
  *     }
  *
+ *     val id = nextId.getAndIncrement()
+ *
  *     // Step 4: Transform each scope to this implementation
  *     return when (scopeName) {
  *       "activity" -> {
- *         val activityScopeRef = StitchActivityScopeRef(dependencyProvider) // ✅ Pass it inside
- *         StitchInjector(currentScope = "activity", singletonInjectorScope, activityInjectorScope, fragmentInjectorScope, ...)
+ *         val activityGraph = StitchActivityGraph(dependencyProvider)
+ *         StitchInjector(id, "activity", singletonGraph, activityGraph, fragmentGraph)
  *       }
  *       "fragment" -> {
- *         val fragmentScopeRef = StitchFragmentScopeRef(dependencyProvider) // ✅ Pass it inside
- *         StitchInjector(currentScope = "fragment", singletonInjectorScope, activityInjectorScope, fragmentInjectorScope, ...)
+ *         val fragmentGraph = StitchFragmentGraph(dependencyProvider)
+ *         StitchInjector(id, "fragment", singletonGraph, activityGraph, fragmentGraph)
  *       }
  *       // ... (other scopes)
  *     }
@@ -81,6 +85,10 @@ import com.harrytmthy.stitch.compiler.model.Scope
  *       }
  *     }
  *     error(message)
+ *   }
+ *
+ *   private companion object {
+ *     val nextId = atomic(1)
  *   }
  * }
  * ```
