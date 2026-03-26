@@ -26,7 +26,7 @@ import com.harrytmthy.stitch.compiler.model.ValidatedBinding
  * Example:
  *
  * ```
- * package com.harrytmthy.stitch.generated
+ * package io.github.harrytmthy.stitch.generated
  *
  * import com.harrytmthy.stitch.api.Injector
  * import com.harrytmthy.stitch.api.Injector.Companion

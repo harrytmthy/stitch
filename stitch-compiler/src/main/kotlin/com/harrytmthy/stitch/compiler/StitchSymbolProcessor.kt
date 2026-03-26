@@ -89,6 +89,6 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
     }
 
     companion object {
-        const val GENERATED_PACKAGE_NAME = "com.harrytmthy.stitch.generated"
+        const val GENERATED_PACKAGE_NAME = "io.github.harrytmthy.stitch.generated"
     }
 }
