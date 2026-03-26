@@ -17,50 +17,46 @@
 package com.harrytmthy.stitch.compiler.provider
 
 import com.harrytmthy.stitch.compiler.consts.BindingKind
-import com.harrytmthy.stitch.compiler.model.BindingResolution
-import com.harrytmthy.stitch.compiler.model.ContributionScanResult
-import com.harrytmthy.stitch.compiler.model.ProvidedBinding
+import com.harrytmthy.stitch.compiler.model.BindingValidationResult
+import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
 import com.harrytmthy.stitch.compiler.model.plan.InjectorPlan
-import com.harrytmthy.stitch.compiler.model.plan.ScopePlan
 
 object InjectorPlanProvider {
 
     fun get(
-        scanResult: ContributionScanResult,
+        validationResult: BindingValidationResult,
+        requestedBindings: Map<String, List<RequestedBinding>>,
         scopeDirectChildren: Map<Scope, List<Scope.Custom>>,
-        bindingResolution: Map<ProvidedBinding, BindingResolution>,
-    ): InjectorPlan {
+    ): Map<Scope, InjectorPlan> {
         val scopeCount = scopeDirectChildren.keys.size
-        val scopePlans = HashMap<Scope, ScopePlan>(scopeCount, 1f)
-        val ownedBindingsByScope = HashMap<Scope, ArrayList<ProvidedBinding>>(scopeCount, 1f)
-        val externalDependenciesByScope = HashMap<Scope, HashSet<ProvidedBinding>>(scopeCount, 1f)
+        val injectorPlans = HashMap<Scope, InjectorPlan>(scopeCount, 1f)
         val providerClassNamesByScope = HashMap<Scope, HashSet<String>>(scopeCount, 1f)
-        for (providedBinding in scanResult.providedBindings.values) {
-            val scope = providedBinding.scope
-                ?: bindingResolution.getValue(providedBinding).owningScope
-            val ownedBindings = ownedBindingsByScope.getOrPut(scope, ::ArrayList)
-            ownedBindings.add(providedBinding)
-            if (providedBinding.kind == BindingKind.PROVIDED_IN_CLASS) {
-                val providerClassNames = providerClassNamesByScope.getOrPut(scope, ::HashSet)
-                providerClassNames.add(providedBinding.providerClassName)
+        val requestersByScope = HashMap<Scope, HashMap<String, ArrayList<RequestedBinding>>>(scopeCount, 1f)
+        for (binding in validationResult.bindingPool.values) {
+            if (binding.kind == BindingKind.PROVIDED_IN_CLASS) {
+                val providerClassNames = providerClassNamesByScope
+                    .getOrPut(binding.owningScope, ::HashSet)
+                providerClassNames.add(binding.providerClassName)
             }
-            providedBinding.dependencies?.forEach {
-                val dependency = scanResult.providedBindings.getValue(it)
-                val dependencyScope = dependency.scope
-                    ?: bindingResolution.getValue(dependency).owningScope
-                if (dependencyScope != scope) {
-                    val externalDependencies = externalDependenciesByScope.getOrPut(scope, ::HashSet)
-                    externalDependencies.add(dependency)
-                }
+        }
+        for ((requester, requestedBindings) in requestedBindings) {
+            for (requestedBinding in requestedBindings) {
+                val binding = validationResult.bindingPool.getValue(requestedBinding)
+                val requesters = requestersByScope.getOrPut(binding.owningScope, ::HashMap)
+                val requests = requesters.getOrPut(requester, ::ArrayList)
+                requests.add(requestedBinding)
             }
         }
         for (scope in scopeDirectChildren.keys) {
-            val ownedBindings = ownedBindingsByScope.getOrDefault(scope, emptyList())
-            val externalDependencies = externalDependenciesByScope.getOrDefault(scope, emptySet())
-            val providerClassNames = providerClassNamesByScope.getOrDefault(scope, emptySet())
-            scopePlans[scope] = ScopePlan(scope, ownedBindings, externalDependencies, providerClassNames)
+            injectorPlans[scope] = InjectorPlan(
+                scope = scope,
+                providerClassNames = providerClassNamesByScope.getOrDefault(scope, emptySet()),
+                ownedBindings = validationResult.bindingsByScope.getValue(scope),
+                requestedBindings = requestersByScope.getOrDefault(scope, emptyMap()),
+                directChildScopes = scopeDirectChildren.getOrDefault(scope, emptyList()),
+            )
         }
-        return InjectorPlan(scopePlans, scanResult.requestedBindings)
+        return injectorPlans
     }
 }

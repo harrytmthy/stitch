@@ -18,6 +18,7 @@ package com.harrytmthy.stitch.compiler.model.plan
 
 import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
+import com.harrytmthy.stitch.compiler.model.ValidatedBinding
 
 /**
  * Represents the generated 'scoped graph' used for the code generation.
@@ -27,73 +28,63 @@ import com.harrytmthy.stitch.compiler.model.Scope
  * ```
  * package com.harrytmthy.stitch.generated
  *
- * import com.harrytmthy.stitch.generated.StitchActivityGraph
- * import com.harrytmthy.stitch.generated.StitchFragmentGraph
- * import com.harrytmthy.stitch.generated.StitchSingletonGraph
- * import kotlinx.atomicfu.atomic
+ * import com.harrytmthy.stitch.api.Injector
+ * import com.harrytmthy.stitch.api.Injector.Companion
  *
- * // Step 1: Transform each registered scope into `<scopeName>Graph: Stitch<ScopeName>Graph`
- * class StitchInjector private constructor(
+ * // Step 1: Transform each registered scope into `Stitch<ScopeName>Graph(...) : Injector`
+ * class StitchActivityGraph(
  *   override val id: Int,
  *   override val currentScope: String,
- *   private val singletonGraph: StitchSingletonGraph,
- *   private val activityGraph: StitchActivityGraph? = null,
- *   private val fragmentGraph: StitchFragmentGraph? = null,
+ *   override val upstream: StitchSingletonGraph, // Use direct type instead of Injector
  * ) : Injector {
  *
- *   private val currentScopeDirectChildren = ScopeDependencies.directChildren[currentScope]
+ *   // Step 2: Transform `providerClassNames` into `providerClassName: ProviderClassName? = null`
+ *   private var homeModule: HomeModule? = null
  *
- *   private val dependencyProvider = object : DependencyProvider {
+ *   // Step 3: Transform `ownedBindings` into `type_qualifier: DclHolder<Type>? = null`
+ *   private var homeViewModel: DclHolder<HomeViewModel>? = null
  *
- *     // Step 2: Wire all external dependencies from all scopes into DependencyProvider
- *     override fun logger(): Logger = singletonGraph.logger()
+ *   // Step 4: Traverse `ownedBindings` again to render each public getter
+ *   fun homeViewModel(): HomeViewModel {
+ *     val instance = homeViewModel ?: run {
+ *       DclWrapper<HomeViewModel>().also { homeViewModel = it }
+ *     }
+ *     if (instance.initialized.value) instance.reference.value!!
+ *     synchronized(instance.lock) {
+ *       if (instance.initialized.value) return instance.reference.value!!
+ *       val container = homeModule ?: HomeModule().also { homeModule = it }
+ *       val v = container.provideHomeViewModel(upstream.logger())
+ *       instance.reference.value = v
+ *       instance.initialized.value = true
+ *       return v
+ *     }
  *   }
  *
- *   // Step 3: Wire each requested field per requester
+ *   // Step 5: Wire each requested field per requester
  *   fun inject(target: HomeActivity) {
- *     target.logger = singletonGraph.logger()
- *     target.viewModel = activityGraph?.homeViewModel()
+ *     target.viewModel = homeViewModel()
+ *     target.logger = upstream.logger()
  *   }
  *
- *   override fun createInjectorForChildScope(scopeName: String): Injector {
- *     if (currentScopeDirectChildren?.contains(scopeName) != true) {
- *       childNotFoundError(scopeName)
+ *   // ... (other requesters with AT LEAST one binding that resolves to "activity" scope)
+ *
+ *   override fun createInjectorForChildScope(scopeName: String): Injector =
+ *     when (scopeName) {
+ *       // Step 6: Transform each child scope to `"<scopeName>" -> Stitch<ScopeName>Graph(...)`
+ *       "fragment" -> StitchFragmentGraph(nextId(), scopeName, this)
+ *       else -> childNotFoundError(currentScope, scopeName)
  *     }
- *
- *     val id = nextId.getAndIncrement()
- *
- *     // Step 4: Transform each scope to this implementation
- *     return when (scopeName) {
- *       "activity" -> {
- *         val activityGraph = StitchActivityGraph(dependencyProvider)
- *         StitchInjector(id, "activity", singletonGraph, activityGraph, fragmentGraph)
- *       }
- *       "fragment" -> {
- *         val fragmentGraph = StitchFragmentGraph(dependencyProvider)
- *         StitchInjector(id, "fragment", singletonGraph, activityGraph, fragmentGraph)
- *       }
- *       // ... (other scopes)
- *     }
- *   }
- *
- *   private fun childNotFoundError(scopeName: String): Nothing {
- *     val message = buildString {
- *       append("This injector was created for $currentScope")
- *       append(" which doesn't have $scopeName in its direct children")
- *       if (!currentScopeDirectChildren.isNullOrEmpty()) {
- *         append(" (options: $currentScopeDirectChildren.joinToString())")
- *       }
- *     }
- *     error(message)
- *   }
- *
- *   private companion object {
- *     val nextId = atomic(1)
- *   }
  * }
  * ```
+ *
+ * For StitchFragmentGraph, accessing StitchSingletonGraph will require `upstream.upstream.xxx()`,
+ * where the number of `upstream` chain can be inferred by subtracting `scope.depth` with
+ * `dependency.owningScope.depth`.
  */
 class InjectorPlan(
-    val scopePlans: Map<Scope, ScopePlan>,
-    val requestedBindings: Map<String, List<RequestedBinding>>,
+    val scope: Scope, // Step 1
+    val providerClassNames: Set<String>, // Step 2
+    val ownedBindings: List<ValidatedBinding>, // Step 3 and 4
+    val requestedBindings: Map<String, List<RequestedBinding>>, // Step 5
+    val directChildScopes: List<Scope.Custom>, // Step 6
 )
