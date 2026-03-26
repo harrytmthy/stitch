@@ -16,6 +16,8 @@
 
 package com.harrytmthy.stitch.api
 
+import kotlinx.atomicfu.atomic
+
 interface Injector {
 
     val id: Int
@@ -25,4 +27,14 @@ interface Injector {
     fun inject(target: Any) {}
 
     fun createInjectorForChildScope(scopeName: String): Injector
+
+    companion object {
+
+        private val nextId = atomic(1)
+
+        fun nextId(): Int = nextId.getAndIncrement()
+
+        fun childNotFoundError(currentScope: String, childScope: String): Nothing =
+            error("Scope '$currentScope' requested an injector for scope '$childScope' that isn't its child")
+    }
 }

@@ -18,5 +18,5 @@ package com.harrytmthy.stitch.compiler.model
 
 class BindingValidationResult(
     val bindingPool: BindingPool<ValidatedBinding>,
-    val bindingsByScope: Map<Scope, ArrayList<ValidatedBinding>>,
+    val bindingsByScope: Map<Scope, List<ValidatedBinding>>,
 )

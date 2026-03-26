@@ -21,6 +21,7 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.harrytmthy.stitch.compiler.model.LocalScanResult
+import com.harrytmthy.stitch.compiler.provider.InjectorPlanProvider
 import com.harrytmthy.stitch.compiler.provider.ScopeMetadataProvider
 import com.harrytmthy.stitch.compiler.scanner.ContributionScanner
 import com.harrytmthy.stitch.compiler.scanner.LocalAnnotationScanner
@@ -59,12 +60,11 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
                 val scopeMetadata = ScopeMetadataProvider.get(scanResult)
                 val validationResult = BindingGraphValidator(scanResult, scopeMetadata.ancestors)
                     .validate()
-                // TODO: Re-implement this in #146
-//                val injectorPlan = InjectorPlanProvider.get(
-//                    scanResult = scanResult,
-//                    scopeDirectChildren = scopeMetadata.directChildren,
-//                    bindingResolution = emptyMap(),
-//                )
+                val injectorPlan = InjectorPlanProvider.get(
+                    validationResult = validationResult,
+                    requestedBindings = scanResult.requestedBindings,
+                    scopeDirectChildren = scopeMetadata.directChildren,
+                )
             }
             processed = true
         } catch (e: StitchProcessingException) {
