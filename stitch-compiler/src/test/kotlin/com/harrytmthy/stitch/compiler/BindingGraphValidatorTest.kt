@@ -39,7 +39,7 @@ class BindingGraphValidatorTest {
             scopeAncestors = scopeAncestors(),
         )
 
-        val resolved = validator.validate()
+        val resolved = validator.validate().bindingPool
 
         assertEquals(Scope.Singleton, resolved.getValue(config).owningScope)
         assertEquals(Scope.Singleton, resolved.getValue(presenter).owningScope)
@@ -57,7 +57,7 @@ class BindingGraphValidatorTest {
             scopeAncestors = scopeAncestors(activity),
         )
 
-        val resolved = validator.validate()
+        val resolved = validator.validate().bindingPool
 
         assertEquals(activity, resolved.getValue(config).owningScope)
         assertEquals(activity, resolved.getValue(presenter).owningScope)

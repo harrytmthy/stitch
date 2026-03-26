@@ -16,10 +16,12 @@
 
 package com.harrytmthy.stitch.compiler
 
+import com.harrytmthy.stitch.compiler.mapper.BindingValidationResultMapper
 import com.harrytmthy.stitch.compiler.model.BindingDeclaration
+import com.harrytmthy.stitch.compiler.model.BindingResolution
+import com.harrytmthy.stitch.compiler.model.BindingValidationResult
 import com.harrytmthy.stitch.compiler.model.ContributionScanResult
 import com.harrytmthy.stitch.compiler.model.ProvidedBinding
-import com.harrytmthy.stitch.compiler.model.ResolvedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
 import com.harrytmthy.stitch.compiler.model.ScopedOwner
 
@@ -28,39 +30,39 @@ class BindingGraphValidator(
     private val scopeAncestors: Map<Scope, Set<Scope>>,
 ) {
 
-    fun validate(): Map<ProvidedBinding, ResolvedBinding> {
+    fun validate(): BindingValidationResult {
         val visiting = LinkedHashSet<ProvidedBinding>()
-        val resolvedByBinding = HashMap<ProvidedBinding, ResolvedBinding>()
+        val bindingResolutions = HashMap<ProvidedBinding, BindingResolution>()
         for (binding in scanResult.providedBindings.values) {
-            resolve(binding, visiting, resolvedByBinding)
+            resolve(binding, visiting, bindingResolutions)
         }
-        return resolvedByBinding
+        return BindingValidationResultMapper.map(bindingResolutions, scopeCount = scopeAncestors.size)
     }
 
     private fun resolve(
         binding: ProvidedBinding,
         visiting: LinkedHashSet<ProvidedBinding>,
-        resolvedByBinding: HashMap<ProvidedBinding, ResolvedBinding>,
-    ): ResolvedBinding {
-        resolvedByBinding[binding]?.let { return it }
+        bindingResolutions: HashMap<ProvidedBinding, BindingResolution>,
+    ): BindingResolution {
+        bindingResolutions[binding]?.let { return it }
         if (!visiting.add(binding)) {
             cycleError(binding, visiting)
         }
         try {
-            val dependencyResults = ArrayList<Pair<ProvidedBinding, ResolvedBinding>>(
+            val dependencyResults = ArrayList<Pair<ProvidedBinding, BindingResolution>>(
                 binding.dependencies?.size ?: 0,
             )
             binding.dependencies?.forEach { dependencyDeclaration ->
                 val dependency = scanResult.providedBindings[dependencyDeclaration]
                     ?: missingBindingError(dependencyDeclaration)
-                val resolvedDependency = resolve(dependency, visiting, resolvedByBinding)
+                val resolvedDependency = resolve(dependency, visiting, bindingResolutions)
                 dependencyResults += dependency to resolvedDependency
             }
             val result = when (val declaredScope = binding.scope) {
                 null -> resolveUnscoped(binding, dependencyResults)
                 else -> resolveScoped(binding, declaredScope, dependencyResults)
             }
-            resolvedByBinding[binding] = result
+            bindingResolutions[binding] = result
             return result
         } finally {
             visiting.remove(binding)
@@ -70,8 +72,8 @@ class BindingGraphValidator(
     private fun resolveScoped(
         binding: ProvidedBinding,
         declaredScope: Scope,
-        dependencyResults: List<Pair<ProvidedBinding, ResolvedBinding>>,
-    ): ResolvedBinding {
+        dependencyResults: List<Pair<ProvidedBinding, BindingResolution>>,
+    ): BindingResolution {
         val ancestors = scopeAncestors.getValue(declaredScope)
         val scopedOwnersInClosure = LinkedHashSet<ScopedOwner>()
         for ((dependency, resolvedDependency) in dependencyResults) {
@@ -88,7 +90,7 @@ class BindingGraphValidator(
         if (declaredScope is Scope.Custom) {
             scopedOwnersInClosure += ScopedOwner(binding, declaredScope)
         }
-        return ResolvedBinding(
+        return BindingResolution(
             owningScope = declaredScope,
             scopedOwnersInClosure = scopedOwnersInClosure,
         )
@@ -96,8 +98,8 @@ class BindingGraphValidator(
 
     private fun resolveUnscoped(
         binding: ProvidedBinding,
-        dependencyResults: List<Pair<ProvidedBinding, ResolvedBinding>>,
-    ): ResolvedBinding {
+        dependencyResults: List<Pair<ProvidedBinding, BindingResolution>>,
+    ): BindingResolution {
         val scopedOwnersInClosure = LinkedHashSet<ScopedOwner>()
         var deepestOwner: ScopedOwner? = null
         for ((dependency, resolvedDependency) in dependencyResults) {
@@ -124,7 +126,7 @@ class BindingGraphValidator(
                 }
             }
         }
-        return ResolvedBinding(
+        return BindingResolution(
             owningScope = deepestScope ?: Scope.Singleton,
             scopedOwnersInClosure = scopedOwnersInClosure,
         )

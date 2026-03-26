@@ -17,9 +17,9 @@
 package com.harrytmthy.stitch.compiler.provider
 
 import com.harrytmthy.stitch.compiler.consts.BindingKind
+import com.harrytmthy.stitch.compiler.model.BindingResolution
 import com.harrytmthy.stitch.compiler.model.ContributionScanResult
 import com.harrytmthy.stitch.compiler.model.ProvidedBinding
-import com.harrytmthy.stitch.compiler.model.ResolvedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
 import com.harrytmthy.stitch.compiler.model.plan.InjectorPlan
 import com.harrytmthy.stitch.compiler.model.plan.ScopePlan
@@ -29,7 +29,7 @@ object InjectorPlanProvider {
     fun get(
         scanResult: ContributionScanResult,
         scopeDirectChildren: Map<Scope, List<Scope.Custom>>,
-        resolvedBindings: Map<ProvidedBinding, ResolvedBinding>,
+        bindingResolution: Map<ProvidedBinding, BindingResolution>,
     ): InjectorPlan {
         val scopeCount = scopeDirectChildren.keys.size
         val scopePlans = HashMap<Scope, ScopePlan>(scopeCount, 1f)
@@ -38,7 +38,7 @@ object InjectorPlanProvider {
         val providerClassNamesByScope = HashMap<Scope, HashSet<String>>(scopeCount, 1f)
         for (providedBinding in scanResult.providedBindings.values) {
             val scope = providedBinding.scope
-                ?: resolvedBindings.getValue(providedBinding).owningScope
+                ?: bindingResolution.getValue(providedBinding).owningScope
             val ownedBindings = ownedBindingsByScope.getOrPut(scope, ::ArrayList)
             ownedBindings.add(providedBinding)
             if (providedBinding.kind == BindingKind.PROVIDED_IN_CLASS) {
@@ -48,7 +48,7 @@ object InjectorPlanProvider {
             providedBinding.dependencies?.forEach {
                 val dependency = scanResult.providedBindings.getValue(it)
                 val dependencyScope = dependency.scope
-                    ?: resolvedBindings.getValue(dependency).owningScope
+                    ?: bindingResolution.getValue(dependency).owningScope
                 if (dependencyScope != scope) {
                     val externalDependencies = externalDependenciesByScope.getOrPut(scope, ::HashSet)
                     externalDependencies.add(dependency)
