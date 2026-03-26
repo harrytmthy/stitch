@@ -80,6 +80,22 @@ class RequestedBinding(
     val fieldName: String,
 ) : BindingDeclaration(type, qualifier, location)
 
+/**
+ * Represents a provided binding that has been validated by the aggregator.
+ */
+class ValidatedBinding(
+    type: String,
+    qualifier: Qualifier?,
+    val owningScope: Scope,
+    val kind: Int,
+    val providerPackageName: String,
+    val providerFunctionName: String,
+    val providerClassName: String,
+) : Binding(type, qualifier) {
+
+    var dependencies: List<ValidatedBinding>? = null
+}
+
 sealed class Qualifier {
 
     abstract fun encode(): String

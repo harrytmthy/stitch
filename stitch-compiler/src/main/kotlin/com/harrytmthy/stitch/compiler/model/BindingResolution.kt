@@ -16,7 +16,7 @@
 
 package com.harrytmthy.stitch.compiler.model
 
-data class ResolvedBinding(
+class BindingResolution(
     val owningScope: Scope,
     val scopedOwnersInClosure: Set<ScopedOwner>,
 )
