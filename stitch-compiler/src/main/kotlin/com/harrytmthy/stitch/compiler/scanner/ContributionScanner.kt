@@ -19,9 +19,11 @@ package com.harrytmthy.stitch.compiler.scanner
 import com.google.devtools.ksp.KspExperimental
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotation
-import com.harrytmthy.stitch.annotations.Contribute
+import com.harrytmthy.stitch.annotations.BindingContributions
+import com.harrytmthy.stitch.annotations.ScopeContributions
 import com.harrytmthy.stitch.compiler.StitchSymbolProcessor.Companion.GENERATED_PACKAGE_NAME
 import com.harrytmthy.stitch.compiler.consts.BindingKind
+import com.harrytmthy.stitch.compiler.model.Binding
 import com.harrytmthy.stitch.compiler.model.BindingDeclaration
 import com.harrytmthy.stitch.compiler.model.ContributionScanResult
 import com.harrytmthy.stitch.compiler.model.LocalScanResult
@@ -29,6 +31,7 @@ import com.harrytmthy.stitch.compiler.model.ProvidedBinding
 import com.harrytmthy.stitch.compiler.model.Qualifier
 import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
+import com.harrytmthy.stitch.compiler.model.Scope.Singleton
 import com.harrytmthy.stitch.compiler.utils.StitchErrorLogger
 
 object ContributionScanner {
@@ -46,76 +49,89 @@ object ContributionScanner {
         val customScopeByCanonicalName = HashMap(scanResult.customScopeByCanonicalName)
         val scopeDependencies = HashMap(scanResult.scopeDependencies)
 
-        // Step 2: Collect all bindings and scopes from the contributors
+        // Step 2: Collect all scope + binding contributions' annotations
+        val scopeContributions = ArrayList<KSAnnotation>()
+        val bindingContributions = ArrayList<KSAnnotation>()
+        for (declaration in resolver.getDeclarationsFromPackage(GENERATED_PACKAGE_NAME)) {
+            for (annotation in declaration.annotations) {
+                when (annotation.shortName.asString()) {
+                    ScopeContributions::class.simpleName -> scopeContributions.add(annotation)
+                    BindingContributions::class.simpleName -> bindingContributions.add(annotation)
+                    else -> continue
+                }
+            }
+        }
+
+        // Step 3: Scan scope contributions
+        scanScopeContributions(
+            scopeContributions = scopeContributions,
+            customScopeByCanonicalName = customScopeByCanonicalName,
+            scopeDependencies = scopeDependencies,
+            logger = logger,
+        )
+        if (logger.hasError) {
+            return null
+        }
+
+        // Step 4: Scan binding contributions
         val contributedBindings = ArrayList<BindingDeclaration>()
         val contributedDependencies = ArrayList<List<Int>>() // Flattened indices, NOT bindingId
-        for (declaration in resolver.getDeclarationsFromPackage(GENERATED_PACKAGE_NAME)) {
-            val annotation = declaration.annotations
-                .find { it.shortName.asString() == Contribute::class.simpleName }
-                ?: continue
-            val bindingAnnotations = annotation.arguments[0].value as List<KSAnnotation>
-            val requesterAnnotations = annotation.arguments[1].value as List<KSAnnotation>
-            val scopeAnnotations = annotation.arguments[2].value as List<KSAnnotation>
+        scanBindingContributions(
+            bindingContributions = bindingContributions,
+            providedBindings = providedBindings,
+            requestedBindings = requestedBindings,
+            contributedBindings = contributedBindings,
+            contributedDependencies = contributedDependencies,
+            customScopeByCanonicalName = customScopeByCanonicalName,
+            logger = logger,
+        )
+        if (logger.hasError) {
+            return null
+        }
 
-            // Step 2.1: Collect all provided + requested bindings from the contributors
-            val lastBindingIndex = contributedBindings.lastIndex
-            for (bindingAnnotation in bindingAnnotations) {
-                val id = bindingAnnotation.arguments[0].value as Int
-                val type = bindingAnnotation.arguments[1].value as String
-                val qualifier = Qualifier.of(bindingAnnotation.arguments[2].value as String)
-                val scope = Scope.of(bindingAnnotation.arguments[3].value as String)
-                val location = bindingAnnotation.arguments[4].value as String
-                val kind = bindingAnnotation.arguments[5].value as Int
-                val providerPackageName = bindingAnnotation.arguments[6].value as String
-                val providerFunctionName = bindingAnnotation.arguments[7].value as String
-                val providerClassName = bindingAnnotation.arguments[8].value as String
-                val dependsOn = bindingAnnotation.arguments[9].value as List<Int>
-                val binding = BindingDeclaration(type, qualifier, location)
-                contributedBindings.add(binding)
-                contributedDependencies += dependsOn.map {
-                    lastBindingIndex + it // Converts bindingId to contributedBindings's index
-                }
-                if (kind != BindingKind.REQUESTED) {
-                    providedBindings[binding]?.let {
-                        logger.duplicateBindingError(it)
-                        continue
-                    }
-                    val providedBinding = ProvidedBinding(
-                        type = type,
-                        qualifier = qualifier,
-                        scope = scope,
-                        location = location,
-                        kind = kind,
-                        providerPackageName = providerPackageName,
-                        providerFunctionName = providerFunctionName,
-                        providerClassName = providerClassName,
-                    )
-                    providedBindings[binding] = providedBinding
+        // Step 5: Ensure all requested bindings are actually provided
+        for (requested in requestedBindings.values) {
+            for (requestedBinding in requested) {
+                if (requestedBinding !in providedBindings) {
+                    logger.missingBindingError(requestedBinding)
                 }
             }
+        }
+        if (logger.hasError) {
+            return null
+        }
 
-            // Step 2.2: Collect all requested bindings, grouped by requester's FQN
-            for (requesterAnnotation in requesterAnnotations) {
-                val requesterQualifiedName = requesterAnnotation.arguments[0].value as String
-                val fields = requesterAnnotation.arguments[1].value as List<KSAnnotation>
-                val requested = requestedBindings.getOrPut(requesterQualifiedName) {
-                    ArrayList(fields.size)
-                }
-                for (field in fields) {
-                    val bindingId = field.arguments[0].value as Int
-                    val fieldName = field.arguments[1].value as String
-                    val binding = contributedBindings[lastBindingIndex + bindingId]
-                    val requestedBinding = RequestedBinding(
-                        type = binding.type,
-                        qualifier = binding.qualifier,
-                        location = binding.location,
-                        fieldName = fieldName,
-                    )
-                    requested.add(requestedBinding)
-                }
+        // Step 6: Build binding edges
+        for (index in contributedBindings.indices) {
+            val binding = contributedBindings[index]
+            val dependencies = contributedDependencies[index]
+            val providedBinding = providedBindings.getValue(binding)
+            val providedBindingDependencies = providedBinding.dependencies
+                ?: ArrayList<BindingDeclaration>(dependencies.size).also { providedBinding.dependencies = it }
+            for (index in dependencies) {
+                val bindingDependency = contributedBindings[index]
+                providedBindingDependencies.add(bindingDependency)
             }
+        }
 
-            // Step 2.3: Collect all scopes
+        return ContributionScanResult(
+            providedBindings,
+            requestedBindings,
+            customScopeByCanonicalName,
+            scopeDependencies,
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun scanScopeContributions(
+        scopeContributions: List<KSAnnotation>,
+        customScopeByCanonicalName: HashMap<String, Scope.Custom>,
+        scopeDependencies: HashMap<Scope, Scope>,
+        logger: StitchErrorLogger,
+    ) {
+        for (annotation in scopeContributions) {
+            // Step 3.1: Collect all scopes
+            val scopeAnnotations = annotation.arguments[0].value as List<KSAnnotation>
             val localScopes = ArrayList<Scope.Custom>(scopeAnnotations.size)
             val localScopeDependencyIndices = ArrayList<Int>(scopeAnnotations.size)
             for (scopeAnnotation in scopeAnnotations) {
@@ -141,7 +157,7 @@ object ContributionScanner {
                 localScopeDependencyIndices.add(dependsOn - 1) // -1 since ID starts from 1
             }
 
-            // Step 2.4: Collect scope dependencies
+            // Step 3.2: Collect scope dependencies
             for (index in localScopes.indices) {
                 val scope = localScopes[index]
                 val dependencyIndex = localScopeDependencyIndices[index]
@@ -154,41 +170,84 @@ object ContributionScanner {
                 }
             }
         }
-        if (logger.hasError) {
-            return null
-        }
+    }
 
-        // Step 3: Ensure all requested bindings are actually provided
-        for (requested in requestedBindings.values) {
-            for (requestedBinding in requested) {
-                if (requestedBinding !in providedBindings) {
-                    logger.missingBindingError(requestedBinding)
+    @Suppress("UNCHECKED_CAST")
+    private fun scanBindingContributions(
+        bindingContributions: List<KSAnnotation>,
+        providedBindings: HashMap<Binding, ProvidedBinding>,
+        requestedBindings: HashMap<String, ArrayList<RequestedBinding>>,
+        contributedBindings: ArrayList<BindingDeclaration>,
+        contributedDependencies: ArrayList<List<Int>>,
+        customScopeByCanonicalName: Map<String, Scope.Custom>,
+        logger: StitchErrorLogger,
+    ) {
+        for (annotation in bindingContributions) {
+            val bindingAnnotations = annotation.arguments[0].value as List<KSAnnotation>
+            val requesterAnnotations = annotation.arguments[1].value as List<KSAnnotation>
+
+            // Step 4.1: Collect all provided + requested bindings from the contributors
+            val lastBindingIndex = contributedBindings.lastIndex
+            for (bindingAnnotation in bindingAnnotations) {
+                val id = bindingAnnotation.arguments[0].value as Int
+                val type = bindingAnnotation.arguments[1].value as String
+                val qualifier = Qualifier.of(bindingAnnotation.arguments[2].value as String)
+                val scopeCanonicalName = bindingAnnotation.arguments[3].value as String
+                val location = bindingAnnotation.arguments[4].value as String
+                val kind = bindingAnnotation.arguments[5].value as Int
+                val providerPackageName = bindingAnnotation.arguments[6].value as String
+                val providerFunctionName = bindingAnnotation.arguments[7].value as String
+                val providerClassName = bindingAnnotation.arguments[8].value as String
+                val dependsOn = bindingAnnotation.arguments[9].value as List<Int>
+                val binding = BindingDeclaration(type, qualifier, location)
+                contributedBindings.add(binding)
+                contributedDependencies += dependsOn.map {
+                    lastBindingIndex + it // Converts bindingId to contributedBindings's index
+                }
+                if (kind != BindingKind.REQUESTED) {
+                    providedBindings[binding]?.let {
+                        logger.duplicateBindingError(it)
+                        continue
+                    }
+                    val providedBinding = ProvidedBinding(
+                        type = type,
+                        qualifier = qualifier,
+                        scope = when (scopeCanonicalName) {
+                            "singleton" -> Singleton
+                            "" -> null
+                            else -> customScopeByCanonicalName.getValue(scopeCanonicalName)
+                        },
+                        location = location,
+                        kind = kind,
+                        providerPackageName = providerPackageName,
+                        providerFunctionName = providerFunctionName,
+                        providerClassName = providerClassName,
+                    )
+                    providedBindings[binding] = providedBinding
+                }
+            }
+
+            // Step 4.2: Collect all requested bindings, grouped by requester's FQN
+            for (requesterAnnotation in requesterAnnotations) {
+                val requesterQualifiedName = requesterAnnotation.arguments[0].value as String
+                val fields = requesterAnnotation.arguments[1].value as List<KSAnnotation>
+                val requested = requestedBindings.getOrPut(requesterQualifiedName) {
+                    ArrayList(fields.size)
+                }
+                for (field in fields) {
+                    val bindingId = field.arguments[0].value as Int
+                    val fieldName = field.arguments[1].value as String
+                    val binding = contributedBindings[lastBindingIndex + bindingId]
+                    val requestedBinding = RequestedBinding(
+                        type = binding.type,
+                        qualifier = binding.qualifier,
+                        location = binding.location,
+                        fieldName = fieldName,
+                    )
+                    requested.add(requestedBinding)
                 }
             }
         }
-        if (logger.hasError) {
-            return null
-        }
-
-        // Step 4: Build binding edges
-        for (index in contributedBindings.indices) {
-            val binding = contributedBindings[index]
-            val dependencies = contributedDependencies[index]
-            val providedBinding = providedBindings.getValue(binding)
-            val providedBindingDependencies = providedBinding.dependencies
-                ?: ArrayList<BindingDeclaration>(dependencies.size).also { providedBinding.dependencies = it }
-            for (index in dependencies) {
-                val bindingDependency = contributedBindings[index]
-                providedBindingDependencies.add(bindingDependency)
-            }
-        }
-
-        return ContributionScanResult(
-            providedBindings,
-            requestedBindings,
-            customScopeByCanonicalName,
-            scopeDependencies,
-        )
     }
 
     private fun StitchErrorLogger.duplicateBindingError(existing: ProvidedBinding) {

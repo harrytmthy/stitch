@@ -18,10 +18,9 @@ package com.harrytmthy.stitch.annotations
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)
-annotation class Contribute(
+annotation class BindingContributions(
     val bindings: Array<ContributedBinding>,
     val requesters: Array<BindingRequester>,
-    val scopes: Array<RegisteredScope>,
 )
 
 /**
@@ -67,21 +66,3 @@ annotation class ContributedBinding(
 annotation class BindingRequester(val name: String, val fields: Array<RequestedField>)
 
 annotation class RequestedField(val bindingId: Int, val fieldName: String)
-
-/**
- * Represents a custom scope that is registered in a contributor module.
- * Each scope depends on Singleton by default (id = 0).
- *
- * The aggregator will register custom scopes and their dependencies using [canonicalName]
- * as the identifier, while enforcing these rules:
- * - A registered scope with a non-empty [qualifiedName] will be prioritized.
- * - If there are more than one scope with same [canonicalName] but different [qualifiedName],
- *   the aggregator will report them as duplicates + mention each [location] to ease debugging.
- */
-annotation class RegisteredScope(
-    val id: Int,
-    val canonicalName: String,
-    val qualifiedName: String,
-    val location: String,
-    val dependsOn: Int,
-)

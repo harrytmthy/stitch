@@ -70,7 +70,7 @@ class ProvidedBinding(
 /**
  * Represents a requested binding via `@Inject`-annotated field. If there are requested bindings
  * that are never provided, Stitch will apply an action based on the current module type:
- * - Contributor: Put them as params of `@Contribute` which will be collected by the aggregator.
+ * - Contributor: Put them as params of `@BindingContributions` to be collected by the aggregator.
  * - Aggregator: After collecting all contributions, they are considered as missing bindings.
  */
 class RequestedBinding(
