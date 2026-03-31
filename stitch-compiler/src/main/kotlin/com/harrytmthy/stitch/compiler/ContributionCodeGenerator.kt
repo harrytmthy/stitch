@@ -207,6 +207,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 add("%T(\n", registeredScopeClass)
                 indent()
                 add("id = %L,\n", id)
+                add("originalName = %S,\n", scope.originalName)
                 add("canonicalName = %S,\n", scope.canonicalName)
                 add("qualifiedName = %S,\n", scope.qualifiedName)
                 add("location = %S,\n", scope.location)

@@ -32,6 +32,7 @@ annotation class ScopeContributions(val scopes: Array<RegisteredScope>)
  */
 annotation class RegisteredScope(
     val id: Int,
+    val originalName: String,
     val canonicalName: String,
     val qualifiedName: String,
     val location: String,

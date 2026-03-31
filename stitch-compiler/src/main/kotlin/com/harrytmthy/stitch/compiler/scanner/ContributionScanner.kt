@@ -31,7 +31,6 @@ import com.harrytmthy.stitch.compiler.model.ProvidedBinding
 import com.harrytmthy.stitch.compiler.model.Qualifier
 import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
-import com.harrytmthy.stitch.compiler.model.Scope.Singleton
 import com.harrytmthy.stitch.compiler.utils.StitchErrorLogger
 
 object ContributionScanner {
@@ -136,10 +135,11 @@ object ContributionScanner {
             val localScopeDependencyIndices = ArrayList<Int>(scopeAnnotations.size)
             for (scopeAnnotation in scopeAnnotations) {
                 val id = scopeAnnotation.arguments[0].value as Int
-                val canonicalName = scopeAnnotation.arguments[1].value as String
-                val qualifiedName = scopeAnnotation.arguments[2].value as String
-                val location = scopeAnnotation.arguments[3].value as String
-                val dependsOn = scopeAnnotation.arguments[4].value as Int
+                val originalName = scopeAnnotation.arguments[1].value as String
+                val canonicalName = scopeAnnotation.arguments[2].value as String
+                val qualifiedName = scopeAnnotation.arguments[3].value as String
+                val location = scopeAnnotation.arguments[4].value as String
+                val dependsOn = scopeAnnotation.arguments[5].value as Int
                 customScopeByCanonicalName[canonicalName]?.let { scope ->
                     // Existing scope path
                     if (scope.qualifiedName.isNotEmpty() && qualifiedName.isNotEmpty()) {
@@ -151,9 +151,9 @@ object ContributionScanner {
                         continue
                     }
                 }
-                val registeredScope = Scope.Custom(canonicalName, qualifiedName, location)
-                customScopeByCanonicalName[canonicalName] = registeredScope
-                localScopes.add(registeredScope)
+                val customScope = Scope.Custom(originalName, canonicalName, qualifiedName, location)
+                customScopeByCanonicalName[canonicalName] = customScope
+                localScopes.add(customScope)
                 localScopeDependencyIndices.add(dependsOn - 1) // -1 since ID starts from 1
             }
 
@@ -213,7 +213,7 @@ object ContributionScanner {
                         type = type,
                         qualifier = qualifier,
                         scope = when (scopeCanonicalName) {
-                            "singleton" -> Singleton
+                            "singleton" -> Scope.Singleton
                             "" -> null
                             else -> customScopeByCanonicalName.getValue(scopeCanonicalName)
                         },

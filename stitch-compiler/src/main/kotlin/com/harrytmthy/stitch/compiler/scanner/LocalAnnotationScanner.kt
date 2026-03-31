@@ -129,8 +129,8 @@ class LocalAnnotationScanner(
                 is KSClassDeclaration -> {
                     if (symbol.classKind == ClassKind.ANNOTATION_CLASS) {
                         // Case #1 path: Register both FQN + canonical name
-                        val canonicalName = scopeName.ifBlank { symbol.simpleName.asString() }
-                            .lowercase()
+                        val originalName = scopeName.ifBlank { symbol.simpleName.asString() }
+                        val canonicalName = originalName.lowercase()
                         if (canonicalName == "singleton") {
                             fatalError("@Singleton already exists!", symbol)
                         }
@@ -142,7 +142,7 @@ class LocalAnnotationScanner(
                         }
                         val qualifiedName = symbol.qualifiedName(symbol)
                         val location = symbol.filePathAndLineNumber.orEmpty()
-                        val scope = Scope.Custom(canonicalName, qualifiedName, location)
+                        val scope = Scope.Custom(originalName, canonicalName, qualifiedName, location)
                         scanResult.customScopeByCanonicalName[canonicalName] = scope
                         customScopeByQualifiedName[qualifiedName] = scope
                         scopeBySymbol[symbol] = scope
@@ -157,7 +157,7 @@ class LocalAnnotationScanner(
                         scopeBySymbol[symbol] = Scope.Singleton
                         continue
                     }
-                    val scope = Scope.Custom(canonicalName)
+                    val scope = Scope.Custom(originalName = scopeName, canonicalName)
                     if (scope.canonicalName !in scanResult.customScopeByCanonicalName) {
                         scanResult.customScopeByCanonicalName[scope.canonicalName] = scope
                     }
@@ -177,7 +177,7 @@ class LocalAnnotationScanner(
                         scopeBySymbol[symbol] = Scope.Singleton
                         continue
                     }
-                    val scope = Scope.Custom(canonicalName)
+                    val scope = Scope.Custom(originalName = scopeName, canonicalName)
                     if (scope.canonicalName !in scanResult.customScopeByCanonicalName) {
                         scanResult.customScopeByCanonicalName[scope.canonicalName] = scope
                     }
@@ -208,10 +208,10 @@ class LocalAnnotationScanner(
             val scopeAnnotation = dependency.declaration.annotations.find {
                 it.annotationType.resolve().declaration.qualifiedName?.asString() == SCOPE
             } ?: fatalError("Scope '$scope' depends on a type that isn't a scope", symbol)
-            val canonicalName = (scopeAnnotation.arguments[0].value as String)
+            val originalName = (scopeAnnotation.arguments[0].value as String)
                 .ifBlank { dependency.declaration.simpleName.asString() }
-                .lowercase()
-            val scopeDependency = Scope.Custom(canonicalName)
+            val canonicalName = originalName.lowercase()
+            val scopeDependency = Scope.Custom(originalName, canonicalName)
             if (canonicalName !in scanResult.customScopeByCanonicalName) {
                 scanResult.customScopeByCanonicalName[canonicalName] = scopeDependency
             }
@@ -572,10 +572,10 @@ class LocalAnnotationScanner(
             for (metaAnnotation in declaration.annotations) {
                 val fqn = metaAnnotation.annotationType.resolve().declaration.qualifiedName(symbol)
                 if (fqn == SCOPE) {
-                    val canonicalName = (metaAnnotation.arguments[0].value as String)
+                    val originalName = (metaAnnotation.arguments[0].value as String)
                         .ifBlank { annotation.shortName.asString() }
-                        .lowercase()
-                    val scope = Scope.Custom(canonicalName)
+                    val canonicalName = originalName.lowercase()
+                    val scope = Scope.Custom(originalName, canonicalName)
                     if (canonicalName !in scanResult.customScopeByCanonicalName) {
                         scanResult.customScopeByCanonicalName[canonicalName] = scope
                     }
