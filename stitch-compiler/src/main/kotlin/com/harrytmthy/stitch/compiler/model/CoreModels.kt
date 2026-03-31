@@ -124,6 +124,8 @@ sealed class Qualifier {
 
 sealed class Scope {
 
+    abstract val originalName: String
+
     abstract val canonicalName: String
 
     var depth: Int = 0 // Only used by the aggregator
@@ -134,9 +136,11 @@ sealed class Scope {
             depth = 1
         }
 
+        override val originalName: String = "Singleton"
+
         override val canonicalName: String = "singleton"
 
-        override fun toString(): String = "Singleton"
+        override fun toString(): String = originalName
 
         override fun hashCode(): Int = canonicalName.hashCode()
 
@@ -145,26 +149,17 @@ sealed class Scope {
     }
 
     class Custom(
+        override val originalName: String,
         override val canonicalName: String,
         val qualifiedName: String = "",
         val location: String = "",
     ) : Scope() {
 
-        override fun toString(): String = qualifiedName.ifBlank { canonicalName }
+        override fun toString(): String = qualifiedName.ifBlank { originalName }
 
         override fun hashCode(): Int = canonicalName.hashCode()
 
         override fun equals(other: Any?): Boolean =
             other is Custom && other.canonicalName == this.canonicalName
-    }
-
-    companion object {
-
-        fun of(value: String): Scope? =
-            when (value) {
-                "singleton" -> Singleton
-                "" -> null
-                else -> Custom(value)
-            }
     }
 }

@@ -169,7 +169,8 @@ class BindingGraphValidatorTest {
 
     private fun customScope(name: String, depth: Int): Scope.Custom =
         Scope.Custom(
-            canonicalName = name,
+            originalName = name,
+            canonicalName = name.lowercase(),
             qualifiedName = "test.$name",
             location = "$name.kt:1",
         ).also { it.depth = depth }
