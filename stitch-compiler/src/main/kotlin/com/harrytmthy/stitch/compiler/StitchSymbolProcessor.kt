@@ -60,10 +60,10 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
                 val scopeMetadata = ScopeMetadataProvider.get(scanResult)
                 val validationResult = BindingGraphValidator(scanResult, scopeMetadata.ancestors)
                     .validate()
-                val injectorPlan = InjectorPlanProvider.get(
+                val injectorPlans = InjectorPlanProvider.get(
                     validationResult = validationResult,
                     requestedBindings = scanResult.requestedBindings,
-                    scopeDirectChildren = scopeMetadata.directChildren,
+                    scopeMetadata = scopeMetadata,
                 )
             }
             processed = true

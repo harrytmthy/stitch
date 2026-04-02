@@ -16,7 +16,6 @@
 
 package com.harrytmthy.stitch.compiler.model.plan
 
-import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
 import com.harrytmthy.stitch.compiler.model.ValidatedBinding
 
@@ -79,12 +78,12 @@ import com.harrytmthy.stitch.compiler.model.ValidatedBinding
  *
  * For StitchFragmentGraph, accessing StitchSingletonGraph will require `upstream.upstream.xxx()`,
  * where the number of `upstream` chain can be inferred by subtracting `scope.depth` with
- * `dependency.owningScope.depth`.
+ * `dependency.owningScope.depth` or `requestedBinding.owningScope.depth`.
  */
 class InjectorPlan(
     val scope: Scope, // Step 1
     val providerClassNames: Set<String>, // Step 2
     val ownedBindings: List<ValidatedBinding>, // Step 3 and 4
-    val requestedBindings: Map<String, List<RequestedBinding>>, // Step 5
+    val requestedBindings: Map<String, List<ValidatedBinding>>, // Step 5
     val directChildScopes: List<Scope.Custom>, // Step 6
 )
