@@ -21,8 +21,8 @@ import com.harrytmthy.stitch.compiler.model.BindingValidationResult
 import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
 import com.harrytmthy.stitch.compiler.model.ScopeMetadata
-import com.harrytmthy.stitch.compiler.model.ValidatedBinding
 import com.harrytmthy.stitch.compiler.model.plan.InjectorPlan
+import com.harrytmthy.stitch.compiler.model.plan.RequestedFieldPlan
 
 object InjectorPlanProvider {
 
@@ -30,11 +30,12 @@ object InjectorPlanProvider {
         validationResult: BindingValidationResult,
         requestedBindings: Map<String, List<RequestedBinding>>,
         scopeMetadata: ScopeMetadata,
+        scopeDependencies: Map<Scope, Scope>,
     ): List<InjectorPlan> {
         val scopeCount = scopeMetadata.directChildren.keys.size
         val injectorPlans = ArrayList<InjectorPlan>(scopeCount)
         val providerClassNamesByScope = HashMap<Scope, HashSet<String>>(scopeCount, 1f)
-        val requestersByScope = HashMap<Scope, HashMap<String, ArrayList<ValidatedBinding>>>(scopeCount, 1f)
+        val requestedFieldPlans = HashMap<Scope, HashMap<String, ArrayList<RequestedFieldPlan>>>(scopeCount, 1f)
         for (binding in validationResult.bindingPool.values) {
             if (binding.kind == BindingKind.PROVIDED_IN_CLASS) {
                 val providerClassNames = providerClassNamesByScope
@@ -47,19 +48,21 @@ object InjectorPlanProvider {
                 for (requestedBinding in requestedBindings) {
                     val binding = validationResult.bindingPool.getValue(requestedBinding)
                     if (binding.owningScope in scopeAncestors) {
-                        val requesters = requestersByScope.getOrPut(scope, ::HashMap)
+                        val requesters = requestedFieldPlans.getOrPut(scope, ::HashMap)
                         val requests = requesters.getOrPut(requester, ::ArrayList)
-                        requests.add(binding)
+                        val plan = RequestedFieldPlan(requestedBinding.fieldName, binding)
+                        requests.add(plan)
                     }
                 }
             }
         }
-        for (scope in scopeMetadata.directChildren.keys) {
+        for (scope in scopeMetadata.ancestors.keys) {
             val injectorPlan = InjectorPlan(
                 scope = scope,
+                parentScope = scopeDependencies[scope],
                 providerClassNames = providerClassNamesByScope.getOrDefault(scope, emptySet()),
-                ownedBindings = validationResult.bindingsByScope.getValue(scope),
-                requestedBindings = requestersByScope.getOrDefault(scope, emptyMap()),
+                ownedBindings = validationResult.bindingsByScope.getOrDefault(scope, emptyList()),
+                requestedBindings = requestedFieldPlans.getOrDefault(scope, emptyMap()),
                 directChildScopes = scopeMetadata.directChildren.getOrDefault(scope, emptyList()),
             )
             injectorPlans.add(injectorPlan)

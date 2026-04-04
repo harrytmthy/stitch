@@ -86,6 +86,7 @@ class RequestedBinding(
 class ValidatedBinding(
     type: String,
     qualifier: Qualifier?,
+    val declaredScope: Scope?, // null means originally unscoped
     val owningScope: Scope,
     val kind: Int,
     val providerPackageName: String,

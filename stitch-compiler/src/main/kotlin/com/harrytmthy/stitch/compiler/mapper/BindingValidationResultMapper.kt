@@ -40,6 +40,7 @@ object BindingValidationResultMapper {
             val validatedBinding = ValidatedBinding(
                 type = providedBinding.type,
                 qualifier = providedBinding.qualifier,
+                declaredScope = providedBinding.scope,
                 owningScope = bindingResolution.owningScope,
                 kind = providedBinding.kind,
                 providerPackageName = providedBinding.providerPackageName,

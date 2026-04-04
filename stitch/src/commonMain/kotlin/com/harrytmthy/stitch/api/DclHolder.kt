@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Harry Timothy Tumalewa
+ * Copyright 2026 Harry Timothy Tumalewa
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,25 +18,13 @@ package com.harrytmthy.stitch.api
 
 import kotlinx.atomicfu.atomic
 
-interface Injector {
+@Suppress("UNCHECKED_CAST")
+class DclHolder<T> {
 
-    val id: Int
+    private val _reference = atomic<Any?>(Uninitialized)
+    var reference: Any? by _reference
 
-    val currentScope: String
+    val lock = Any()
 
-    val upstream: Injector?
-
-    fun inject(target: Any)
-
-    fun createInjectorForChildScope(scopeName: String): Injector
-
-    companion object {
-
-        private val nextId = atomic(1)
-
-        fun nextId(): Int = nextId.getAndIncrement()
-
-        fun childNotFoundError(currentScope: String, childScope: String): Nothing =
-            error("Scope '$currentScope' requested an injector for scope '$childScope' that isn't its child")
-    }
+    object Uninitialized
 }
