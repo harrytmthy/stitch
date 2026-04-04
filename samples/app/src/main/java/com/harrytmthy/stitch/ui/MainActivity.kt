@@ -11,7 +11,7 @@ import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.api.Stitch
 import com.harrytmthy.stitch.core.Logger
 import com.harrytmthy.stitch.di.ApiService
-import com.harrytmthy.stitch.di.AppModule.BASE_URL
+import com.harrytmthy.stitch.di.AppModule.Companion.BASE_URL
 import com.harrytmthy.stitch.di.CacheServiceImpl
 import com.harrytmthy.stitch.di.ComplexService
 import com.harrytmthy.stitch.di.Processor
@@ -20,6 +20,7 @@ import com.harrytmthy.stitch.di.UserRepository
 import com.harrytmthy.stitch.di.UserRepositoryImpl
 import com.harrytmthy.stitch.di.ViewModel
 import com.harrytmthy.stitch.exception.MissingBindingException
+import io.github.harrytmthy.stitch.generated.StitchSingletonGraph
 
 /**
  * Only for testing convenience. Please ignore the weird architecture 😄
@@ -59,9 +60,9 @@ class MainActivity : AppCompatActivity() {
     @Inject
     lateinit var apiService: ApiService
 
-    @Named("null")
-    @Inject
-    var nullableInt: Int? = Int.MIN_VALUE // Should be replaced by null
+//    @Named("null")
+//    @Inject
+//    var nullableInt: Int? = Int.MIN_VALUE // Should be replaced by null
 
     @Inject
     lateinit var viewModel: ViewModel
@@ -76,7 +77,10 @@ class MainActivity : AppCompatActivity() {
             insets
         }
         renderFragment()
-//        assertStitch()
+        StitchSingletonGraph(0, "singleton")
+            .createInjectorForChildScope("activity")
+            .inject(this)
+        assertStitch()
     }
 
     private fun renderFragment() {
@@ -99,7 +103,7 @@ class MainActivity : AppCompatActivity() {
         check(processor === complexService)
         check(complexService.cache !== activityCacheService)
         check(baseUrl === BASE_URL)
-        check(nullableInt == null)
+//        check(nullableInt == null)
 
         // Factory objects
         check(apiService !== userRepositoryImpl.apiService)

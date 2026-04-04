@@ -27,35 +27,39 @@ import com.harrytmthy.stitch.compiler.model.ValidatedBinding
  * ```
  * package io.github.harrytmthy.stitch.generated
  *
+ * import com.harrytmthy.stitch.api.DclHolder
  * import com.harrytmthy.stitch.api.Injector
  * import com.harrytmthy.stitch.api.Injector.Companion
+ * // ... (other imports)
  *
  * // Step 1: Transform each registered scope into `Stitch<ScopeName>Graph(...) : Injector`
+ * @Suppress("UNCHECKED_CAST")
  * class StitchActivityGraph(
  *   override val id: Int,
  *   override val currentScope: String,
  *   override val upstream: StitchSingletonGraph, // Use direct type instead of Injector
  * ) : Injector {
  *
- *   // Step 2: Transform `providerClassNames` into `providerClassName: ProviderClassName? = null`
- *   private var homeModule: HomeModule? = null
+ *   // Step 2: Transform `providerClassNames` into `val providerClassName = ProviderClassName()`
+ *   private val homeModule = HomeModule()
  *
- *   // Step 3: Transform `ownedBindings` into `type_qualifier: DclHolder<Type>? = null`
- *   private var homeViewModel: DclHolder<HomeViewModel>? = null
+ *   // Step 3: Transform `ownedBindings` into `val type_qualifier = DclHolder<Type>()`
+ *   private val homeViewModel = DclHolder<HomeViewModel>()
  *
  *   // Step 4: Traverse `ownedBindings` again to render each public getter
  *   fun homeViewModel(): HomeViewModel {
- *     val instance = homeViewModel ?: run {
- *       DclWrapper<HomeViewModel>().also { homeViewModel = it }
+ *     val cached = homeViewModel.reference
+ *     if (cached !== UNINITIALIZED) {
+ *       return cached as HomeViewModel
  *     }
- *     if (instance.initialized.value) instance.reference.value!!
- *     synchronized(instance.lock) {
- *       if (instance.initialized.value) return instance.reference.value!!
- *       val container = homeModule ?: HomeModule().also { homeModule = it }
- *       val v = container.provideHomeViewModel(upstream.logger())
- *       instance.reference.value = v
- *       instance.initialized.value = true
- *       return v
+ *     synchronized(homeViewModel.lock) {
+ *       val locked = homeViewModel.reference
+ *       if (locked !== UNINITIALIZED) {
+ *         return locked as HomeViewModel
+ *       }
+ *       val created = homeModule.provideHomeViewModel(upstream.logger)
+ *       homeViewModel.reference = created
+ *       return created
  *     }
  *   }
  *
@@ -82,8 +86,9 @@ import com.harrytmthy.stitch.compiler.model.ValidatedBinding
  */
 class InjectorPlan(
     val scope: Scope, // Step 1
+    val parentScope: Scope?, // Also Step 1
     val providerClassNames: Set<String>, // Step 2
     val ownedBindings: List<ValidatedBinding>, // Step 3 and 4
-    val requestedBindings: Map<String, List<ValidatedBinding>>, // Step 5
+    val requestedBindings: Map<String, List<RequestedFieldPlan>>, // Step 5
     val directChildScopes: List<Scope.Custom>, // Step 6
 )

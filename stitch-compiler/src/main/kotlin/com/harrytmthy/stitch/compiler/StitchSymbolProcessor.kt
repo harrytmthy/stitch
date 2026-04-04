@@ -64,7 +64,9 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
                     validationResult = validationResult,
                     requestedBindings = scanResult.requestedBindings,
                     scopeMetadata = scopeMetadata,
+                    scopeDependencies = scanResult.scopeDependencies,
                 )
+                ScopedGraphGenerator.generate(environment.codeGenerator, injectorPlans)
             }
             processed = true
         } catch (e: StitchProcessingException) {

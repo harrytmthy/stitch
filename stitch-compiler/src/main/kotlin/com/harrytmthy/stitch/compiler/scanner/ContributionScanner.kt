@@ -72,7 +72,25 @@ object ContributionScanner {
             return null
         }
 
-        // Step 4: Scan binding contributions
+        // Step 4: Canonicalize aggregator module's provided binding scopes
+        for (binding in providedBindings.values) {
+            providedBindings[binding] = ProvidedBinding(
+                type = binding.type,
+                qualifier = binding.qualifier,
+                scope = when (binding.scope) {
+                    is Scope.Singleton -> Scope.Singleton
+                    is Scope.Custom -> customScopeByCanonicalName[binding.scope.canonicalName]
+                    else -> null
+                },
+                location = binding.location,
+                kind = binding.kind,
+                providerPackageName = binding.providerPackageName,
+                providerFunctionName = binding.providerFunctionName,
+                providerClassName = binding.providerClassName,
+            ).apply { dependencies = binding.dependencies }
+        }
+
+        // Step 5: Scan binding contributions
         val contributedBindings = ArrayList<BindingDeclaration>()
         val contributedDependencies = ArrayList<List<Int>>() // Flattened indices, NOT bindingId
         scanBindingContributions(
@@ -88,7 +106,7 @@ object ContributionScanner {
             return null
         }
 
-        // Step 5: Ensure all requested bindings are actually provided
+        // Step 6: Ensure all requested bindings are actually provided
         for (requested in requestedBindings.values) {
             for (requestedBinding in requested) {
                 if (requestedBinding !in providedBindings) {
@@ -100,7 +118,7 @@ object ContributionScanner {
             return null
         }
 
-        // Step 6: Build binding edges
+        // Step 7: Build binding edges
         for (index in contributedBindings.indices) {
             val binding = contributedBindings[index]
             val dependencies = contributedDependencies[index]

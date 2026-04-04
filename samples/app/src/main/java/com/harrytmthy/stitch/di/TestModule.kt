@@ -85,35 +85,33 @@ interface Processor {
 // Mixed: Constructor + Field injection
 @Singleton
 class ComplexService @Inject constructor(
-    private val logger: Logger
+    private val logger: Logger,
+    internal val cache: CacheServiceImpl,
+    @Named("baseUrl") private val baseUrl: String,
 ) : Processor {
-    @Inject
-    lateinit var cache: CacheServiceImpl
-
-    @Inject
-    @Named("baseUrl")
-    var baseUrl: String = ""
 
     override fun process(): String {
         logger.log("Processing with cache and baseUrl: $baseUrl")
-        return cache.get("key") ?: "default"
+        return cache.get("key")
     }
 }
 
 @Module
-object AppModule {
+class AppModule {
 
-    internal const val BASE_URL = "https://api.example.com/"
+    companion object {
+        internal const val BASE_URL = "https://api.example.com/"
+    }
 
     @Named("baseUrl")
     @Singleton
     @Provides
     fun provideBaseUrl(): String = BASE_URL
 
-    @Named("null")
-    @Singleton
-    @Provides
-    fun provideNullInt(): Int? = null
+//    @Named("null")
+//    @Singleton
+//    @Provides
+//    fun provideNullInt(): Int? = null
 
     @Singleton
     @Binds(aliases = [CacheService::class])
