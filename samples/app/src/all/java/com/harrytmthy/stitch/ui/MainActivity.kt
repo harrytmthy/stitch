@@ -11,7 +11,7 @@ import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.api.Stitch
 import com.harrytmthy.stitch.core.Logger
 import com.harrytmthy.stitch.di.ApiService
-import com.harrytmthy.stitch.di.AppModule.Companion.BASE_URL
+import com.harrytmthy.stitch.di.BASE_URL
 import com.harrytmthy.stitch.di.CacheServiceImpl
 import com.harrytmthy.stitch.di.ComplexService
 import com.harrytmthy.stitch.di.Processor

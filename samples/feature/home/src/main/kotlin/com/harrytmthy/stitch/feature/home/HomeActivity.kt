@@ -17,8 +17,8 @@
 package com.harrytmthy.stitch.feature.home
 
 import androidx.appcompat.app.AppCompatActivity
-import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.core.Logger
+import javax.inject.Inject
 
 class HomeActivity : AppCompatActivity() {
 

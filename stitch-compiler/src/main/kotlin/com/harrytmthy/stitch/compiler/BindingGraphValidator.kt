@@ -171,7 +171,14 @@ class BindingGraphValidator(
         )
 
     private fun missingBindingError(binding: BindingDeclaration): Nothing =
-        fatalError("Binding $binding is requested but never provided", symbol = null)
+        fatalError(
+            message = buildString {
+                append("Binding with type '${binding.type}'")
+                binding.qualifier?.let { append(" (qualifier: $it)") }
+                append(" is never provided, but requested in ${binding.location}")
+            },
+            symbol = null,
+        )
 
     private fun incompatibleUnscopedClosureError(
         binding: ProvidedBinding,

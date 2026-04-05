@@ -1,38 +1,17 @@
-/*
- * Copyright 2025 Harry Timothy Tumalewa
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.harrytmthy.stitch.di
 
 import com.harrytmthy.stitch.annotations.Binds
-import com.harrytmthy.stitch.annotations.Inject
-import com.harrytmthy.stitch.annotations.Module
-import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.annotations.Provides
-import com.harrytmthy.stitch.annotations.Singleton
 import com.harrytmthy.stitch.core.Activity
 import com.harrytmthy.stitch.core.Fragment
 import com.harrytmthy.stitch.core.Logger
-
-interface UserRepository {
-    fun getUser(id: Int): String
-}
-
-interface UserReader {
-    fun readUser(id: Int): String
-}
+import com.harrytmthy.stitch.core.LoggerImpl
+import com.harrytmthy.stitch.feature.home.HomeService
+import com.harrytmthy.stitch.feature.home.HomeServiceImpl
+import dagger.Module
+import javax.inject.Inject
+import javax.inject.Named
+import javax.inject.Singleton
 
 @Binds(aliases = [UserRepository::class, UserReader::class])
 @Singleton
@@ -60,14 +39,6 @@ class ApiService @Inject constructor(
     }
 }
 
-interface CacheService
-
-class CacheServiceImpl : CacheService {
-    fun get(key: String): String {
-        return "cached_$key"
-    }
-}
-
 @Activity
 class ViewModel @Inject constructor(
     internal val repository: UserRepository,
@@ -78,16 +49,12 @@ class ViewModel @Inject constructor(
     lateinit var logger: Logger
 }
 
-interface Processor {
-    fun process(): String
-}
-
 // Mixed: Constructor + Field injection
 @Singleton
 class ComplexService @Inject constructor(
     private val logger: Logger,
     internal val cache: CacheServiceImpl,
-    @Named("baseUrl") private val baseUrl: String,
+    @param:Named("baseUrl") private val baseUrl: String,
 ) : Processor {
 
     override fun process(): String {
@@ -96,42 +63,48 @@ class ComplexService @Inject constructor(
     }
 }
 
-@Module
+@Module(includes = [AppModule.Inner::class])
 class AppModule {
-
-    companion object {
-        internal const val BASE_URL = "https://api.example.com/"
-    }
 
     @Named("baseUrl")
     @Singleton
     @Provides
+    @dagger.Provides
     fun provideBaseUrl(): String = BASE_URL
-
-//    @Named("null")
-//    @Singleton
-//    @Provides
-//    fun provideNullInt(): Int? = null
 
     @Singleton
     @Binds(aliases = [CacheService::class])
     @Provides
+    @dagger.Provides
     fun provideSingletonCacheService(): CacheServiceImpl = CacheServiceImpl()
 
     @Activity
     @Named("activity")
     @Provides
+    @dagger.Provides
     fun provideActivityScopedCacheService(): CacheServiceImpl = CacheServiceImpl()
 
     @Fragment
     @Named("fragment")
     @Provides
+    @dagger.Provides
     fun provideFragmentScopedCacheService(): CacheServiceImpl = CacheServiceImpl()
 
     @Module
     interface Inner {
 
         @Binds
+        @dagger.Binds
         fun bindProcessor(service: ComplexService): Processor
+
+        @Binds
+        @dagger.Binds
+        fun bindLogger(logger: LoggerImpl): Logger
+        @Binds
+        @dagger.Binds
+        fun bindsHomeService(service: HomeServiceImpl): HomeService
+
+        @dagger.Binds
+        fun bindSingletonCacheService(service: CacheServiceImpl): CacheService
     }
 }

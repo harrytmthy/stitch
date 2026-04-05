@@ -5,8 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.View
-import com.harrytmthy.stitch.annotations.Inject
-import com.harrytmthy.stitch.core.Logger
 
 class CircleView @JvmOverloads constructor(
     context: Context,
@@ -15,13 +13,6 @@ class CircleView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-
-    @Inject
-    lateinit var logger: Logger
-
-    fun inject() {
-        // TODO: Re-add this
-    }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)

@@ -16,10 +16,9 @@
 
 package com.harrytmthy.stitch.feature.home
 
-import com.harrytmthy.stitch.annotations.Binds
-import com.harrytmthy.stitch.annotations.Inject
-import com.harrytmthy.stitch.annotations.Singleton
 import com.harrytmthy.stitch.core.Logger
+import javax.inject.Inject
+import javax.inject.Singleton
 
 interface HomeService {
     fun fetch(): Result<Unit>
@@ -32,11 +31,4 @@ class HomeServiceImpl @Inject constructor(private val logger: Logger) : HomeServ
         logger.log("Fetch success!")
         return Result.success(Unit)
     }
-}
-
-// Another acceptable representation of @Binds usage
-interface Binder {
-
-    @Binds
-    fun bindsHomeService(service: HomeServiceImpl): HomeService
 }

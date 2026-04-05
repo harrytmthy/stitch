@@ -16,8 +16,8 @@
 
 package com.harrytmthy.stitch.core
 
-import com.harrytmthy.stitch.annotations.Inject
-import com.harrytmthy.stitch.annotations.Singleton
+import javax.inject.Inject
+import javax.inject.Singleton
 
 interface Logger {
     fun log(message: String)
