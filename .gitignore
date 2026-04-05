@@ -13,6 +13,10 @@ captures/
 *.apk
 *.ap_
 
+# Gradle profiler
+gradle-*/
+profile-*/
+
 # Local configs
 local.properties
 

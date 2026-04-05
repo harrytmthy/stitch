@@ -36,6 +36,29 @@ android {
         testInstrumentationRunnerArguments["additionalTestOutputDir"] = "/sdcard/Download/benchmark"
     }
 
+    flavorDimensions += "di"
+    productFlavors {
+        create("none") {
+            dimension = "di"
+            matchingFallbacks += "withNone"
+        }
+        create("stitch") {
+            dimension = "di"
+            matchingFallbacks += "withStitch"
+        }
+        create("koin") {
+            dimension = "di"
+            matchingFallbacks += "withNone"
+        }
+        create("dagger") {
+            dimension = "di"
+            matchingFallbacks += "withDagger"
+        }
+        create("all") {
+            dimension = "di"
+            matchingFallbacks += "withStitchAndDagger"
+        }
+    }
     buildTypes {
         debug {
             isDebuggable = false
@@ -63,22 +86,39 @@ android {
 }
 
 dependencies {
+    // Shared across all flavors
     implementation(project(":core"))
     implementation(project(":feature:home"))
-    implementation(project(":stitch"))
-    implementation(project(":stitch-annotations"))
-    ksp(project(":stitch-compiler"))
-
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
-    debugImplementation(libs.androidx.benchmark.common)
-    androidTestImplementation(libs.androidx.benchmark.junit4)
-    androidTestImplementation(libs.androidx.test.ext)
-    androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.androidx.test.rules)
-    androidTestImplementation(libs.koin.android)
+    compileOnly(libs.javax.inject)
 
-    // Dagger for benchmarking (KSP code generation + runtime)
-    implementation(libs.dagger)
-    ksp(libs.dagger.compiler)
+    // Stitch flavor only
+    "stitchImplementation"(project(":stitch"))
+    "stitchImplementation"(project(":stitch-annotations"))
+    "kspStitch"(project(":stitch-compiler"))
+
+    // Dagger flavor only
+    "daggerImplementation"(libs.dagger)
+    "kspDagger"(libs.dagger.compiler)
+
+    // Koin flavor only
+    "koinImplementation"(libs.koin.android)
+
+    // All flavor (Stitch + Dagger + Koin)
+    "allImplementation"(project(":stitch"))
+    "allImplementation"(project(":stitch-annotations"))
+    "allImplementation"(libs.dagger)
+    "allImplementation"(libs.koin.android)
+    "kspAll"(project(":stitch-compiler"))
+    "kspAll"(libs.dagger.compiler)
+
+    // Benchmark tests (all variant, since tests reference all 3 frameworks)
+    debugImplementation(libs.androidx.benchmark.common)
+    "androidTestAllImplementation"(libs.androidx.benchmark.junit4)
+    "androidTestAllImplementation"(libs.androidx.test.ext)
+    "androidTestAllImplementation"(libs.androidx.test.runner)
+    "androidTestAllImplementation"(libs.androidx.test.rules)
+    "androidTestAllImplementation"(libs.koin.android)
+    "androidTestAllImplementation"(libs.dagger)
 }

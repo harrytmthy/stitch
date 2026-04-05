@@ -1,0 +1,57 @@
+# Build Time Benchmark: Per-flavor clean builds
+#
+# Usage (run from project root with ANDROID_HOME set):
+#   export ANDROID_HOME=/Users/harry.tumalewa/Library/Android/sdk
+#
+#   # Run all scenarios:
+#   /opt/homebrew/bin/gradle-profiler --benchmark --scenario-file build-time-benchmark.scenarios
+
+clean_build_none {
+    title = "Clean Build (none)"
+    tasks = [":app:assembleNoneRelease"]
+    cleanup-tasks = ["clean"]
+    gradle-args = ["--no-build-cache"]
+    warm-ups = 3
+    iterations = 5
+    daemon = cold
+}
+
+clean_build_koin {
+    title = "Clean Build (koin)"
+    tasks = [":app:assembleKoinRelease"]
+    cleanup-tasks = ["clean"]
+    gradle-args = ["--no-build-cache"]
+    warm-ups = 3
+    iterations = 5
+    daemon = cold
+}
+
+clean_build_dagger {
+    title = "Clean Build (dagger)"
+    tasks = [":app:assembleDaggerRelease"]
+    cleanup-tasks = ["clean"]
+    gradle-args = ["--no-build-cache"]
+    warm-ups = 3
+    iterations = 5
+    daemon = cold
+}
+
+clean_build_stitch {
+    title = "Clean Build (stitch)"
+    tasks = [":app:assembleStitchRelease"]
+    cleanup-tasks = ["clean"]
+    gradle-args = ["--no-build-cache"]
+    warm-ups = 3
+    iterations = 5
+    daemon = cold
+}
+
+clean_build_all {
+    title = "Clean Build (all)"
+    tasks = [":app:assembleAllRelease"]
+    cleanup-tasks = ["clean"]
+    gradle-args = ["--no-build-cache"]
+    warm-ups = 3
+    iterations = 5
+    daemon = cold
+}

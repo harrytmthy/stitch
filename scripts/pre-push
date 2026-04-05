@@ -37,7 +37,7 @@ fi
 
 # Run unit tests
 echo "Running unit tests..."
-if ! ./gradlew testDebugUnitTest --quiet; then
+if ! ./gradlew test --quiet; then
   echo "Unit tests failed. Fix them before pushing."
   exit 1
 fi

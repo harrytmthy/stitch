@@ -22,13 +22,29 @@ plugins {
 android {
     namespace = "com.harrytmthy.stitch.core"
 
+    flavorDimensions += "di"
+    productFlavors {
+        create("withStitch") { dimension = "di" }
+        create("withDagger") { dimension = "di" }
+        create("withStitchAndDagger") { dimension = "di" }
+        create("withNone") { dimension = "di" }
+    }
+
     ksp {
         arg("stitch.moduleName", "Core")
     }
 }
 
 dependencies {
-    implementation(project(":stitch"))
-    implementation(project(":stitch-annotations"))
-    ksp(project(":stitch-compiler"))
+    compileOnly(libs.javax.inject)
+    "withStitchImplementation"(project(":stitch"))
+    "withStitchImplementation"(project(":stitch-annotations"))
+    "withDaggerImplementation"(libs.dagger)
+    "withStitchAndDaggerImplementation"(project(":stitch"))
+    "withStitchAndDaggerImplementation"(project(":stitch-annotations"))
+    "withStitchAndDaggerImplementation"(libs.dagger)
+    "kspWithStitch"(project(":stitch-compiler"))
+    "kspWithDagger"(libs.dagger.compiler)
+    "kspWithStitchAndDagger"(project(":stitch-compiler"))
+    "kspWithStitchAndDagger"(libs.dagger.compiler)
 }

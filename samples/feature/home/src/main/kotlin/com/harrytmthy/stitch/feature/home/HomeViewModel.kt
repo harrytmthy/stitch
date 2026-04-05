@@ -16,9 +16,9 @@
 
 package com.harrytmthy.stitch.feature.home
 
-import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.core.Activity
 import com.harrytmthy.stitch.core.Logger
+import javax.inject.Inject
 
 @Activity
 class HomeViewModel @Inject constructor(

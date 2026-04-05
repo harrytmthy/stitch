@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.benchmark
+package com.harrytmthy.stitch.core
 
-/**
- * Dual-annotated module for both Dagger and Stitch.
- *
- * This module is processed by both:
- * - Dagger KSP compiler (generates DaggerBenchmarkComponent)
- * - Stitch KSP compiler (generates DI table for benchmark classes)
- *
- * No @Provides methods needed - all classes use @Inject constructors.
- */
-@dagger.Module
-@com.harrytmthy.stitch.annotations.Module
-object BenchmarkModule
+import com.harrytmthy.stitch.annotations.Scope
+
+@Scope
+@javax.inject.Scope
+@Retention(AnnotationRetention.RUNTIME)
+annotation class Activity
+
+@Scope
+@javax.inject.Scope
+@Retention(AnnotationRetention.RUNTIME)
+annotation class Fragment
+
+@Scope
+@javax.inject.Scope
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ViewWithFragment
