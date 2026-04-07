@@ -1,7 +1,6 @@
 package com.harrytmthy.stitch.di
 
 import com.harrytmthy.stitch.annotations.Binds
-import com.harrytmthy.stitch.annotations.Module
 import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.annotations.Provides
 import com.harrytmthy.stitch.annotations.Singleton
@@ -61,7 +60,6 @@ class ComplexService @Inject constructor(
     }
 }
 
-@Module
 class AppModule {
 
     @Named("baseUrl")
@@ -84,7 +82,6 @@ class AppModule {
     @Provides
     fun provideFragmentScopedCacheService(): CacheServiceImpl = CacheServiceImpl()
 
-    @Module
     interface Inner {
 
         @Binds

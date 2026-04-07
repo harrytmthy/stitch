@@ -1,14 +1,10 @@
 package com.harrytmthy.stitch.benchmark
 
+import dagger.Module
+
 /**
- * Dual-annotated module for both Dagger and Stitch.
- *
- * This module is processed by both:
- * - Dagger KSP compiler (generates DaggerBenchmarkComponent)
- * - Stitch KSP compiler (generates DI table for benchmark classes)
- *
- * No @Provides methods needed - all classes use @Inject constructors.
+ * A module that will be processed by Dagger KSP compiler (generates DaggerBenchmarkComponent)
+ * No @Provides methods needed, since all classes use @Inject constructors.
  */
-@dagger.Module
-@com.harrytmthy.stitch.annotations.Module
+@Module
 object BenchmarkModule
