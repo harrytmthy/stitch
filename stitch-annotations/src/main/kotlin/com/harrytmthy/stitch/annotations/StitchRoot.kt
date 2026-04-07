@@ -17,5 +17,5 @@
 package com.harrytmthy.stitch.annotations
 
 @Target(AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.RUNTIME)
+@Retention(AnnotationRetention.BINARY)
 annotation class StitchRoot

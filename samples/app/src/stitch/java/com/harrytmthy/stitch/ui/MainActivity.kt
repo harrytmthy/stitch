@@ -77,8 +77,7 @@ class MainActivity : AppCompatActivity() {
             insets
         }
         renderFragment()
-        StitchSingletonGraph(0, "singleton")
-            .createInjectorForChildScope("activity")
+        StitchSingletonGraph.createInjectorForChildScope("activity")
             .inject(this)
         assertStitch()
     }

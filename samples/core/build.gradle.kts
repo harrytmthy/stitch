@@ -38,10 +38,10 @@ android {
 dependencies {
     compileOnly(libs.javax.inject)
     "withStitchImplementation"(project(":stitch"))
-    "withStitchImplementation"(project(":stitch-annotations"))
+    "withStitchCompileOnly"(project(":stitch-annotations"))
     "withDaggerImplementation"(libs.dagger)
     "withStitchAndDaggerImplementation"(project(":stitch"))
-    "withStitchAndDaggerImplementation"(project(":stitch-annotations"))
+    "withStitchAndDaggerCompileOnly"(project(":stitch-annotations"))
     "withStitchAndDaggerImplementation"(libs.dagger)
     "kspWithStitch"(project(":stitch-compiler"))
     "kspWithDagger"(libs.dagger.compiler)

@@ -95,7 +95,7 @@ dependencies {
 
     // Stitch flavor only
     "stitchImplementation"(project(":stitch"))
-    "stitchImplementation"(project(":stitch-annotations"))
+    "stitchCompileOnly"(project(":stitch-annotations"))
     "kspStitch"(project(":stitch-compiler"))
 
     // Dagger flavor only
@@ -107,7 +107,7 @@ dependencies {
 
     // All flavor (Stitch + Dagger + Koin)
     "allImplementation"(project(":stitch"))
-    "allImplementation"(project(":stitch-annotations"))
+    "allCompileOnly"(project(":stitch-annotations"))
     "allImplementation"(libs.dagger)
     "allImplementation"(libs.koin.android)
     "kspAll"(project(":stitch-compiler"))

@@ -57,7 +57,7 @@ class StitchVsDaggerBenchmark {
 
         // Stitch DI component + injectors are lazily initialized (on 1st access).
         // Thus, this touch is needed for fairness.
-        stitchSingletonGraph = StitchSingletonGraph(0, "singleton")
+        stitchSingletonGraph = StitchSingletonGraph
     }
 
     @Test
