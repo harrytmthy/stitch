@@ -21,6 +21,7 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":stitch"))
     implementation(project(":stitch-annotations"))
     implementation(libs.kotlin.stdlib)
     implementation(libs.kotlinpoet)

@@ -18,17 +18,16 @@ public final class com/harrytmthy/stitch/api/DclHolder$Uninitialized {
 }
 
 public abstract interface class com/harrytmthy/stitch/api/Injector {
-	public static final field Companion Lcom/harrytmthy/stitch/api/Injector$Companion;
-	public abstract fun createInjectorForChildScope (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/Injector;
+	public abstract fun createInjectorForChildScope (Ljava/lang/String;Z)Lcom/harrytmthy/stitch/api/Injector;
+	public static synthetic fun createInjectorForChildScope$default (Lcom/harrytmthy/stitch/api/Injector;Ljava/lang/String;ZILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Injector;
 	public abstract fun getCurrentScope ()Ljava/lang/String;
 	public abstract fun getId ()I
 	public abstract fun getUpstream ()Lcom/harrytmthy/stitch/api/Injector;
 	public abstract fun inject (Ljava/lang/Object;)V
 }
 
-public final class com/harrytmthy/stitch/api/Injector$Companion {
-	public final fun childNotFoundError (Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Void;
-	public final fun nextId ()I
+public final class com/harrytmthy/stitch/api/Injector$DefaultImpls {
+	public static synthetic fun createInjectorForChildScope$default (Lcom/harrytmthy/stitch/api/Injector;Ljava/lang/String;ZILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Injector;
 }
 
 public final class com/harrytmthy/stitch/api/Module {
@@ -94,6 +93,21 @@ public final class com/harrytmthy/stitch/api/Stitch {
 	public final fun reset ()V
 	public final fun unregister ([Lcom/harrytmthy/stitch/api/Module;)V
 	public final fun unregisterAll ()V
+}
+
+public final class com/harrytmthy/stitch/api/StitchInjector {
+	public static final field INSTANCE Lcom/harrytmthy/stitch/api/StitchInjector;
+	public final fun addToCache (Lcom/harrytmthy/stitch/api/Injector;)V
+	public final fun getInjectorById (I)Lcom/harrytmthy/stitch/api/Injector;
+	public final fun getSingleton ()Lcom/harrytmthy/stitch/api/Injector;
+	public final fun init (Lcom/harrytmthy/stitch/api/Injector;)V
+	public final fun nextId ()I
+	public final fun removeFromCache (Lcom/harrytmthy/stitch/api/Injector;)V
+	public final fun requireInjectorById (I)Lcom/harrytmthy/stitch/api/Injector;
+}
+
+public final class com/harrytmthy/stitch/api/StitchInjectorKt {
+	public static final fun close (Lcom/harrytmthy/stitch/api/Injector;)V
 }
 
 public final class com/harrytmthy/stitch/exception/CycleException : com/harrytmthy/stitch/exception/GetFailedException {
