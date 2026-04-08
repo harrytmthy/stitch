@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Harry Timothy Tumalewa
+ * Copyright 2026 Harry Timothy Tumalewa
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,8 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.api
+package com.harrytmthy.stitch.feature.home
 
-interface Injector {
+import androidx.appcompat.app.AppCompatActivity
 
-    val id: Int
-
-    val currentScope: String
-
-    val upstream: Injector?
-
-    fun inject(target: Any)
-
-    fun createInjectorForChildScope(scopeName: String, cached: Boolean = false): Injector
-}
+class HomeActivity : AppCompatActivity()

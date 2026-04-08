@@ -18,6 +18,9 @@ package com.harrytmthy.stitch.compiler
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
+import com.harrytmthy.stitch.api.DclHolder
+import com.harrytmthy.stitch.api.Injector
+import com.harrytmthy.stitch.api.StitchInjector
 import com.harrytmthy.stitch.compiler.StitchSymbolProcessor.Companion.GENERATED_PACKAGE_NAME
 import com.harrytmthy.stitch.compiler.consts.BindingKind
 import com.harrytmthy.stitch.compiler.model.Qualifier
@@ -35,6 +38,7 @@ import com.squareup.kotlinpoet.MemberName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.asClassName
 import java.io.OutputStreamWriter
 
 object ScopedGraphGenerator {
@@ -61,7 +65,7 @@ object ScopedGraphGenerator {
     }
 
     private fun buildSingletonGraphType(plan: InjectorPlan): TypeSpec {
-        val injectorClass = ClassName("com.harrytmthy.stitch.api", "Injector")
+        val injectorClass = Injector::class.asClassName()
         return TypeSpec.objectBuilder(graphClassName(plan.scope))
             .addAnnotation(
                 AnnotationSpec.builder(Suppress::class)
@@ -98,7 +102,7 @@ object ScopedGraphGenerator {
     }
 
     private fun buildGraphType(plan: InjectorPlan): TypeSpec {
-        val injectorClass = ClassName("com.harrytmthy.stitch.api", "Injector")
+        val injectorClass = Injector::class.asClassName()
         val parentGraphClass = plan.parentScope?.let { ClassName(GENERATED_PACKAGE_NAME, graphClassName(it)) }
 
         val constructor = FunSpec.constructorBuilder()
@@ -169,7 +173,7 @@ object ScopedGraphGenerator {
     }
 
     private fun TypeSpec.Builder.addDclHolderFields(plan: InjectorPlan) {
-        val dclHolderClass = ClassName("com.harrytmthy.stitch.api", "DclHolder")
+        val dclHolderClass = DclHolder::class.asClassName()
         for (binding in plan.ownedBindings) {
             if (!binding.requiresDclHolder()) {
                 continue
@@ -217,7 +221,7 @@ object ScopedGraphGenerator {
         }
 
         val holderName = accessorName(binding)
-        val dclHolderClass = ClassName("com.harrytmthy.stitch.api", "DclHolder")
+        val dclHolderClass = DclHolder::class.asClassName()
 
         return CodeBlock.builder().apply {
             addStatement("val cached = %N.reference", holderName)
@@ -365,12 +369,13 @@ object ScopedGraphGenerator {
     }
 
     private fun TypeSpec.Builder.addCreateChildFunction(plan: InjectorPlan) {
-        val injectorClass = ClassName("com.harrytmthy.stitch.api", "Injector")
+        val injectorClass = Injector::class.asClassName()
 
         addFunction(
             FunSpec.builder("createInjectorForChildScope")
                 .addModifiers(KModifier.OVERRIDE)
                 .addParameter("scopeName", String::class)
+                .addParameter("cached", Boolean::class)
                 .returns(injectorClass)
                 .addCode(
                     CodeBlock.builder().apply {
@@ -380,14 +385,19 @@ object ScopedGraphGenerator {
                                 "%S -> %T(%T.nextId(), scopeName, this)",
                                 childScope.canonicalName,
                                 ClassName(GENERATED_PACKAGE_NAME, graphClassName(childScope)),
-                                injectorClass,
+                                StitchInjector::class.asClassName(),
                             )
                         }
-                        addStatement(
-                            "else -> %T.childNotFoundError(currentScope, scopeName)",
-                            injectorClass,
-                        )
+                        addStatement($$"else -> error(\"Scope '$currentScope' doesn't have a child with name '$scopeName'\")")
+                        unindent()
+                        add("}.also {\n")
+                        indent()
+                        beginControlFlow("if (cached)")
+                        addStatement("%T.addToCache(it)", StitchInjector::class.asClassName())
                         endControlFlow()
+                        unindent()
+                        add("}\n")
+                        unindent()
                     }.build(),
                 )
                 .build(),

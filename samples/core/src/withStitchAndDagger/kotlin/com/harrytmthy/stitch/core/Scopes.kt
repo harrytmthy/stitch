@@ -16,6 +16,7 @@
 
 package com.harrytmthy.stitch.core
 
+import com.harrytmthy.stitch.annotations.DependsOn
 import com.harrytmthy.stitch.annotations.Scope
 
 @Scope
@@ -25,10 +26,12 @@ annotation class Activity
 
 @Scope
 @javax.inject.Scope
+@DependsOn(Activity::class)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Fragment
 
 @Scope
 @javax.inject.Scope
+@DependsOn(Fragment::class)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class ViewWithFragment

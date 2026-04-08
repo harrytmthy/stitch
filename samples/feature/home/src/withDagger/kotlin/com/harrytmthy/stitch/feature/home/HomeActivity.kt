@@ -17,14 +17,5 @@
 package com.harrytmthy.stitch.feature.home
 
 import androidx.appcompat.app.AppCompatActivity
-import com.harrytmthy.stitch.core.Logger
-import javax.inject.Inject
 
-class HomeActivity : AppCompatActivity() {
-
-    @Inject
-    lateinit var logger: Logger
-
-    @Inject
-    lateinit var viewModel: HomeViewModel
-}
+class HomeActivity : AppCompatActivity()
