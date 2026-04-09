@@ -16,6 +16,8 @@
 
 package com.harrytmthy.stitch.api
 
+import kotlin.reflect.KClass
+
 interface Injector {
 
     val id: Int
@@ -27,4 +29,9 @@ interface Injector {
     fun inject(target: Any)
 
     fun createInjectorForChildScope(scopeName: String, cached: Boolean = false): Injector
+
+    fun <T : Any> get(type: KClass<*>, qualifier: Qualifier? = null): T
 }
+
+inline fun <reified T : Any> Injector.get(qualifier: Qualifier? = null): T =
+    get(T::class, qualifier)

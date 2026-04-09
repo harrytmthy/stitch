@@ -40,7 +40,7 @@ import com.harrytmthy.stitch.compiler.model.ValidatedBinding
  *   override val upstream: StitchSingletonGraph, // Use direct type instead of Injector
  * ) : Injector {
  *
- *   // Step 2: Transform `providerClassNames` into `val providerClassName = ProviderClassName()`
+ *   // Step 2: Transform `ownedBindings` into `val providerClassName = ProviderClassName()`
  *   private val homeModule = HomeModule()
  *
  *   // Step 3: Transform `ownedBindings` into `val type_qualifier = DclHolder<Type>()`
@@ -77,6 +77,24 @@ import com.harrytmthy.stitch.compiler.model.ValidatedBinding
  *       "fragment" -> StitchFragmentGraph(nextId(), scopeName, this)
  *       else -> childNotFoundError(currentScope, scopeName)
  *     }
+ *
+ *   override fun <T : Any> get(type: KClass<T>, qualifier: Qualifier?): T =
+ *     when (type) {
+ *       // Step 7: Transform ancestorsBindings + ownedBindings to this
+ *       Logger::class -> logger()
+ *       String::class -> {
+ *         // Generated when there is AT LEAST 1 qualifier
+ *         if (qualifier is Named) {
+ *           // Generated when there is AT LEAST 1 named qualifier
+ *           when (qualifier.value.trim().lowercase()) {
+ *             "baseurl" -> string_named_baseUrl()
+ *             else -> error("Binding with type '${type.simpleName}' has no qualifier with name '${qualifier.value}'")
+ *           }
+ *         }
+ *         error("Binding with type '${type.simpleName}' has no qualifier with type '${qualifier}'")
+ *       }
+ *       else -> error("Binding with type '${type.simpleName}' is not found in $currentScope scope and its ancestors.")
+ *     } as T
  * }
  * ```
  *
@@ -87,8 +105,8 @@ import com.harrytmthy.stitch.compiler.model.ValidatedBinding
 class InjectorPlan(
     val scope: Scope, // Step 1
     val parentScope: Scope?, // Also Step 1
-    val providerClassNames: Set<String>, // Step 2
     val ownedBindings: List<ValidatedBinding>, // Step 3 and 4
     val requestedBindings: Map<String, List<RequestedFieldPlan>>, // Step 5
     val directChildScopes: List<Scope.Custom>, // Step 6
+    val ancestorBindings: List<ValidatedBinding>, // Step 7
 )
