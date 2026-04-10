@@ -9,6 +9,7 @@ import com.harrytmthy.stitch.R
 import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.api.Stitch
+import com.harrytmthy.stitch.api.get
 import com.harrytmthy.stitch.core.Logger
 import com.harrytmthy.stitch.di.ApiService
 import com.harrytmthy.stitch.di.BASE_URL
@@ -93,6 +94,7 @@ class MainActivity : AppCompatActivity() {
     private fun assertStitch() {
         // Singleton objects
         check(logger === userRepositoryImpl.logger)
+        check(logger === StitchSingletonGraph.get<Logger>())
         check(userRepository === userRepositoryImpl)
         check(userReader === userRepository)
         check(userReader === userRepositoryImpl)

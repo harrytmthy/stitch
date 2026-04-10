@@ -20,6 +20,8 @@ public final class com/harrytmthy/stitch/api/DclHolder$Uninitialized {
 public abstract interface class com/harrytmthy/stitch/api/Injector {
 	public abstract fun createInjectorForChildScope (Ljava/lang/String;Z)Lcom/harrytmthy/stitch/api/Injector;
 	public static synthetic fun createInjectorForChildScope$default (Lcom/harrytmthy/stitch/api/Injector;Ljava/lang/String;ZILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Injector;
+	public abstract fun get (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;)Ljava/lang/Object;
+	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Injector;Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;ILjava/lang/Object;)Ljava/lang/Object;
 	public abstract fun getCurrentScope ()Ljava/lang/String;
 	public abstract fun getId ()I
 	public abstract fun getUpstream ()Lcom/harrytmthy/stitch/api/Injector;
@@ -28,6 +30,7 @@ public abstract interface class com/harrytmthy/stitch/api/Injector {
 
 public final class com/harrytmthy/stitch/api/Injector$DefaultImpls {
 	public static synthetic fun createInjectorForChildScope$default (Lcom/harrytmthy/stitch/api/Injector;Ljava/lang/String;ZILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Injector;
+	public static synthetic fun get$default (Lcom/harrytmthy/stitch/api/Injector;Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
 public final class com/harrytmthy/stitch/api/Module {

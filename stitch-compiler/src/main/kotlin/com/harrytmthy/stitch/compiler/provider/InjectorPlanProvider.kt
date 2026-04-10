@@ -16,7 +16,6 @@
 
 package com.harrytmthy.stitch.compiler.provider
 
-import com.harrytmthy.stitch.compiler.consts.BindingKind
 import com.harrytmthy.stitch.compiler.model.BindingValidationResult
 import com.harrytmthy.stitch.compiler.model.RequestedBinding
 import com.harrytmthy.stitch.compiler.model.Scope
@@ -34,15 +33,7 @@ object InjectorPlanProvider {
     ): List<InjectorPlan> {
         val scopeCount = scopeMetadata.directChildren.keys.size
         val injectorPlans = ArrayList<InjectorPlan>(scopeCount)
-        val providerClassNamesByScope = HashMap<Scope, HashSet<String>>(scopeCount, 1f)
         val requestedFieldPlans = HashMap<Scope, HashMap<String, ArrayList<RequestedFieldPlan>>>(scopeCount, 1f)
-        for (binding in validationResult.bindingPool.values) {
-            if (binding.kind == BindingKind.PROVIDED_IN_CLASS) {
-                val providerClassNames = providerClassNamesByScope
-                    .getOrPut(binding.owningScope, ::HashSet)
-                providerClassNames.add(binding.providerClassName)
-            }
-        }
         for ((scope, scopeAncestors) in scopeMetadata.ancestors) {
             for ((requester, requestedBindings) in requestedBindings) {
                 for (requestedBinding in requestedBindings) {
@@ -56,14 +47,17 @@ object InjectorPlanProvider {
                 }
             }
         }
-        for (scope in scopeMetadata.ancestors.keys) {
+        for ((scope, ancestors) in scopeMetadata.ancestors) {
+            val ancestorBindings = ancestors.flatMap {
+                validationResult.bindingsByScope.getOrDefault(it, emptyList())
+            }
             val injectorPlan = InjectorPlan(
                 scope = scope,
                 parentScope = scopeDependencies[scope],
-                providerClassNames = providerClassNamesByScope.getOrDefault(scope, emptySet()),
                 ownedBindings = validationResult.bindingsByScope.getOrDefault(scope, emptyList()),
                 requestedBindings = requestedFieldPlans.getOrDefault(scope, emptyMap()),
                 directChildScopes = scopeMetadata.directChildren.getOrDefault(scope, emptyList()),
+                ancestorBindings = ancestorBindings,
             )
             injectorPlans.add(injectorPlan)
         }
