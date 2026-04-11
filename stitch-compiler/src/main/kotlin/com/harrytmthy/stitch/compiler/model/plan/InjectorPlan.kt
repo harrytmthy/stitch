@@ -105,7 +105,7 @@ import com.harrytmthy.stitch.compiler.model.ValidatedBinding
 class InjectorPlan(
     val scope: Scope, // Step 1
     val parentScope: Scope?, // Also Step 1
-    val ownedBindings: List<ValidatedBinding>, // Step 3 and 4
+    val ownedBindings: List<ValidatedBinding>, // Step 2, 3, and 4
     val requestedBindings: Map<String, List<RequestedFieldPlan>>, // Step 5
     val directChildScopes: List<Scope.Custom>, // Step 6
     val ancestorBindings: List<ValidatedBinding>, // Step 7
