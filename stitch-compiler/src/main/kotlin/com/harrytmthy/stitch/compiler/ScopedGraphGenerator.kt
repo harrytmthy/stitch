@@ -18,6 +18,8 @@ package com.harrytmthy.stitch.compiler
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
+import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSFile
 import com.harrytmthy.stitch.api.DclHolder
 import com.harrytmthy.stitch.api.Injector
 import com.harrytmthy.stitch.api.StitchInjector
@@ -46,7 +48,12 @@ import java.io.OutputStreamWriter
 
 object ScopedGraphGenerator {
 
-    fun generate(codeGenerator: CodeGenerator, injectorPlans: List<InjectorPlan>) {
+    fun generate(
+        codeGenerator: CodeGenerator,
+        injectorPlans: List<InjectorPlan>,
+        localSources: Array<KSFile>,
+        generatedClasses: List<KSClassDeclaration>,
+    ) {
         for (injectorPlan in injectorPlans) {
             val fileName = graphClassName(injectorPlan.scope)
             val outputType = if (injectorPlan.scope is Scope.Singleton) {
@@ -67,10 +74,11 @@ object ScopedGraphGenerator {
                 .addType(outputType)
                 .build()
             val outputStream = codeGenerator.createNewFile(
-                dependencies = Dependencies.ALL_FILES,
+                dependencies = Dependencies(aggregating = true, sources = localSources),
                 packageName = GENERATED_PACKAGE_NAME,
                 fileName = fileName,
             )
+            codeGenerator.associateWithClasses(generatedClasses, GENERATED_PACKAGE_NAME, fileName)
             OutputStreamWriter(outputStream).use(file::writeTo)
         }
     }
@@ -463,27 +471,16 @@ object ScopedGraphGenerator {
                             for ((name, binding) in namedBindings) {
                                 addStatement("%S -> return %L as T", name, dependencyAccess(plan.scope, binding))
                             }
-                            addStatement(
-                                "else -> error(%P)",
-                                $$"Binding with type '${type.simpleName}' has no qualifier with name '${qualifier.value}'",
-                            )
+                            addStatement($$"else -> error(\"Binding with type '${type.simpleName}' has no qualifier with name '${qualifier.value}'\")")
                             endControlFlow()
                             endControlFlow()
                         }
-
-                        addStatement(
-                            "error(%P)",
-                            $$"Binding with type '${type.simpleName}' has no matching qualifier '$qualifier'",
-                        )
+                        addStatement($$"error(\"Binding with type '${type.simpleName}' has no matching qualifier '$qualifier'\")")
                         endControlFlow()
                     }
                 }
             }
-
-            addStatement(
-                "else -> error(%P)",
-                $$"Binding with type '${type.simpleName}' is not found in $currentScope scope and its ancestors.",
-            )
+            addStatement($$"else -> error(\"Binding with type '${type.simpleName}' is not found in $currentScope scope and its ancestors.\")")
             endControlFlow()
         }.build()
     }

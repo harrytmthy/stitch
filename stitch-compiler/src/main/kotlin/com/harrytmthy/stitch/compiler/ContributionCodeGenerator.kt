@@ -18,12 +18,11 @@ package com.harrytmthy.stitch.compiler
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
-import com.harrytmthy.stitch.annotations.BindingContributions
+import com.google.devtools.ksp.symbol.KSFile
 import com.harrytmthy.stitch.annotations.BindingRequester
 import com.harrytmthy.stitch.annotations.ContributedBinding
 import com.harrytmthy.stitch.annotations.RegisteredScope
 import com.harrytmthy.stitch.annotations.RequestedField
-import com.harrytmthy.stitch.annotations.ScopeContributions
 import com.harrytmthy.stitch.compiler.StitchSymbolProcessor.Companion.GENERATED_PACKAGE_NAME
 import com.harrytmthy.stitch.compiler.consts.BindingKind
 import com.harrytmthy.stitch.compiler.model.BindingDeclaration
@@ -40,30 +39,49 @@ import java.io.OutputStreamWriter
 
 class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
 
-    fun generate(moduleName: String, moduleKey: String, localScanResult: LocalScanResult) {
-        val moduleName = moduleName.toPascalModuleName()
+    fun generate(moduleKey: String, localScanResult: LocalScanResult) {
         if (localScanResult.customScopeByCanonicalName.isNotEmpty()) {
-            generateScopeContributions(
-                moduleName = moduleName,
-                moduleKey = moduleKey,
-                sortedCustomScopes = localScanResult.getSortedRegisteredScopesWithId(),
-                scopeDependencies = localScanResult.scopeDependencies,
-            )
+            val sortedCustomScopes = localScanResult.getSortedRegisteredScopesWithId()
+            for ((scope, id) in sortedCustomScopes) {
+                val dependency = localScanResult.scopeDependencies[scope] as? Scope.Custom
+                val dependencyId = sortedCustomScopes.getOrDefault(dependency, 0)
+                val source = localScanResult.scopeSources.getValue(scope)
+                generateScopeContribution(id, scope, dependencyId, source, moduleKey)
+            }
         }
-        generateBindingContributions(moduleName, moduleKey, localScanResult)
+        val sortedBindings = localScanResult.getSortedBindingsWithId()
+        for ((binding, id) in sortedBindings) {
+            val dependencyIds = (binding as? ProvidedBinding)?.dependencies
+                ?.map(sortedBindings::getValue)
+                .orEmpty()
+            val source = localScanResult.providedBindingSources.getValue(binding)
+            generateBindingContribution(id, binding, dependencyIds, source, moduleKey)
+        }
+        val sortedRequestedBindings = localScanResult.getSortedRequestedBindings()
+        var id = 1
+        for ((requester, fields) in sortedRequestedBindings) {
+            val bindingIds = fields.map(sortedBindings::getValue)
+            val source = localScanResult.requesterSources.getValue(requester)
+            generateRequesterContribution(id++, requester, fields, bindingIds, source, moduleKey)
+        }
     }
 
-    private fun generateScopeContributions(
-        moduleName: String,
+    private fun generateScopeContribution(
+        id: Int,
+        scope: Scope.Custom,
+        dependencyId: Int,
+        source: KSFile,
         moduleKey: String,
-        sortedCustomScopes: Map<Scope.Custom, Int>,
-        scopeDependencies: Map<Scope, Scope>,
     ) {
-        val annotation = AnnotationSpec.builder(ScopeContributions::class).apply {
-            val scopes = buildRegisteredScopes(sortedCustomScopes, scopeDependencies)
-            addMember("scopes = %L", scopes)
+        val annotation = AnnotationSpec.builder(RegisteredScope::class).apply {
+            addMember("id = %L", id)
+            addMember("originalName = %S", scope.originalName)
+            addMember("canonicalName = %S", scope.canonicalName)
+            addMember("qualifiedName = %S", scope.qualifiedName)
+            addMember("location = %S", scope.location)
+            addMember("dependsOn = %L", dependencyId)
         }.build()
-        val fileName = "Generated${moduleName}ScopeContributions_$moduleKey"
+        val fileName = "GeneratedScope${id}_$moduleKey"
         val outputObject = TypeSpec.objectBuilder(fileName)
             .addAnnotation(annotation)
             .build()
@@ -72,31 +90,43 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
             .addType(outputObject)
             .build()
         val outputStream = codeGenerator.createNewFile(
-            dependencies = Dependencies.ALL_FILES,
+            dependencies = Dependencies(aggregating = false, sources = arrayOf(source)),
             packageName = GENERATED_PACKAGE_NAME,
             fileName = fileName,
         )
         OutputStreamWriter(outputStream).use(file::writeTo)
     }
 
-    private fun generateBindingContributions(
-        moduleName: String,
+    private fun generateBindingContribution(
+        id: Int,
+        binding: BindingDeclaration,
+        dependencyIds: List<Int>,
+        source: KSFile,
         moduleKey: String,
-        localScanResult: LocalScanResult,
     ) {
-        val sortedBindings = localScanResult.getSortedBindingsWithId()
-        val contributedBindings = buildContributedBindings(sortedBindings)
-        val contributeAnnotation = AnnotationSpec.builder(BindingContributions::class).apply {
-            addMember("bindings = %L", contributedBindings)
-            if (localScanResult.requestedBindings.isNotEmpty()) {
-                val sortedRequestedBindings = localScanResult.getSortedRequestedBindings()
-                val requesters = buildBindingRequesters(sortedBindings, sortedRequestedBindings)
-                addMember("requesters = %L", requesters)
+        val contributeAnnotation = AnnotationSpec.builder(ContributedBinding::class).apply {
+            addMember("id = %L", id)
+            addMember("type = %S", binding.type)
+            addMember("qualifier = %S", binding.qualifier?.encode().orEmpty())
+            if (binding is ProvidedBinding) {
+                addMember("scope = %S", binding.scope?.canonicalName.orEmpty())
+                addMember("location = %S", binding.location)
+                addMember("kind = %L", binding.kind)
+                addMember("providerPackageName = %S", binding.providerPackageName)
+                addMember("providerFunctionName = %S", binding.providerFunctionName)
+                addMember("providerClassName = %S", binding.providerClassName)
+                addMember("dependsOn = [%L]", dependencyIds.joinToString(", "))
             } else {
-                addMember("requesters = []")
+                addMember("scope = \"\"")
+                addMember("location = %S", binding.location)
+                addMember("kind = %L", BindingKind.REQUESTED)
+                addMember("providerPackageName = \"\"")
+                addMember("providerFunctionName = \"\"")
+                addMember("providerClassName = \"\"")
+                addMember("dependsOn = []")
             }
         }.build()
-        val fileName = "Generated${moduleName}BindingContributions_$moduleKey"
+        val fileName = "GeneratedBinding${id}_$moduleKey"
         val outputObject = TypeSpec.objectBuilder(fileName)
             .addAnnotation(contributeAnnotation)
             .build()
@@ -105,104 +135,55 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
             .addType(outputObject)
             .build()
         val outputStream = codeGenerator.createNewFile(
-            dependencies = Dependencies.ALL_FILES,
+            dependencies = Dependencies(aggregating = false, sources = arrayOf(source)),
             packageName = GENERATED_PACKAGE_NAME,
             fileName = fileName,
         )
         OutputStreamWriter(outputStream).use(file::writeTo)
     }
 
-    private fun buildContributedBindings(sortedBindings: Map<BindingDeclaration, Int>): CodeBlock {
-        val contributedBindingClass = ContributedBinding::class.asClassName()
-        return CodeBlock.builder().apply {
-            add("[\n")
-            indent()
-            sortedBindings.forEach { (binding, id) ->
-                add("%T(\n", contributedBindingClass)
-                indent()
-                add("id = %L,\n", id)
-                add("type = %S,\n", binding.type)
-                add("qualifier = %S,\n", binding.qualifier?.encode().orEmpty())
-                if (binding is ProvidedBinding) {
-                    add("scope = %S,\n", binding.scope?.canonicalName.orEmpty())
-                    add("location = %S,\n", binding.location)
-                    add("kind = %L,\n", binding.kind)
-                    add("providerPackageName = %S,\n", binding.providerPackageName)
-                    add("providerFunctionName = %S,\n", binding.providerFunctionName)
-                    add("providerClassName = %S,\n", binding.providerClassName)
-                    val dependencies = binding.dependencies?.map(sortedBindings::getValue)
-                        ?.joinToString(", ")
-                        .orEmpty()
-                    add("dependsOn = [%L],\n", dependencies)
-                } else {
-                    add("scope = \"\",\n")
-                    add("location = %S,\n", binding.location)
-                    add("kind = %L,\n", BindingKind.REQUESTED)
-                    add("providerPackageName = \"\",\n")
-                    add("providerFunctionName = \"\",\n")
-                    add("providerClassName = \"\",\n")
-                    add("dependsOn = [],\n")
-                }
-                unindent()
-                add("),\n")
-            }
-            unindent()
-            add("]")
+    private fun generateRequesterContribution(
+        id: Int,
+        requester: String,
+        fields: List<RequestedBinding>,
+        bindingIds: List<Int>,
+        source: KSFile,
+        moduleKey: String,
+    ) {
+        val contributeAnnotation = AnnotationSpec.builder(BindingRequester::class).apply {
+            addMember("name = %S", requester)
+            addMember("fields = %L", buildRequestedFields(fields, bindingIds))
         }.build()
+        val fileName = "GeneratedBindingRequester${id}_$moduleKey"
+        val outputObject = TypeSpec.objectBuilder(fileName)
+            .addAnnotation(contributeAnnotation)
+            .build()
+        val file = FileSpec.builder(GENERATED_PACKAGE_NAME, fileName)
+            .addFileComment("Generated by Stitch KSP Compiler - DO NOT EDIT")
+            .addType(outputObject)
+            .build()
+        val outputStream = codeGenerator.createNewFile(
+            dependencies = Dependencies(aggregating = false, sources = arrayOf(source)),
+            packageName = GENERATED_PACKAGE_NAME,
+            fileName = fileName,
+        )
+        OutputStreamWriter(outputStream).use(file::writeTo)
     }
 
-    private fun buildBindingRequesters(
-        sortedBindings: Map<BindingDeclaration, Int>,
-        sortedRequestedBindings: Map<String, List<RequestedBinding>>,
+    private fun buildRequestedFields(
+        fields: List<RequestedBinding>,
+        bindingIds: List<Int>,
     ): CodeBlock {
-        val bindingRequesterClass = BindingRequester::class.asClassName()
         val requestedFieldClass = RequestedField::class.asClassName()
         return CodeBlock.builder().apply {
             add("[\n")
             indent()
-            sortedRequestedBindings.forEach { (className, fields) ->
-                add("%T(\n", bindingRequesterClass)
+            fields.forEachIndexed { index, requested ->
+                val id = bindingIds[index]
+                add("%T(\n", requestedFieldClass)
                 indent()
-                add("name = %S,\n", className)
-                add("fields = [\n")
-                indent()
-                fields.forEach { requested ->
-                    val id = sortedBindings.getValue(requested)
-                    add("%T(\n", requestedFieldClass)
-                    indent()
-                    add("bindingId = %L,\n", id)
-                    add("fieldName = %S,\n", requested.fieldName)
-                    unindent()
-                    add("),\n")
-                }
-                unindent()
-                add("],\n")
-                unindent()
-                add("),\n")
-            }
-            unindent()
-            add("]")
-        }.build()
-    }
-
-    private fun buildRegisteredScopes(
-        sortedCustomScopes: Map<Scope.Custom, Int>,
-        scopeDependencies: Map<Scope, Scope>,
-    ): CodeBlock {
-        val registeredScopeClass = RegisteredScope::class.asClassName()
-        return CodeBlock.builder().apply {
-            add("[\n")
-            indent()
-            sortedCustomScopes.forEach { (scope, id) ->
-                add("%T(\n", registeredScopeClass)
-                indent()
-                add("id = %L,\n", id)
-                add("originalName = %S,\n", scope.originalName)
-                add("canonicalName = %S,\n", scope.canonicalName)
-                add("qualifiedName = %S,\n", scope.qualifiedName)
-                add("location = %S,\n", scope.location)
-                val dependency = scopeDependencies[scope] as? Scope.Custom
-                add("dependsOn = %L,\n", sortedCustomScopes.getOrDefault(dependency, 0))
+                add("bindingId = %L,\n", id)
+                add("fieldName = %S,\n", requested.fieldName)
                 unindent()
                 add("),\n")
             }
@@ -262,12 +243,4 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
         return customScopeByCanonicalName.values.sortedWith(compareBy { it.canonicalName })
             .associateWith { nextId++ }
     }
-
-    private fun String.toPascalModuleName(): String =
-        Regex("\\p{L}+")
-            .findAll(this)
-            .joinToString("") { match ->
-                match.value.replaceFirstChar(Char::uppercase)
-            }
-            .ifBlank { error("Unable to transform '$this' to pascal case") }
 }

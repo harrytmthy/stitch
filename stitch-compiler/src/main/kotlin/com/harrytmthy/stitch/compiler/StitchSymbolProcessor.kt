@@ -52,7 +52,7 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
             LocalAnnotationScanner(resolver, localScanResult).scan()
             if (!localScanResult.isAggregator) {
                 ContributionCodeGenerator(environment.codeGenerator)
-                    .generate(moduleName, moduleKey, localScanResult)
+                    .generate(moduleKey, localScanResult)
             } else {
                 val logger = StitchErrorLogger(environment.logger)
                 val scanResult = ContributionScanner.scan(resolver, logger, localScanResult)
@@ -66,7 +66,15 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
                     scopeMetadata = scopeMetadata,
                     scopeDependencies = scanResult.scopeDependencies,
                 )
-                ScopedGraphGenerator.generate(environment.codeGenerator, injectorPlans)
+                val localSources = with(localScanResult) {
+                    scopeSources.values + providedBindingSources.values + requesterSources.values
+                }
+                ScopedGraphGenerator.generate(
+                    environment.codeGenerator,
+                    injectorPlans,
+                    localSources.distinct().toTypedArray(), // Have them deduped
+                    scanResult.generatedClasses,
+                )
             }
             processed = true
         } catch (e: StitchProcessingException) {

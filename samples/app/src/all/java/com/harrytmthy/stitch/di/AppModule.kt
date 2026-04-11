@@ -100,6 +100,7 @@ class AppModule {
         @Binds
         @dagger.Binds
         fun bindLogger(logger: LoggerImpl): Logger
+
         @Binds
         @dagger.Binds
         fun bindsHomeService(service: HomeServiceImpl): HomeService

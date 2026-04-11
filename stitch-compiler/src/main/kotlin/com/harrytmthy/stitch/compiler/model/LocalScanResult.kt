@@ -16,6 +16,8 @@
 
 package com.harrytmthy.stitch.compiler.model
 
+import com.google.devtools.ksp.symbol.KSFile
+
 /**
  * Stores useful local data to build dependency graph and generate code.
  *
@@ -54,4 +56,19 @@ class LocalScanResult {
      * Represents whether the current module is the aggregator module.
      */
     var isAggregator = false
+
+    /**
+     * Represents per-scope file that host the scope contributions.
+     */
+    val scopeSources = HashMap<Scope, KSFile>()
+
+    /**
+     * Represents files that host the provided binding contributions.
+     */
+    val providedBindingSources = HashMap<Binding, KSFile>()
+
+    /**
+     * Represents files that host per requester contributions.
+     */
+    val requesterSources = HashMap<String, KSFile>()
 }

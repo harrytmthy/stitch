@@ -50,6 +50,8 @@ annotation class BindingContributions(
  * }
  * ```
  */
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.BINARY)
 annotation class ContributedBinding(
     val id: Int,
     val type: String,
@@ -63,6 +65,8 @@ annotation class ContributedBinding(
     val dependsOn: IntArray,
 )
 
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.BINARY)
 annotation class BindingRequester(val name: String, val fields: Array<RequestedField>)
 
 annotation class RequestedField(val bindingId: Int, val fieldName: String)
