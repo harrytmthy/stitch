@@ -60,9 +60,9 @@ class MainActivity : AppCompatActivity() {
     @Inject
     lateinit var apiService: ApiService
 
-//    @Named("null")
-//    @Inject
-//    var nullableInt: Int? = Int.MIN_VALUE // Should be replaced by null
+    @Named("null")
+    @Inject
+    var nullableInt: Int? = Int.MIN_VALUE // Should be replaced by null
 
     @Inject
     lateinit var viewModel: ViewModel
@@ -102,7 +102,7 @@ class MainActivity : AppCompatActivity() {
         check(processor === complexService)
         check(complexService.cache !== activityCacheService)
         check(baseUrl === BASE_URL)
-//        check(nullableInt == null)
+        check(nullableInt == null)
 
         // Factory objects
         check(apiService !== userRepositoryImpl.apiService)

@@ -57,6 +57,7 @@ class ProvidedBinding(
     type: String,
     qualifier: Qualifier?,
     val scope: Scope?,
+    val nullable: Boolean,
     location: String, // File path + line number
     val kind: Int,
     val providerPackageName: String = "",
@@ -88,6 +89,7 @@ class ValidatedBinding(
     qualifier: Qualifier?,
     val declaredScope: Scope?, // null means originally unscoped
     val owningScope: Scope,
+    val nullable: Boolean,
     val kind: Int,
     val providerPackageName: String,
     val providerFunctionName: String,

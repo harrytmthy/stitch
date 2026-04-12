@@ -27,6 +27,15 @@ import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
+import com.google.devtools.ksp.symbol.Nullability
+import com.harrytmthy.stitch.annotations.Binds
+import com.harrytmthy.stitch.annotations.DependsOn
+import com.harrytmthy.stitch.annotations.Inject
+import com.harrytmthy.stitch.annotations.Named
+import com.harrytmthy.stitch.annotations.Nullable
+import com.harrytmthy.stitch.annotations.Provides
+import com.harrytmthy.stitch.annotations.Singleton
+import com.harrytmthy.stitch.annotations.StitchRoot
 import com.harrytmthy.stitch.compiler.consts.BindingKind
 import com.harrytmthy.stitch.compiler.fatalError
 import com.harrytmthy.stitch.compiler.model.BindingDeclaration
@@ -40,6 +49,7 @@ import com.harrytmthy.stitch.compiler.utils.filePathAndLineNumber
 import com.harrytmthy.stitch.compiler.utils.find
 import com.harrytmthy.stitch.compiler.utils.findArgument
 import com.harrytmthy.stitch.compiler.utils.qualifiedName
+import com.harrytmthy.stitch.annotations.Scope as ScopeAnnotation
 
 class LocalAnnotationScanner(
     private val resolver: Resolver,
@@ -52,6 +62,8 @@ class LocalAnnotationScanner(
 
     private val qualifierBySymbol = HashMap<KSAnnotated, Qualifier>()
 
+    private val nullableBySymbol = HashSet<KSAnnotated>()
+
     private val providedBindingBySymbol = HashMap<KSAnnotated, ProvidedBinding>()
 
     private val parametersByBinding = HashMap<ProvidedBinding, ArrayList<KSValueParameter>>()
@@ -63,6 +75,7 @@ class LocalAnnotationScanner(
         scanScopes()
         scanDependsOn()
         scanQualifiers()
+        scanNullables()
         scanProvides()
         scanInjects()
         scanBinds()
@@ -70,7 +83,8 @@ class LocalAnnotationScanner(
     }
 
     private fun scanRoot() {
-        scanResult.isAggregator = resolver.getSymbolsWithAnnotation(ROOT).any()
+        val rootAnnotation = StitchRoot::class.qualifiedName!!
+        scanResult.isAggregator = resolver.getSymbolsWithAnnotation(rootAnnotation).any()
     }
 
     /**
@@ -115,17 +129,18 @@ class LocalAnnotationScanner(
      * ```
      */
     private fun scanScopes() {
-        for (singletonAnnotation in listOf(STITCH_SINGLETON, JAVAX_SINGLETON)) {
+        for (singletonAnnotation in singletonAnnotations) {
             for (symbol in resolver.getSymbolsWithAnnotation(singletonAnnotation)) {
                 scopeBySymbol[symbol] = Scope.Singleton
             }
         }
-        for (symbol in resolver.getSymbolsWithAnnotation(SCOPE)) {
+        val scopeAnnotation = ScopeAnnotation::class.qualifiedName!!
+        for (symbol in resolver.getSymbolsWithAnnotation(scopeAnnotation)) {
             // At this point, scopeBySymbol only contains @Singleton (if any)
             if (symbol in scopeBySymbol) {
                 fatalError("@Scope cannot be used with @Singleton at the same time", symbol)
             }
-            val scopeName = symbol.annotations.find(SCOPE).arguments.first().value as String
+            val scopeName = symbol.annotations.find(scopeAnnotation).arguments.first().value as String
             when (symbol) {
                 is KSClassDeclaration -> {
                     if (symbol.classKind == ClassKind.ANNOTATION_CLASS) {
@@ -192,10 +207,11 @@ class LocalAnnotationScanner(
     }
 
     private fun scanDependsOn() {
-        for (symbol in resolver.getSymbolsWithAnnotation(DEPENDS_ON)) {
+        val dependsOnAnnotation = DependsOn::class.qualifiedName!!
+        for (symbol in resolver.getSymbolsWithAnnotation(dependsOnAnnotation)) {
             val scope = scopeBySymbol[symbol]
                 ?: fatalError("@DependsOn cannot be used without @Scope", symbol)
-            val annotation = symbol.annotations.find(DEPENDS_ON)
+            val annotation = symbol.annotations.find(dependsOnAnnotation)
             val dependency = annotation.arguments[0].value as KSType
             val qualifiedName = dependency.declaration.qualifiedName(symbol)
             if (scope is Scope.Custom && scope.qualifiedName == qualifiedName) {
@@ -205,12 +221,13 @@ class LocalAnnotationScanner(
                 scanResult.scopeDependencies[scope] = dependency
                 continue
             }
-            if (qualifiedName == STITCH_SINGLETON || qualifiedName == JAVAX_SINGLETON) {
+            if (qualifiedName in singletonAnnotations) {
                 scanResult.scopeDependencies[scope] = Scope.Singleton
                 continue
             }
             val scopeAnnotation = dependency.declaration.annotations.find {
-                it.annotationType.resolve().declaration.qualifiedName?.asString() == SCOPE
+                val qualifiedName = it.annotationType.resolve().declaration.qualifiedName?.asString()
+                qualifiedName == ScopeAnnotation::class.qualifiedName!!
             } ?: fatalError("Scope '$scope' depends on a type that isn't a scope", symbol)
             val originalName = (scopeAnnotation.arguments[0].value as String)
                 .ifBlank { dependency.declaration.simpleName.asString() }
@@ -231,13 +248,21 @@ class LocalAnnotationScanner(
     }
 
     private fun scanNamedQualifiers() {
-        for (annotationName in listOf(STITCH_NAMED, JAVAX_NAMED)) {
+        for (annotationName in namedAnnotations) {
             for (symbol in resolver.getSymbolsWithAnnotation(annotationName)) {
                 if (symbol in qualifierBySymbol) {
                     fatalError("@Named cannot be used with other qualifiers", symbol)
                 }
                 val name = symbol.annotations.find(annotationName).arguments.first().value as String
                 qualifierBySymbol[symbol] = Qualifier.Named(name)
+            }
+        }
+    }
+
+    private fun scanNullables() {
+        for (nullableAnnotation in nullableAnnotations) {
+            for (symbol in resolver.getSymbolsWithAnnotation(nullableAnnotation)) {
+                nullableBySymbol.add(symbol)
             }
         }
     }
@@ -281,11 +306,12 @@ class LocalAnnotationScanner(
      * ```
      */
     private fun scanProvides() {
-        for (symbol in resolver.getSymbolsWithAnnotation(PROVIDES)) {
+        for (symbol in resolver.getSymbolsWithAnnotation(Provides::class.qualifiedName!!)) {
             if (symbol !is KSFunctionDeclaration) {
                 fatalError("@Provides can only be used on functions", symbol)
             }
-            val type = symbol.returnType?.resolve()?.declaration?.qualifiedName(symbol)
+            val resolvedType = symbol.returnType?.resolve()
+            val type = resolvedType?.declaration?.qualifiedName(symbol)
                 ?: fatalError("@Provides has no return type", symbol)
             val qualifier = qualifierBySymbol[symbol]
             val scope = getScopeFromSymbol(symbol)
@@ -311,10 +337,12 @@ class LocalAnnotationScanner(
                     symbol = parentDeclaration,
                 )
             }
+            val nullable = symbol in nullableBySymbol
             val binding = ProvidedBinding(
                 type = type,
                 qualifier = qualifier,
                 scope = scope,
+                nullable = resolvedType.nullability == Nullability.NULLABLE || nullable,
                 location = location,
                 kind = kind,
                 providerPackageName = symbol.packageName.asString(),
@@ -345,7 +373,7 @@ class LocalAnnotationScanner(
      * since other annotations are targeting the class, not the constructor.
      */
     private fun scanInjects() {
-        for (annotationName in listOf(STITCH_INJECT, JAVAX_INJECT)) {
+        for (annotationName in injectAnnotations) {
             for (symbol in resolver.getSymbolsWithAnnotation(annotationName)) {
                 when (symbol) {
                     is KSFunctionDeclaration -> handleConstructorInjection(symbol)
@@ -369,14 +397,17 @@ class LocalAnnotationScanner(
                 canonicalSymbol,
             )
         }
-        val type = canonicalSymbol.asStarProjectedType().declaration.qualifiedName(canonicalSymbol)
+        val resolvedType = canonicalSymbol.asStarProjectedType()
+        val type = resolvedType.declaration.qualifiedName(canonicalSymbol)
         val qualifier = qualifierBySymbol[canonicalSymbol]
         val scope = getScopeFromSymbol(canonicalSymbol)
         val location = canonicalSymbol.filePathAndLineNumber!!
+        val annotatedWithNullable = canonicalSymbol in nullableBySymbol
         val binding = ProvidedBinding(
             type = type,
             qualifier = qualifier,
             scope = scope,
+            nullable = resolvedType.nullability == Nullability.NULLABLE || annotatedWithNullable,
             location = location,
             kind = BindingKind.PROVIDED_IN_CONSTRUCTOR,
         )
@@ -471,10 +502,11 @@ class LocalAnnotationScanner(
      * ```
      */
     private fun scanBinds() {
-        for (symbol in resolver.getSymbolsWithAnnotation(BINDS)) {
+        val bindsAnnotation = Binds::class.qualifiedName!!
+        for (symbol in resolver.getSymbolsWithAnnotation(bindsAnnotation)) {
             when (symbol) {
                 is KSClassDeclaration -> {
-                    val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
+                    val aliasArg = symbol.annotations.find(bindsAnnotation).findArgument("aliases")
                     val aliases = aliasArg.value as List<*>
                     if (aliases.isEmpty()) {
                         fatalError(
@@ -488,7 +520,8 @@ class LocalAnnotationScanner(
                     val location = symbol.filePathAndLineNumber.orEmpty()
                     for (alias in aliases) {
                         val type = (alias as KSType).declaration.qualifiedName(symbol)
-                        registerAlias(type, qualifier, location, dependency, symbol)
+                        val nullable = alias.nullability == Nullability.NULLABLE
+                        registerAlias(type, qualifier, nullable, location, dependency, symbol)
                     }
                 }
 
@@ -510,17 +543,20 @@ class LocalAnnotationScanner(
                                 "@Binds requires one parameter when annotating abstract functions",
                                 symbol,
                             )
-                        val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
-                        val type = parameter.type.resolve().declaration.qualifiedName(parameter)
+                        val aliasArg = symbol.annotations.find(bindsAnnotation).findArgument("aliases")
+                        val resolvedType = parameter.type.resolve()
+                        val type = resolvedType.declaration.qualifiedName(parameter)
                         val parameterLocation = parameter.filePathAndLineNumber!!
                         val dependency = BindingDeclaration(type, qualifier, parameterLocation)
-                        registerAlias(returnType, qualifier, location, dependency, symbol)
+                        val nullable = resolvedType.nullability == Nullability.NULLABLE
+                        registerAlias(returnType, qualifier, nullable, location, dependency, symbol)
                         for (alias in (aliasArg.value as List<*>)) {
                             val type = (alias as KSType).declaration.qualifiedName(parameter)
-                            registerAlias(type, qualifier, location, dependency, symbol)
+                            val nullable = alias.nullability == Nullability.NULLABLE
+                            registerAlias(type, qualifier, nullable, location, dependency, symbol)
                         }
                     } else {
-                        val aliasArg = symbol.annotations.find(BINDS).findArgument("aliases")
+                        val aliasArg = symbol.annotations.find(bindsAnnotation).findArgument("aliases")
                         val aliases = aliasArg.value as List<*>
                         if (aliases.isEmpty()) {
                             fatalError(
@@ -532,7 +568,8 @@ class LocalAnnotationScanner(
                         val dependency = providedBindingBySymbol[symbol] ?: continue
                         for (alias in (aliasArg.value as List<*>)) {
                             val type = (alias as KSType).declaration.qualifiedName(symbol)
-                            registerAlias(type, qualifier, location, dependency, symbol)
+                            val nullable = alias.nullability == Nullability.NULLABLE
+                            registerAlias(type, qualifier, nullable, location, dependency, symbol)
                         }
                     }
                 }
@@ -547,6 +584,7 @@ class LocalAnnotationScanner(
     private fun registerAlias(
         type: String,
         qualifier: Qualifier?,
+        nullable: Boolean,
         location: String,
         dependency: BindingDeclaration,
         symbol: KSAnnotated,
@@ -555,6 +593,7 @@ class LocalAnnotationScanner(
             type = type,
             qualifier = qualifier,
             scope = null,
+            nullable = nullable || symbol in nullableBySymbol,
             location = location,
             kind = BindingKind.PROVIDED_ALIAS,
         )
@@ -581,7 +620,7 @@ class LocalAnnotationScanner(
             customScopeByQualifiedName[qualifiedName]?.let { return it }
             for (metaAnnotation in declaration.annotations) {
                 val fqn = metaAnnotation.annotationType.resolve().declaration.qualifiedName(symbol)
-                if (fqn == SCOPE) {
+                if (fqn == ScopeAnnotation::class.qualifiedName) {
                     val originalName = (metaAnnotation.arguments[0].value as String)
                         .ifBlank { annotation.shortName.asString() }
                     val canonicalName = originalName.lowercase()
@@ -613,16 +652,28 @@ class LocalAnnotationScanner(
         )
 
     private companion object {
-        const val ROOT = "com.harrytmthy.stitch.annotations.StitchRoot"
-        const val PROVIDES = "com.harrytmthy.stitch.annotations.Provides"
-        const val STITCH_INJECT = "com.harrytmthy.stitch.annotations.Inject"
-        const val JAVAX_INJECT = "javax.inject.Inject"
-        const val STITCH_NAMED = "com.harrytmthy.stitch.annotations.Named"
-        const val JAVAX_NAMED = "javax.inject.Named"
-        const val SCOPE = "com.harrytmthy.stitch.annotations.Scope"
-        const val STITCH_SINGLETON = "com.harrytmthy.stitch.annotations.Singleton"
-        const val JAVAX_SINGLETON = "javax.inject.Singleton"
-        const val DEPENDS_ON = "com.harrytmthy.stitch.annotations.DependsOn"
-        const val BINDS = "com.harrytmthy.stitch.annotations.Binds"
+
+        val injectAnnotations = listOf(
+            Inject::class.qualifiedName!!,
+            "javax.inject.Inject",
+        )
+
+        val namedAnnotations = listOf(
+            Named::class.qualifiedName!!,
+            "javax.inject.Named",
+        )
+
+        val singletonAnnotations = listOf(
+            Singleton::class.qualifiedName!!,
+            "javax.inject.Singleton",
+        )
+
+        val nullableAnnotations = listOf(
+            Nullable::class.qualifiedName!!,
+            "androidx.annotation.Nullable",
+            "org.jetbrains.annotations.Nullable",
+            "javax.annotation.Nullable",
+            "org.jspecify.annotations.Nullable",
+        )
     }
 }

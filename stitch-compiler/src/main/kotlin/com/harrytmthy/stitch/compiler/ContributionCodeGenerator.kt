@@ -110,6 +110,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
             addMember("qualifier = %S", binding.qualifier?.encode().orEmpty())
             if (binding is ProvidedBinding) {
                 addMember("scope = %S", binding.scope?.canonicalName.orEmpty())
+                addMember("nullable = %L", binding.nullable)
                 addMember("location = %S", binding.location)
                 addMember("kind = %L", binding.kind)
                 addMember("providerPackageName = %S", binding.providerPackageName)
@@ -118,6 +119,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                 addMember("dependsOn = [%L]", dependencyIds.joinToString(", "))
             } else {
                 addMember("scope = \"\"")
+                addMember("nullable = %L", false)
                 addMember("location = %S", binding.location)
                 addMember("kind = %L", BindingKind.REQUESTED)
                 addMember("providerPackageName = \"\"")

@@ -72,6 +72,11 @@ class AppModule {
     @dagger.Provides
     fun provideBaseUrl(): String = BASE_URL
 
+    @Named("null")
+    @Provides
+    @dagger.Provides
+    fun provideNullableInt(): Int? = null
+
     @Singleton
     @Binds(aliases = [CacheService::class])
     @Provides

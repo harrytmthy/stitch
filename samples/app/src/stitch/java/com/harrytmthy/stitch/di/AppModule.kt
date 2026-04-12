@@ -67,6 +67,10 @@ class AppModule {
     @Provides
     fun provideBaseUrl(): String = BASE_URL
 
+    @Named("null")
+    @Provides
+    fun provideNullableInt(): Int? = null
+
     @Singleton
     @Binds(aliases = [CacheService::class])
     @Provides

@@ -42,6 +42,7 @@ object BindingValidationResultMapper {
                 qualifier = providedBinding.qualifier,
                 declaredScope = providedBinding.scope,
                 owningScope = bindingResolution.owningScope,
+                nullable = providedBinding.nullable,
                 kind = providedBinding.kind,
                 providerPackageName = providedBinding.providerPackageName,
                 providerFunctionName = providedBinding.providerFunctionName,
