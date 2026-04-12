@@ -18,8 +18,6 @@ package com.harrytmthy.stitch.compiler
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSFile
 import com.harrytmthy.stitch.api.DclHolder
 import com.harrytmthy.stitch.api.Injector
 import com.harrytmthy.stitch.api.StitchInjector
@@ -48,12 +46,7 @@ import java.io.OutputStreamWriter
 
 object ScopedGraphGenerator {
 
-    fun generate(
-        codeGenerator: CodeGenerator,
-        injectorPlans: List<InjectorPlan>,
-        localSources: Array<KSFile>,
-        generatedClasses: List<KSClassDeclaration>,
-    ) {
+    fun generate(codeGenerator: CodeGenerator, injectorPlans: List<InjectorPlan>) {
         for (injectorPlan in injectorPlans) {
             val fileName = graphClassName(injectorPlan.scope)
             val outputType = if (injectorPlan.scope is Scope.Singleton) {
@@ -74,11 +67,10 @@ object ScopedGraphGenerator {
                 .addType(outputType)
                 .build()
             val outputStream = codeGenerator.createNewFile(
-                dependencies = Dependencies(aggregating = true, sources = localSources),
+                dependencies = Dependencies.ALL_FILES,
                 packageName = GENERATED_PACKAGE_NAME,
                 fileName = fileName,
             )
-            codeGenerator.associateWithClasses(generatedClasses, GENERATED_PACKAGE_NAME, fileName)
             OutputStreamWriter(outputStream).use(file::writeTo)
         }
     }

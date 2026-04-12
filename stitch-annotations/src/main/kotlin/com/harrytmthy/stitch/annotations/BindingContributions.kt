@@ -16,6 +16,13 @@
 
 package com.harrytmthy.stitch.annotations
 
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.BINARY)
+annotation class BindingContributions(
+    val bindings: Array<ContributedBinding>,
+    val requesters: Array<BindingRequester>,
+)
+
 /**
  * A meta-annotation which represents a binding that is provided and/or requested in each
  * contributor module. Each binding has a locally unique [id] (per contribution) which is
@@ -43,8 +50,6 @@ package com.harrytmthy.stitch.annotations
  * }
  * ```
  */
-@Target(AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.BINARY)
 annotation class ContributedBinding(
     val id: Int,
     val type: String,
@@ -59,8 +64,6 @@ annotation class ContributedBinding(
     val dependsOn: IntArray,
 )
 
-@Target(AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.BINARY)
 annotation class BindingRequester(val name: String, val fields: Array<RequestedField>)
 
 annotation class RequestedField(val bindingId: Int, val fieldName: String)
