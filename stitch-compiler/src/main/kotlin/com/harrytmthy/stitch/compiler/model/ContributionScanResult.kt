@@ -16,12 +16,9 @@
 
 package com.harrytmthy.stitch.compiler.model
 
-import com.google.devtools.ksp.symbol.KSClassDeclaration
-
 class ContributionScanResult(
     val providedBindings: Map<Binding, ProvidedBinding>,
     val requestedBindings: Map<String, List<RequestedBinding>>,
     val customScopeByCanonicalName: Map<String, Scope.Custom>,
     val scopeDependencies: Map<Scope, Scope>,
-    val generatedClasses: List<KSClassDeclaration>,
 )

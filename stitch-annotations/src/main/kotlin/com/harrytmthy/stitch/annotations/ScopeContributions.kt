@@ -16,6 +16,10 @@
 
 package com.harrytmthy.stitch.annotations
 
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.BINARY)
+annotation class ScopeContributions(val scopes: Array<RegisteredScope>)
+
 /**
  * Represents a custom scope that is registered in a contributor module.
  * Each scope depends on Singleton by default (id = 0).
@@ -26,8 +30,6 @@ package com.harrytmthy.stitch.annotations
  * - If there are more than one scope with same [canonicalName] but different [qualifiedName],
  *   the aggregator will report them as duplicates + mention each [location] to ease debugging.
  */
-@Target(AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.BINARY)
 annotation class RegisteredScope(
     val id: Int,
     val originalName: String,

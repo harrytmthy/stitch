@@ -148,7 +148,6 @@ class BindingGraphValidatorTest {
             customScopeByCanonicalName = bindings.mapNotNull { it.scope as? Scope.Custom }
                 .associateBy { it.canonicalName },
             scopeDependencies = emptyMap(),
-            generatedClasses = emptyList(),
         )
     }
 

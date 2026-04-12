@@ -16,7 +16,6 @@
 
 package com.harrytmthy.stitch.compiler.scanner
 
-import com.google.devtools.ksp.containingFile
 import com.google.devtools.ksp.isConstructor
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.ClassKind
@@ -160,7 +159,6 @@ class LocalAnnotationScanner(
                         val location = symbol.filePathAndLineNumber.orEmpty()
                         val scope = Scope.Custom(originalName, canonicalName, qualifiedName, location)
                         scanResult.customScopeByCanonicalName[canonicalName] = scope
-                        scanResult.scopeSources[scope] = symbol.containingFile!!
                         customScopeByQualifiedName[qualifiedName] = scope
                         scopeBySymbol[symbol] = scope
                         continue
@@ -177,7 +175,6 @@ class LocalAnnotationScanner(
                     val scope = Scope.Custom(originalName = scopeName, canonicalName)
                     if (scope.canonicalName !in scanResult.customScopeByCanonicalName) {
                         scanResult.customScopeByCanonicalName[scope.canonicalName] = scope
-                        scanResult.scopeSources[scope] = symbol.containingFile!!
                     }
                     scopeBySymbol[symbol] = scope
                 }
@@ -198,7 +195,6 @@ class LocalAnnotationScanner(
                     val scope = Scope.Custom(originalName = scopeName, canonicalName)
                     if (scope.canonicalName !in scanResult.customScopeByCanonicalName) {
                         scanResult.customScopeByCanonicalName[scope.canonicalName] = scope
-                        scanResult.scopeSources[scope] = symbol.containingFile!!
                     }
                     scopeBySymbol[symbol] = scope
                 }
@@ -235,7 +231,6 @@ class LocalAnnotationScanner(
             val scopeDependency = Scope.Custom(originalName, canonicalName)
             if (canonicalName !in scanResult.customScopeByCanonicalName) {
                 scanResult.customScopeByCanonicalName[canonicalName] = scopeDependency
-                scanResult.scopeSources[scopeDependency] = symbol.containingFile!!
             }
             customScopeByQualifiedName[qualifiedName] = scopeDependency
             scanResult.scopeDependencies[scope] = scopeDependency
@@ -357,7 +352,6 @@ class LocalAnnotationScanner(
             }
             providedBindingBySymbol[symbol] = binding
             scanResult.providedBindings.add(binding)
-            scanResult.providedBindingSources[binding] = symbol.containingFile!!
 
             // Parameters (or "dependencies") that will be collected after scanning @Inject.
             if (symbol.parameters.isNotEmpty()) {
@@ -419,7 +413,6 @@ class LocalAnnotationScanner(
         }
         providedBindingBySymbol[canonicalSymbol] = binding
         scanResult.providedBindings.add(binding)
-        scanResult.providedBindingSources[binding] = symbol.containingFile!!
 
         // Parameters (or "dependencies") that will be collected after scanning @Inject.
         if (symbol.parameters.isNotEmpty()) {
@@ -446,7 +439,6 @@ class LocalAnnotationScanner(
         val parentQualifiedName = symbol.parentDeclaration!!.qualifiedName!!.asString()
         val bindings = scanResult.requestedBindings.getOrPut(parentQualifiedName) { ArrayList() }
         bindings.add(binding)
-        scanResult.requesterSources[parentQualifiedName] = symbol.containingFile!!
     }
 
     private fun collectDependencies() {
@@ -459,7 +451,6 @@ class LocalAnnotationScanner(
                 val dependencies = providedBinding.dependencies
                     ?: ArrayList<BindingDeclaration>(parameters.size).also { providedBinding.dependencies = it }
                 dependencies.add(binding)
-                scanResult.providedBindingSources[binding] = parameter.containingFile!!
             }
         }
     }
@@ -603,7 +594,6 @@ class LocalAnnotationScanner(
         alias.dependencies = arrayListOf(dependency)
         providedAliases[alias] = alias
         scanResult.providedBindings[alias] = alias
-        scanResult.providedBindingSources[alias] = symbol.containingFile!!
     }
 
     /**
@@ -627,7 +617,6 @@ class LocalAnnotationScanner(
                     val scope = Scope.Custom(originalName, canonicalName)
                     if (canonicalName !in scanResult.customScopeByCanonicalName) {
                         scanResult.customScopeByCanonicalName[canonicalName] = scope
-                        scanResult.scopeSources[scope] = symbol.containingFile!!
                     }
                     customScopeByQualifiedName[qualifiedName] = scope
                     scopeBySymbol[symbol] = scope
