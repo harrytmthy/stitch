@@ -103,6 +103,7 @@ object ContributionScanner {
                     is Scope.Custom -> customScopeByCanonicalName[binding.scope.canonicalName]
                     else -> null
                 },
+                nullable = binding.nullable,
                 location = binding.location,
                 kind = binding.kind,
                 providerPackageName = binding.providerPackageName,
@@ -233,12 +234,13 @@ object ContributionScanner {
                 val type = bindingAnnotation.arguments[1].value as String
                 val qualifier = Qualifier.of(bindingAnnotation.arguments[2].value as String)
                 val scopeCanonicalName = bindingAnnotation.arguments[3].value as String
-                val location = bindingAnnotation.arguments[4].value as String
-                val kind = bindingAnnotation.arguments[5].value as Int
-                val providerPackageName = bindingAnnotation.arguments[6].value as String
-                val providerFunctionName = bindingAnnotation.arguments[7].value as String
-                val providerClassName = bindingAnnotation.arguments[8].value as String
-                val dependsOn = bindingAnnotation.arguments[9].value as List<Int>
+                val nullable = bindingAnnotation.arguments[4].value as Boolean
+                val location = bindingAnnotation.arguments[5].value as String
+                val kind = bindingAnnotation.arguments[6].value as Int
+                val providerPackageName = bindingAnnotation.arguments[7].value as String
+                val providerFunctionName = bindingAnnotation.arguments[8].value as String
+                val providerClassName = bindingAnnotation.arguments[9].value as String
+                val dependsOn = bindingAnnotation.arguments[10].value as List<Int>
                 val binding = BindingDeclaration(type, qualifier, location)
                 localBindingById[id] = binding
                 localDependencies[id] = dependsOn
@@ -255,6 +257,7 @@ object ContributionScanner {
                             "" -> null
                             else -> customScopeByCanonicalName.getValue(scopeCanonicalName)
                         },
+                        nullable = nullable,
                         location = location,
                         kind = kind,
                         providerPackageName = providerPackageName,

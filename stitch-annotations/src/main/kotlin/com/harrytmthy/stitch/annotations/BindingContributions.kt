@@ -16,13 +16,6 @@
 
 package com.harrytmthy.stitch.annotations
 
-@Target(AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.BINARY)
-annotation class BindingContributions(
-    val bindings: Array<ContributedBinding>,
-    val requesters: Array<BindingRequester>,
-)
-
 /**
  * A meta-annotation which represents a binding that is provided and/or requested in each
  * contributor module. Each binding has a locally unique [id] (per contribution) which is
@@ -57,6 +50,7 @@ annotation class ContributedBinding(
     val type: String,
     val qualifier: String,
     val scope: String,
+    val nullable: Boolean,
     val location: String,
     val kind: Int,
     val providerPackageName: String,

@@ -179,7 +179,11 @@ object ScopedGraphGenerator {
             if (!binding.requiresDclHolder()) {
                 continue
             }
-            val holderType = dclHolderClass.parameterizedBy(ClassName.bestGuess(binding.type))
+            val bindingType = ClassName.bestGuess(binding.type)
+                .run {
+                    if (binding.nullable) copy(nullable = true) else this
+                }
+            val holderType = dclHolderClass.parameterizedBy(bindingType)
             addProperty(
                 PropertySpec.builder(
                     accessorName(binding),
@@ -198,8 +202,12 @@ object ScopedGraphGenerator {
     }
 
     private fun buildBindingAccessor(plan: InjectorPlan, binding: ValidatedBinding): FunSpec {
+        val returnType = ClassName.bestGuess(binding.type)
+            .run {
+                if (binding.nullable) copy(nullable = true) else this
+            }
         return FunSpec.builder(accessorName(binding))
-            .returns(ClassName.bestGuess(binding.type))
+            .returns(returnType)
             .addCode(buildBindingAccessorBody(plan, binding))
             .build()
     }

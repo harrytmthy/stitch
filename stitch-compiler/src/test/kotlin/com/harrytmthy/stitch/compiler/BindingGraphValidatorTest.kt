@@ -162,6 +162,7 @@ class BindingGraphValidatorTest {
             type = type,
             qualifier = qualifier,
             scope = scope,
+            nullable = false,
             location = "$type.kt:1",
             kind = BindingKind.PROVIDED_IN_CONSTRUCTOR,
         ).apply {
