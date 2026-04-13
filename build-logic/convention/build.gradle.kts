@@ -53,9 +53,9 @@ gradlePlugin {
             id = libs.plugins.stitch.android.library.get().pluginId
             implementationClass = "AndroidLibraryConventionPlugin"
         }
-        register("stitchJvm") {
-            id = libs.plugins.stitch.jvm.get().pluginId
-            implementationClass = "JvmConventionPlugin"
+        register("stitchMultiplatform") {
+            id = libs.plugins.stitch.multiplatform.get().pluginId
+            implementationClass = "MultiplatformConventionPlugin"
         }
         register("stitchPublishing") {
             id = libs.plugins.stitch.publishing.get().pluginId

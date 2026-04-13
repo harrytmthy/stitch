@@ -11,32 +11,29 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * imitations under the License.
+ * limitations under the License.
  */
 
-import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.plugins.JavaPluginExtension
-import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.assign
 import org.gradle.kotlin.dsl.configure
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 
-class JvmConventionPlugin : Plugin<Project> {
+class MultiplatformConventionPlugin : Plugin<Project> {
 
     override fun apply(target: Project) {
         with(target) {
-            apply(plugin = "org.jetbrains.kotlin.jvm")
-            extensions.configure<JavaPluginExtension> {
-                sourceCompatibility = JavaVersion.VERSION_11
-                targetCompatibility = JavaVersion.VERSION_11
-            }
-            extensions.configure<KotlinJvmProjectExtension> {
-                compilerOptions.jvmTarget = JvmTarget.JVM_11
-                compilerOptions.allWarningsAsErrors = true
-                compilerOptions.freeCompilerArgs.add("-Xcontext-parameters")
+            pluginManager.apply("org.jetbrains.kotlin.multiplatform")
+            extensions.configure<KotlinMultiplatformExtension> {
+                jvm {
+                    compilerOptions {
+                        jvmTarget = JvmTarget.JVM_11
+                        allWarningsAsErrors = true
+                        freeCompilerArgs.add("-Xcontext-parameters")
+                    }
+                }
             }
         }
     }

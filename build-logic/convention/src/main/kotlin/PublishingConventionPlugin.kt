@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import com.vanniktech.maven.publish.KotlinMultiplatform
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import com.vanniktech.maven.publish.SonatypeHost
 import org.gradle.api.Plugin
@@ -32,6 +33,9 @@ class PublishingConventionPlugin : Plugin<Project> {
             extensions.configure<MavenPublishBaseExtension> {
                 publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
                 signAllPublications()
+                pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
+                    configure(KotlinMultiplatform())
+                }
                 pom {
                     url.set("https://github.com/harrytmthy/stitch")
                     licenses {
