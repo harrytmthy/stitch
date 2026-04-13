@@ -33,7 +33,6 @@ class MultiplatformConventionPlugin : Plugin<Project> {
                         allWarningsAsErrors = true
                     }
                 }
-                compilerOptions.freeCompilerArgs.add("-Xcontext-parameters")
             }
         }
     }
