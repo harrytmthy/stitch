@@ -18,20 +18,57 @@ package com.harrytmthy.stitch.api
 
 import kotlin.reflect.KClass
 
+/**
+ * Core interface for Stitch's DI path. Generated scope graphs implement this interface.
+ *
+ * Each [Injector] represents a single scope in the dependency graph and can create child
+ * injectors for downstream scopes:
+ * ```
+ * val singleton: Injector = StitchInjector.getSingleton()
+ * val activityInjector = singleton.createInjectorForChildScope("activity")
+ * activityInjector.inject(this)
+ * ```
+ *
+ * @see StitchInjector
+ */
 interface Injector {
 
+    /** Unique identifier for this injector instance. */
     val id: Int
 
+    /** The scope name this injector manages (e.g., "singleton", "activity"). */
     val currentScope: String
 
+    /** The parent injector, or null if this is the root (singleton) scope. */
     val upstream: Injector?
 
+    /**
+     * Performs field injection on [target], setting all `@Inject`-annotated fields.
+     */
     fun inject(target: Any)
 
+    /**
+     * Creates an [Injector] for a child scope.
+     *
+     * Scope names are canonicalized (lowercased), so `"MyFragment"` and `"myfragment"` resolve
+     * to the same child.
+     *
+     * @param cached When true, the child injector is stored in [StitchInjector]'s cache and
+     *               can be retrieved later via [StitchInjector.getInjectorById].
+     * @throws IllegalStateException if [scopeName] is not a known child of this scope.
+     */
     fun createInjectorForChildScope(scopeName: String, cached: Boolean = false): Injector
 
+    /**
+     * Resolves a dependency by [type] and optional [qualifier].
+     *
+     * @throws IllegalStateException if no binding is found in this scope or its ancestors.
+     */
     fun <T : Any> get(type: KClass<*>, qualifier: Qualifier? = null): T
 }
 
+/**
+ * Reified convenience for [Injector.get].
+ */
 inline fun <reified T : Any> Injector.get(qualifier: Qualifier? = null): T =
     get(T::class, qualifier)

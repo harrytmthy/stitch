@@ -21,10 +21,34 @@ import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
 import kotlin.reflect.KClass
 
+/**
+ * Main entry point for Stitch's service locator (SL) path.
+ *
+ * Use [register] and [unregister] to manage modules at runtime, and [get] or [inject] to
+ * resolve dependencies.
+ *
+ * Example:
+ * ```
+ * val appModule = module {
+ *     singleton { LoggerImpl() }.bind<Logger>()
+ *     factory { HomeRepository(logger = get()) }
+ * }
+ * Stitch.register(appModule)
+ *
+ * val logger: Logger = Stitch.get()
+ * ```
+ *
+ * For the DI path, see [StitchInjector].
+ */
 object Stitch {
 
     private val component by lazy { Component() }
 
+    /**
+     * Registers one or more [modules], making their bindings available for resolution.
+     *
+     * Eager singletons are warmed up immediately after registration.
+     */
     fun register(vararg modules: Module) {
         modules.forEach { module ->
             module.register()
@@ -41,6 +65,9 @@ object Stitch {
         }
     }
 
+    /**
+     * Unregisters one or more [modules], removing all their bindings from the registry.
+     */
     fun unregister(vararg modules: Module) {
         modules.forEach { module ->
             val registeredNodes = module.getRegisteredNodes()
@@ -73,13 +100,32 @@ object Stitch {
         ScopeManager.clear()
     }
 
+    /**
+     * Resolves a dependency of type [T].
+     *
+     * @throws com.harrytmthy.stitch.exception.MissingBindingException if no binding is found.
+     * @throws com.harrytmthy.stitch.exception.CycleException if a dependency cycle is detected.
+     * @throws com.harrytmthy.stitch.exception.MissingScopeException if the binding is scoped but no [scope] is provided.
+     * @throws com.harrytmthy.stitch.exception.ScopeClosedException if the [scope] is not open.
+     */
     inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
         getInternal(T::class, qualifier, scope, resolutionContext = null)
 
+    /**
+     * Resolves a dependency of type [T] within an active [ResolutionContext].
+     *
+     * This overload is used inside factory lambdas where a [ResolutionContext] is available,
+     * enabling cycle detection across the dependency chain.
+     */
     context(resolutionContext: ResolutionContext)
     inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
         getInternal(T::class, qualifier, scope, resolutionContext)
 
+    /**
+     * Returns a [Lazy] that resolves a dependency of type [T] on first access.
+     *
+     * The lazy uses [LazyThreadSafetyMode.NONE], so it is not thread-safe.
+     */
     inline fun <reified T : Any> inject(
         qualifier: Qualifier? = null,
         scope: Scope? = null,
@@ -100,5 +146,8 @@ object Stitch {
     }
 }
 
+/**
+ * Top-level convenience for [Stitch.get].
+ */
 inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
     Stitch.get(qualifier, scope)

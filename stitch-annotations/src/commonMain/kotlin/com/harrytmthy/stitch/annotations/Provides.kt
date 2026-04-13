@@ -17,24 +17,21 @@
 package com.harrytmthy.stitch.annotations
 
 /**
- * Marks a method as a dependency provider.
+ * Marks a function as a dependency provider.
  *
- * Methods annotated with @Provides must be inside a @Module class and
- * define how to create a specific dependency.
- *
+ * Can be placed on top-level functions, or on functions inside an object or class.
  * By default, providers create a new instance each time (factory behavior).
- * Add @Singleton to make the dependency a singleton.
+ * Add [Singleton] to make the dependency a singleton, or a scope annotation to make it scoped.
  *
  * Example:
  * ```
- * @Module
- * class AppModule {
+ * object AppModule {
  *     @Provides
- *     fun provideLogger(): Logger = Logger()
+ *     fun provideLogger(): Logger = LoggerImpl()
  *
  *     @Provides
  *     @Singleton
- *     fun provideDatabase(): Database = Database()
+ *     fun provideDatabase(): Database = DatabaseImpl()
  * }
  * ```
  */

@@ -21,14 +21,37 @@ import com.harrytmthy.stitch.internal.ConcurrentHashMap
 import com.harrytmthy.stitch.internal.Registry
 import kotlinx.atomicfu.atomic
 
+/**
+ * A runtime scope instance that controls the lifecycle and caching of scoped bindings.
+ *
+ * Obtain instances via [ScopeRef.createScope]:
+ * ```
+ * val activityScope = scope("activity")
+ * val instance = activityScope.createScope()
+ * instance.open()
+ *
+ * val viewModel: HomeViewModel = instance.get()
+ *
+ * instance.close() // Clears all cached instances for this scope
+ * ```
+ *
+ * A scope must be [open]ed before resolution and [close]d when the lifecycle ends.
+ * Resolving from a closed scope throws [ScopeClosedException].
+ */
 class Scope internal constructor(val id: Int, val name: String) {
 
     private val open = atomic(false)
 
+    /**
+     * Opens this scope, allowing bindings to be resolved.
+     */
     fun open() {
         open.value = true
     }
 
+    /**
+     * Closes this scope, clearing all cached instances and preventing further resolution.
+     */
     fun close() {
         open.value = false
         Registry.scoped.remove(id)
@@ -37,6 +60,12 @@ class Scope internal constructor(val id: Int, val name: String) {
 
     fun isOpen(): Boolean = open.value
 
+    /**
+     * Resolves a scoped dependency of type [T].
+     *
+     * @throws ScopeClosedException if this scope is not open.
+     * @throws com.harrytmthy.stitch.exception.MissingBindingException if no binding is found.
+     */
     inline fun <reified T : Any> get(qualifier: Qualifier? = null): T {
         if (!isOpen()) {
             // Fail-fast: We already have this exception
@@ -49,6 +78,11 @@ class Scope internal constructor(val id: Int, val name: String) {
         return value
     }
 
+    /**
+     * Returns a [Lazy] that resolves a scoped dependency of type [T] on first access.
+     *
+     * The lazy uses [LazyThreadSafetyMode.NONE], so it is not thread-safe.
+     */
     inline fun <reified T : Any> inject(qualifier: Qualifier? = null): Lazy<T> =
         lazy(LazyThreadSafetyMode.NONE) { get(qualifier) }
 
@@ -57,8 +91,17 @@ class Scope internal constructor(val id: Int, val name: String) {
     override fun equals(other: Any?): Boolean = other is Scope && other.id == this.id
 }
 
+/**
+ * A scope template that creates [Scope] instances. Obtained via the [scope] function.
+ *
+ * Multiple [Scope] instances can be created from the same [ScopeRef], each with its own
+ * lifecycle and cached bindings.
+ */
 class ScopeRef(val name: String) {
 
+    /**
+     * Creates a new [Scope] instance. The scope starts closed; call [Scope.open] before use.
+     */
     fun createScope(): Scope {
         val id = ScopeManager.nextId()
         val inner = ScopeManager.idsByScopeName.computeIfAbsent(name) { HashSet() }
@@ -97,4 +140,13 @@ internal object ScopeManager {
     }
 }
 
+/**
+ * Returns a pooled [ScopeRef] for the given [name], creating one if it doesn't exist.
+ *
+ * ```
+ * val activityScope = scope("activity")
+ * ```
+ *
+ * @throws IllegalStateException if [name] is empty.
+ */
 fun scope(name: String): ScopeRef = ScopeManager.getOrCreate(name)

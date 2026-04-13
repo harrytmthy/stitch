@@ -26,6 +26,12 @@ import com.harrytmthy.stitch.internal.Registry
 import kotlinx.atomicfu.locks.synchronized
 import kotlin.reflect.KClass
 
+/**
+ * Core resolution engine for the SL path. Handles multi-level caching (singleton, scoped),
+ * type alias resolution, cycle detection, and thread-safe double-checked locking.
+ *
+ * This class is not intended for direct use; interact with it through [Stitch] or [Scope].
+ */
 class Component internal constructor() {
 
     @PublishedApi

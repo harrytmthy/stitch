@@ -18,6 +18,13 @@ package com.harrytmthy.stitch.api
 
 import kotlinx.atomicfu.atomic
 
+/**
+ * A thread-safe holder for double-checked locking, used by generated DI graphs
+ * to lazily initialize bindings.
+ *
+ * Check [reference] against [Uninitialized] to determine whether the value has been set,
+ * using [lock] for synchronization.
+ */
 @Suppress("UNCHECKED_CAST")
 class DclHolder<T> {
 

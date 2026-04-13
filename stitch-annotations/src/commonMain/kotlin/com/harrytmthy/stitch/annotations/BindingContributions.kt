@@ -16,6 +16,13 @@
 
 package com.harrytmthy.stitch.annotations
 
+/**
+ * Generated annotation placed on contributor stub classes to carry binding metadata
+ * across module boundaries. The aggregator at the [StitchRoot] module reads these
+ * to assemble the full dependency graph.
+ *
+ * This is not intended for manual use.
+ */
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)
 annotation class BindingContributions(
@@ -64,6 +71,18 @@ annotation class ContributedBinding(
     val dependsOn: IntArray,
 )
 
+/**
+ * Represents a class that requests field injection via `@Inject`-annotated fields.
+ *
+ * @param name The fully qualified name of the requesting class.
+ * @param fields The fields to be injected, each referencing a [ContributedBinding] by ID.
+ */
 annotation class BindingRequester(val name: String, val fields: Array<RequestedField>)
 
+/**
+ * A single `@Inject`-annotated field that needs injection.
+ *
+ * @param bindingId The locally unique ID of the [ContributedBinding] this field resolves to.
+ * @param fieldName The name of the field in the requesting class.
+ */
 annotation class RequestedField(val bindingId: Int, val fieldName: String)

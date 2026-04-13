@@ -17,15 +17,13 @@
 package com.harrytmthy.stitch.annotations
 
 /**
- * A string-based qualifier annotation.
+ * A string-based qualifier annotation for the DI path.
  *
- * Use this to differentiate between multiple bindings of the same type
- * using a string identifier.
+ * Use this to differentiate between multiple bindings of the same type.
  *
  * Example:
  * ```
- * @Module
- * class UrlModule {
+ * object UrlModule {
  *     @Provides
  *     @Named("prod")
  *     fun provideProdUrl(): String = "https://api.prod.com"

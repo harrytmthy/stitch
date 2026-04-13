@@ -16,6 +16,13 @@
 
 package com.harrytmthy.stitch.annotations
 
+/**
+ * Generated annotation placed on contributor stub classes to carry scope metadata
+ * across module boundaries. The aggregator at the [StitchRoot] module reads these
+ * to build the scope hierarchy.
+ *
+ * This is not intended for manual use.
+ */
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)
 annotation class ScopeContributions(val scopes: Array<RegisteredScope>)

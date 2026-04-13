@@ -19,6 +19,17 @@ package com.harrytmthy.stitch.api
 import com.harrytmthy.stitch.exception.CycleException
 import com.harrytmthy.stitch.internal.Node
 
+/**
+ * Tracks the resolution stack during dependency resolution, enabling cycle detection.
+ *
+ * A [ResolutionContext] is available as a receiver inside factory lambdas, providing
+ * [get] and [lazyOf] for resolving transitive dependencies:
+ * ```
+ * singleton { HomeViewModel(logger = get(), repo = get()) }
+ * ```
+ *
+ * @throws com.harrytmthy.stitch.exception.CycleException if a dependency cycle is detected.
+ */
 class ResolutionContext internal constructor(val component: Component, val scope: Scope?) {
 
     private val stack = ArrayDeque<Node>()
@@ -44,9 +55,18 @@ class ResolutionContext internal constructor(val component: Component, val scope
         indexByNode.remove(removed)
     }
 
+    /**
+     * Resolves a transitive dependency of type [T] within this resolution context.
+     */
     inline fun <reified T : Any> get(qualifier: Qualifier? = null): T =
         component.getInternal(T::class, qualifier, scope, resolutionContext = this)
 
+    /**
+     * Returns a [Lazy] that resolves a dependency of type [T] on first access.
+     *
+     * Useful for breaking initialization order constraints without introducing a full cycle.
+     * The lazy uses [LazyThreadSafetyMode.NONE].
+     */
     inline fun <reified T : Any> lazyOf(qualifier: Qualifier? = null): Lazy<T> =
         lazy(LazyThreadSafetyMode.NONE) {
             component.getInternal(T::class, qualifier, scope, resolutionContext = this)

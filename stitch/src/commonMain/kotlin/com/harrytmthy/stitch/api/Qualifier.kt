@@ -19,8 +19,26 @@ package com.harrytmthy.stitch.api
 import com.harrytmthy.stitch.internal.ConcurrentHashMap
 import kotlinx.atomicfu.atomic
 
+/**
+ * Differentiates between multiple bindings of the same type.
+ *
+ * @see Named
+ */
 sealed interface Qualifier
 
+/**
+ * A string-based [Qualifier] for the SL path. Instances are pooled; calling [named] or [of]
+ * with the same value always returns the same instance.
+ *
+ * ```
+ * val prodModule = module {
+ *     singleton(qualifier = named("prod")) { ProdConfig() }.bind<Config>()
+ *     singleton(qualifier = named("staging")) { StagingConfig() }.bind<Config>()
+ * }
+ *
+ * val config: Config = Stitch.get(qualifier = named("prod"))
+ * ```
+ */
 class Named private constructor(val value: String) : Qualifier {
 
     private val id = nextId()
@@ -46,6 +64,9 @@ class Named private constructor(val value: String) : Qualifier {
     }
 }
 
+/**
+ * Returns a pooled [Named] qualifier for the given [value].
+ */
 fun named(value: String): Named = Named.of(value)
 
 internal object DefaultQualifier : Qualifier

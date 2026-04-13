@@ -17,12 +17,10 @@
 package com.harrytmthy.stitch.annotations
 
 /**
- * Marks an annotation as a qualifier annotation.
+ * Meta-annotation that marks an annotation as a qualifier.
  *
- * Qualifier annotations are used to differentiate between multiple bindings
- * of the same type.
- *
- * Example:
+ * Qualifiers differentiate between multiple bindings of the same type.
+ * Use [Named] for simple string-based qualification, or create custom qualifiers:
  * ```
  * @Qualifier
  * @Retention(AnnotationRetention.BINARY)
@@ -32,14 +30,11 @@ package com.harrytmthy.stitch.annotations
  * @Retention(AnnotationRetention.BINARY)
  * annotation class Staging
  *
- * @Module
- * class ConfigModule {
- *     @Provides
- *     @Production
+ * object ConfigModule {
+ *     @Provides @Production
  *     fun provideProdUrl(): String = "https://api.prod.com"
  *
- *     @Provides
- *     @Staging
+ *     @Provides @Staging
  *     fun provideStagingUrl(): String = "https://api.staging.com"
  * }
  * ```

@@ -31,9 +31,9 @@ class MultiplatformConventionPlugin : Plugin<Project> {
                     compilerOptions {
                         jvmTarget = JvmTarget.JVM_11
                         allWarningsAsErrors = true
-                        freeCompilerArgs.add("-Xcontext-parameters")
                     }
                 }
+                compilerOptions.freeCompilerArgs.add("-Xcontext-parameters")
             }
         }
     }

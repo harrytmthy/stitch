@@ -25,6 +25,21 @@ import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
 import kotlin.reflect.KClass
 
+/**
+ * A container for binding definitions in Stitch's SL path.
+ *
+ * Use the [module] factory function to create instances via a DSL:
+ * ```
+ * val networkModule = module {
+ *     singleton { OkHttpClient() }
+ *     factory { ApiService(client = get()) }
+ *     scoped(activityScope) { HomeViewModel(api = get()) }
+ * }
+ * ```
+ *
+ * @param forceEager When true, all singletons in this module are eagerly initialized on
+ *                   [Stitch.register], regardless of individual `eager` flags.
+ */
 class Module(private val forceEager: Boolean, private val onRegister: Module.() -> Unit) {
 
     private val registeredNodes = ArrayList<Node>()
@@ -35,6 +50,16 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         onRegister(this)
     }
 
+    /**
+     * Registers a singleton binding. The [factory] is invoked at most once; subsequent
+     * resolutions return the cached instance.
+     *
+     * @param eager When true (or when the module's [forceEager] is true), the instance is
+     *              created immediately on [Stitch.register] instead of on first access.
+     * @return A [Bindable] that can be chained with [Bindable.bind] to register type aliases.
+     * @throws com.harrytmthy.stitch.exception.DuplicateBindingException if a binding for the
+     *         same type and qualifier already exists.
+     */
     inline fun <reified T : Any> singleton(
         qualifier: Qualifier? = null,
         eager: Boolean = false,
@@ -43,6 +68,14 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         return define(T::class, qualifier, Singleton, eager, null, factory, null)
     }
 
+    /**
+     * Registers a factory binding. The [factory] is invoked on every resolution, producing
+     * a new instance each time.
+     *
+     * @return A [Bindable] that can be chained with [Bindable.bind] to register type aliases.
+     * @throws com.harrytmthy.stitch.exception.DuplicateBindingException if a binding for the
+     *         same type and qualifier already exists.
+     */
     inline fun <reified T : Any> factory(
         qualifier: Qualifier? = null,
         noinline factory: ResolutionContext.() -> T,
@@ -50,6 +83,14 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         return define(T::class, qualifier, Factory, false, null, factory, null)
     }
 
+    /**
+     * Registers a scoped binding tied to [scopeRef]. The [factory] is invoked once per
+     * [Scope] instance created from the given [scopeRef].
+     *
+     * @return A [Bindable] that can be chained with [Bindable.bind] to register type aliases.
+     * @throws com.harrytmthy.stitch.exception.DuplicateBindingException if a binding for the
+     *         same type, qualifier, and scope already exists.
+     */
     inline fun <reified T : Any> scoped(
         scopeRef: ScopeRef,
         qualifier: Qualifier? = null,
@@ -155,5 +196,11 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
     internal fun getRegisteredEagerNodes(): ArrayList<Node> = registeredEagerNodes
 }
 
+/**
+ * Creates a [Module] using a DSL builder.
+ *
+ * @param forceEager When true, all singletons defined in this module are eagerly initialized
+ *                   on [Stitch.register].
+ */
 fun module(forceEager: Boolean = false, onRegister: Module.() -> Unit): Module =
     Module(forceEager, onRegister)
