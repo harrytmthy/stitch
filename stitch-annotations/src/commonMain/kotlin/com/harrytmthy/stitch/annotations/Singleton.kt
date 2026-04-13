@@ -19,16 +19,18 @@ package com.harrytmthy.stitch.annotations
 /**
  * Indicates that a single shared instance should be created.
  *
- * When applied to a @Provides method, the dependency will be created only once
- * and the same instance will be returned on subsequent requests.
+ * Can be applied to `@Provides` functions or `@Inject` classes. The instance is created
+ * once and reused for all subsequent resolutions.
  *
  * Example:
  * ```
- * @Module
- * class AppModule {
+ * @Singleton
+ * class AppDatabase @Inject constructor() { ... }
+ *
+ * object AppModule {
  *     @Provides
  *     @Singleton
- *     fun provideDatabase(): Database = Database()
+ *     fun provideLogger(): Logger = LoggerImpl()
  * }
  * ```
  */

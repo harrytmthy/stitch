@@ -18,8 +18,28 @@ package com.harrytmthy.stitch.api
 
 import kotlin.reflect.KClass
 
+/**
+ * Enables registering type aliases for a binding, so a single instance can be resolved
+ * by multiple supertypes.
+ *
+ * ```
+ * singleton { LoggerImpl() }.bind<Logger>()
+ * ```
+ *
+ * Calls can be chained to bind multiple types:
+ * ```
+ * singleton { UserRepositoryImpl() }.bind<UserRepository>().bind<UserReader>()
+ * ```
+ */
 interface Bindable {
+
+    /**
+     * Registers [type] as an alias for this binding.
+     */
     fun <T : Any> bind(type: KClass<T>): Bindable
 }
 
+/**
+ * Reified convenience for [Bindable.bind].
+ */
 inline fun <reified T : Any> Bindable.bind(): Bindable = bind(T::class)

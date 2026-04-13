@@ -21,20 +21,12 @@ import kotlin.reflect.KClass
 /**
  * Declares type aliases for dependency bindings without duplicating singleton instances.
  *
- * This annotation enables binding an implementation to one or more supertypes (interfaces/abstract classes)
- * while maintaining a single canonical instance. This is useful for:
+ * This annotation enables binding an implementation to one or more supertypes
+ * (interfaces/abstract classes) while maintaining a single canonical instance. This is
+ * useful for:
  * - Interface implementation bindings (Dagger parity)
  * - Multiple interface implementations
  * - Avoiding duplicate singleton fields/locks
- *
- * **Method-level usage (in interface/abstract modules):**
- * ```
- * @Module
- * interface NetworkModule {
- *     @Binds
- *     fun bindRepository(impl: UserRepositoryImpl): UserRepository
- * }
- * ```
  *
  * **Class-level usage (on @Inject classes):**
  * ```
@@ -45,8 +37,7 @@ import kotlin.reflect.KClass
  *
  * **Method-level on @Provides (chaining):**
  * ```
- * @Module
- * class AppModule {
+ * object AppModule {
  *     @Provides
  *     @Singleton
  *     @Binds(aliases = [Service::class])

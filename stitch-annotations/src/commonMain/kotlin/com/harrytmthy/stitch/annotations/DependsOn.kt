@@ -18,6 +18,27 @@ package com.harrytmthy.stitch.annotations
 
 import kotlin.reflect.KClass
 
+/**
+ * Specifies the parent scope that a [Scope]-annotated annotation depends on.
+ *
+ * When omitted, a scope defaults to depending on [Singleton].
+ *
+ * Example:
+ * ```
+ * @Scope
+ * @Retention(AnnotationRetention.RUNTIME)
+ * annotation class Activity
+ *
+ * @Scope
+ * @DependsOn(Activity::class)
+ * @Retention(AnnotationRetention.RUNTIME)
+ * annotation class Fragment
+ * ```
+ *
+ * This creates the chain: `@Fragment → @Activity → @Singleton`
+ *
+ * @param scope The parent scope annotation class. Defaults to [Singleton].
+ */
 @Target(AnnotationTarget.ANNOTATION_CLASS)
 @Retention(AnnotationRetention.BINARY)
 annotation class DependsOn(val scope: KClass<*> = Singleton::class)

@@ -19,47 +19,32 @@ package com.harrytmthy.stitch.annotations
 /**
  * Meta-annotation that identifies a scope annotation for the DI path.
  *
- * Scope annotations are used to control the lifecycle and sharing of dependencies
- * within a specific scope (e.g. Activity scope, Fragment scope). Each scope
- * can depend on an upstream scope, forming a unidirectional dependency chain.
+ * Scope annotations control the lifecycle and sharing of dependencies within a specific scope
+ * (e.g. Activity scope, Fragment scope). Combine with [DependsOn] to form a unidirectional
+ * dependency chain.
  *
- * Example usage:
- * ```kotlin
- * @Scope(dependsOn = Singleton::class)
+ * Example:
+ * ```
+ * @Scope
  * @Retention(AnnotationRetention.RUNTIME)
- * annotation class ActivityScope
+ * annotation class Activity
  *
- * @Scope(dependsOn = ActivityScope::class)
+ * @Scope(name = "myFragment")
+ * @DependsOn(Activity::class)
  * @Retention(AnnotationRetention.RUNTIME)
- * annotation class FragmentScope
+ * annotation class Fragment
  * ```
  *
- * This creates a dependency chain: `@FragmentScope → @ActivityScope → @Singleton`
+ * This creates a dependency chain: `@Fragment → @Activity → @Singleton`
  *
- * **Dependency Flow Rules:**
- * - Bindings in a scope can depend on bindings in the same scope or any ancestor scope
- * - Bindings cannot depend on descendant scopes or sibling scopes
- * - Example: `@FragmentScope` bindings can depend on `@ActivityScope` and `@Singleton` bindings
+ * Scopes without [DependsOn] default to depending on [Singleton].
  *
- * **Generated Components:**
- * - Each scope generates a `StitchXxxScopeComponent` class with double-checked locking
- * - Root scopes (depend on Singleton) have no upstream property
- * - Downstream scopes have an `upstream` property pointing to their dependency
- * - Each component has a factory: `StitchXxxScopeComponentFactory.create()`
+ * @param name Optional custom name for this scope. When empty, the annotation's simple name
+ *             is used (lowercased). Custom names are canonicalized to lowercase.
  *
- * **Field Injection:**
- * - Classes can have fields from multiple scopes (must be on the same ancestor path)
- * - Injector takes the deepest scope component as a parameter
- * - Injection chains through upstream scopes automatically
- *
- * @param dependsOn The upstream scope that this scope depends on. Defaults to [Singleton]
- *                  which marks this as a root custom scope. Use another scope annotation
- *                  class to create downstream scopes.
- *
+ * @see DependsOn
  * @see Singleton
- * @see Named
- * @see Qualifier
  */
-@Target(AnnotationTarget.ANNOTATION_CLASS, AnnotationTarget.FIELD)
+@Target(AnnotationTarget.ANNOTATION_CLASS, AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.BINARY)
 annotation class Scope(val name: String = "")
