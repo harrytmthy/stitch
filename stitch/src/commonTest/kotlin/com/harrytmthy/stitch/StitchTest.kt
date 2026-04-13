@@ -188,8 +188,8 @@ class StitchTest {
     @Test
     fun `get with detected cycle should throw CycleException`() {
         val module = module {
-            singleton { A(Stitch.get()) } // A -> B
-            singleton { B(Stitch.get()) } // B -> A
+            singleton { A(get()) } // A -> B
+            singleton { B(get()) } // B -> A
         }
         Stitch.register(module)
 

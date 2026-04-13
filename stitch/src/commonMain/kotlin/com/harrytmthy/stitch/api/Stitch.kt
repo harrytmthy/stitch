@@ -16,7 +16,11 @@
 
 package com.harrytmthy.stitch.api
 
+import com.harrytmthy.stitch.api.Stitch.get
+import com.harrytmthy.stitch.api.Stitch.inject
+import com.harrytmthy.stitch.api.Stitch.register
 import com.harrytmthy.stitch.api.Stitch.reset
+import com.harrytmthy.stitch.api.Stitch.unregister
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
 import kotlin.reflect.KClass
@@ -101,25 +105,10 @@ object Stitch {
     }
 
     /**
-     * Resolves a dependency of type [T].
-     *
-     * @throws com.harrytmthy.stitch.exception.MissingBindingException if no binding is found.
-     * @throws com.harrytmthy.stitch.exception.CycleException if a dependency cycle is detected.
-     * @throws com.harrytmthy.stitch.exception.MissingScopeException if the binding is scoped but no [scope] is provided.
-     * @throws com.harrytmthy.stitch.exception.ScopeClosedException if the [scope] is not open.
+     * Resolves a dependency of type [T] with the given [qualifier] and [scope].
      */
     inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
         getInternal(T::class, qualifier, scope, resolutionContext = null)
-
-    /**
-     * Resolves a dependency of type [T] within an active [ResolutionContext].
-     *
-     * This overload is used inside factory lambdas where a [ResolutionContext] is available,
-     * enabling cycle detection across the dependency chain.
-     */
-    context(resolutionContext: ResolutionContext)
-    inline fun <reified T : Any> get(qualifier: Qualifier? = null, scope: Scope? = null): T =
-        getInternal(T::class, qualifier, scope, resolutionContext)
 
     /**
      * Returns a [Lazy] that resolves a dependency of type [T] on first access.
