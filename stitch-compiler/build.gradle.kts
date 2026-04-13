@@ -15,9 +15,22 @@
  */
 
 plugins {
-    alias(libs.plugins.stitch.jvm)
+    alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.stitch.publishing)
     `java-gradle-plugin`
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
+        allWarningsAsErrors = true
+        freeCompilerArgs.add("-Xcontext-parameters")
+    }
 }
 
 dependencies {

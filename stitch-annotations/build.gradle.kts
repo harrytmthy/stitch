@@ -15,7 +15,7 @@
  */
 
 plugins {
-    alias(libs.plugins.stitch.jvm)
+    alias(libs.plugins.stitch.multiplatform)
     alias(libs.plugins.stitch.publishing)
 }
 

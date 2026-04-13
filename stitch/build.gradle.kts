@@ -15,7 +15,7 @@
  */
 
 plugins {
-    alias(libs.plugins.stitch.jvm)
+    alias(libs.plugins.stitch.multiplatform)
     alias(libs.plugins.stitch.publishing)
     alias(libs.plugins.kotlin.atomicfu.plugin)
     alias(libs.plugins.kotlin.binary.compatibility)
@@ -23,15 +23,13 @@ plugins {
 
 kotlin {
     sourceSets {
-        val main by getting { kotlin.setSrcDirs(listOf("src/commonMain/kotlin")) }
-        val test by getting { kotlin.setSrcDirs(listOf("src/commonTest/kotlin")) }
+        commonMain.dependencies {
+            api(libs.kotlin.atomicfu)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
     }
-}
-
-dependencies {
-    api(libs.kotlin.atomicfu)
-    implementation(libs.kotlin.stdlib)
-    testImplementation(libs.kotlin.test)
 }
 
 mavenPublishing {

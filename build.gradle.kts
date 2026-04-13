@@ -5,5 +5,6 @@ plugins {
     alias(libs.plugins.kotlin.atomicfu.plugin) apply false
     alias(libs.plugins.kotlin.binary.compatibility) apply false
     alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.kotlin.multiplatform) apply false
     alias(libs.plugins.maven.publish) apply false
 }
