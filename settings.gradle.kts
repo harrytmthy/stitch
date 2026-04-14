@@ -30,6 +30,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "Stitch"
 include(":app")
+include(":benchmark")
 include(":core")
 include(":feature:home")
 include(":stitch")
