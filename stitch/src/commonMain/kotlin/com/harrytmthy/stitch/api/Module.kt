@@ -26,7 +26,7 @@ import com.harrytmthy.stitch.internal.Registry
 import kotlin.reflect.KClass
 
 /**
- * A container for binding definitions in Stitch's SL path.
+ * A container for binding definitions in Stitch's runtime registration path.
  *
  * Use the [module] factory function to create instances via a DSL:
  * ```
@@ -40,14 +40,72 @@ import kotlin.reflect.KClass
  * @param forceEager When true, all singletons in this module are eagerly initialized on
  *                   [Stitch.register], regardless of individual `eager` flags.
  */
-class Module(private val forceEager: Boolean, private val onRegister: Module.() -> Unit) {
+class Module(private val forceEager: Boolean, onInit: Module.() -> Unit) {
 
-    private val registeredNodes = ArrayList<Node>()
+    private val definitions = HashSet<Node>()
 
-    private val registeredEagerNodes = ArrayList<Node>()
+    private val scopedDefinitions = HashSet<Node>()
 
-    internal fun register() {
-        onRegister(this)
+    private val nodeAliases = HashMap<Node, HashSet<KClass<*>>>()
+
+    private val eagerNodes = ArrayList<Node>()
+
+    init {
+        onInit(this)
+    }
+
+    fun register() {
+        for (node in definitions) {
+            Registry.definitions[node.type]?.let { nodeByQualifier ->
+                if (node.qualifier in nodeByQualifier) {
+                    throw DuplicateBindingException(node.type, node.qualifier, scopeName = null)
+                }
+            }
+            val nodeByQualifier = Registry.definitions.getOrPut(node.type, ::HashMap)
+            nodeByQualifier[node.qualifier] = node
+        }
+
+        for (node in scopedDefinitions) {
+            Registry.scopedDefinitions[node.scopeName]?.let { qualifiersByType ->
+                qualifiersByType[node.type]?.let { nodeByQualifier ->
+                    if (node.qualifier in nodeByQualifier) {
+                        throw DuplicateBindingException(node.type, node.qualifier, node.scopeName)
+                    }
+                }
+            }
+            val qualifiersByType = Registry.scopedDefinitions.getOrPut(node.scopeName!!, ::HashMap)
+            val nodeByQualifier = qualifiersByType.getOrPut(node.type, ::HashMap)
+            nodeByQualifier[node.qualifier] = node
+        }
+
+        for ((node, aliases) in nodeAliases) {
+            for (aliasType in aliases) {
+                if (node.scopeName == null) {
+                    val primary = Registry.definitions[node.type]
+                        ?: error("$node is missing from the registry during alias registration")
+                    val existing = Registry.definitions[aliasType]
+                    check(existing == null || existing === primary) {
+                        "'${aliasType.qualifiedName}' is already registered as an alias for $node"
+                    }
+                    Registry.definitions[aliasType] = primary
+                } else {
+                    val scopedByType = Registry.scopedDefinitions[node.scopeName]
+                        ?: error("$node is missing from the registry during alias registration")
+                    val primaryScoped = scopedByType[node.type]
+                        ?: error("$node is missing from the registry during alias registration")
+                    val existingScoped = scopedByType[aliasType]
+                    check(existingScoped == null || existingScoped === primaryScoped) {
+                        "'${aliasType.qualifiedName}' is already registered as an alias for $node"
+                    }
+                    scopedByType[aliasType] = primaryScoped
+                }
+            }
+        }
+
+        // Warmup eager nodes
+        for (node in eagerNodes) {
+            Stitch.get(node.type, node.qualifier)
+        }
     }
 
     /**
@@ -57,15 +115,14 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
      * @param eager When true (or when the module's [forceEager] is true), the instance is
      *              created immediately on [Stitch.register] instead of on first access.
      * @return A [Bindable] that can be chained with [Bindable.bind] to register type aliases.
-     * @throws com.harrytmthy.stitch.exception.DuplicateBindingException if a binding for the
-     *         same type and qualifier already exists.
+     * @throws DuplicateBindingException if a binding for the same type + qualifier already exists.
      */
     inline fun <reified T : Any> singleton(
         qualifier: Qualifier? = null,
         eager: Boolean = false,
         noinline factory: ResolutionContext.() -> T,
     ): Bindable {
-        return define(T::class, qualifier, Singleton, eager, null, factory, null)
+        return define(T::class, qualifier, Singleton, eager, null, factory)
     }
 
     /**
@@ -73,14 +130,13 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
      * a new instance each time.
      *
      * @return A [Bindable] that can be chained with [Bindable.bind] to register type aliases.
-     * @throws com.harrytmthy.stitch.exception.DuplicateBindingException if a binding for the
-     *         same type and qualifier already exists.
+     * @throws DuplicateBindingException if a binding for the same type + qualifier already exists.
      */
     inline fun <reified T : Any> factory(
         qualifier: Qualifier? = null,
         noinline factory: ResolutionContext.() -> T,
     ): Bindable {
-        return define(T::class, qualifier, Factory, false, null, factory, null)
+        return define(T::class, qualifier, Factory, false, null, factory)
     }
 
     /**
@@ -88,15 +144,15 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
      * [Scope] instance created from the given [scopeRef].
      *
      * @return A [Bindable] that can be chained with [Bindable.bind] to register type aliases.
-     * @throws com.harrytmthy.stitch.exception.DuplicateBindingException if a binding for the
-     *         same type, qualifier, and scope already exists.
+     * @throws DuplicateBindingException if a binding for the same type + qualifier + scope
+     *         already exists.
      */
     inline fun <reified T : Any> scoped(
         scopeRef: ScopeRef,
         qualifier: Qualifier? = null,
         noinline factory: ResolutionContext.() -> T,
     ): Bindable {
-        return define(T::class, qualifier, Scoped, false, scopeRef.name, null, factory)
+        return define(T::class, qualifier, Scoped, false, scopeRef.name, factory)
     }
 
     @PublishedApi
@@ -107,93 +163,42 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
         eager: Boolean,
         scopeName: String?,
         factory: (ResolutionContext.() -> T)?,
-        scopedFactory: (ResolutionContext.() -> T)?,
     ): Bindable {
-        return when (definitionType) {
-            Factory -> createAndRegisterNode(type, qualifier, definitionType, factory!!)
-                .also(registeredNodes::add)
-
-            Singleton -> createAndRegisterNode(type, qualifier, definitionType, factory!!)
-                .also {
-                    if (eager || forceEager) {
-                        registeredEagerNodes.add(it)
-                    } else {
-                        registeredNodes.add(it)
-                    }
-                }
-
-            Scoped -> createAndRegisterScopedNode(type, qualifier, scopeName!!, scopedFactory!!)
-                .also(registeredNodes::add)
-        }
-    }
-
-    private fun <T : Any> createAndRegisterNode(
-        type: KClass<T>,
-        qualifier: Qualifier?,
-        definitionType: DefinitionType,
-        factory: ResolutionContext.() -> T,
-    ): Node {
-        val node = Node(
-            type = type,
-            qualifier = qualifier,
-            scopeName = null,
-            definitionType = definitionType,
-            factory = factory,
-            onBind = ::registerAlias,
-        )
-        val inner = Registry.definitions.getOrPut(type) { HashMap() }
-        if (inner.containsKey(qualifier)) {
-            throw DuplicateBindingException(type, qualifier, scopeName = null)
-        }
-        inner[qualifier] = node
-        return node
-    }
-
-    private fun <T : Any> createAndRegisterScopedNode(
-        type: KClass<T>,
-        qualifier: Qualifier?,
-        scopeName: String,
-        factory: ResolutionContext.() -> T,
-    ): Node {
-        val node = Node(
+        return Node(
             type = type,
             qualifier = qualifier,
             scopeName = scopeName,
-            definitionType = Scoped,
-            factory = factory,
+            definitionType = definitionType,
+            factory = factory!!,
             onBind = ::registerAlias,
-        )
-        val qualifiersByType = Registry.scopedDefinitions.getOrPut(scopeName) { HashMap() }
-        val nodeByQualifier = qualifiersByType.getOrPut(type) { HashMap() }
-        if (nodeByQualifier.containsKey(qualifier)) {
-            throw DuplicateBindingException(type, qualifier, scopeName)
+        ).also { node ->
+            val target = if (scopeName == null) {
+                if (definitionType == Singleton && (eager || forceEager)) {
+                    eagerNodes.add(node)
+                }
+                definitions
+            } else {
+                scopedDefinitions
+            }
+            if (node in target) {
+                throw DuplicateBindingException(type, qualifier, scopeName)
+            }
+            target.add(node)
         }
-        nodeByQualifier[qualifier] = node
-        return node
     }
 
     private fun registerAlias(aliasType: KClass<*>, target: Node) {
-        if (target.scopeName == null) {
-            val primary = Registry.definitions[target.type] ?: return
-            val existing = Registry.definitions[aliasType]
-            check(existing == null || existing === primary) {
-                "Conflicting bindings for ${aliasType.qualifiedName}: already has its own family."
-            }
-            Registry.definitions[aliasType] = primary
-        } else {
-            val scopedByType = Registry.scopedDefinitions[target.scopeName] ?: return
-            val primaryScoped = scopedByType[target.type] ?: return
-            val existingScoped = scopedByType[aliasType]
-            check(existingScoped == null || existingScoped === primaryScoped) {
-                "Conflicting scoped bindings for ${aliasType.qualifiedName}: already has its own family."
-            }
-            scopedByType[aliasType] = primaryScoped
+        val aliases = nodeAliases.getOrPut(target, ::HashSet)
+        if (!aliases.add(aliasType)) {
+            error("'${aliasType.qualifiedName}' is already registered as an alias for $target")
         }
     }
 
-    internal fun getRegisteredNodes(): ArrayList<Node> = registeredNodes
-
-    internal fun getRegisteredEagerNodes(): ArrayList<Node> = registeredEagerNodes
+    internal fun getRegisteredNodes(): List<Node> =
+        buildList {
+            addAll(definitions)
+            addAll(scopedDefinitions)
+        }
 }
 
 /**
@@ -202,5 +207,5 @@ class Module(private val forceEager: Boolean, private val onRegister: Module.() 
  * @param forceEager When true, all singletons defined in this module are eagerly initialized
  *                   on [Stitch.register].
  */
-fun module(forceEager: Boolean = false, onRegister: Module.() -> Unit): Module =
-    Module(forceEager, onRegister)
+fun module(forceEager: Boolean = false, onInit: Module.() -> Unit): Module =
+    Module(forceEager, onInit)

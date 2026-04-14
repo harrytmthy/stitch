@@ -27,7 +27,7 @@ import kotlinx.atomicfu.locks.synchronized
 import kotlin.reflect.KClass
 
 /**
- * Core resolution engine for the SL path. Handles multi-level caching (singleton, scoped),
+ * Core resolution engine for the runtime path. Handles multi-level caching (singleton, scoped),
  * type alias resolution, cycle detection, and thread-safe double-checked locking.
  *
  * This class is not intended for direct use; interact with it through [Stitch] or [Scope].
