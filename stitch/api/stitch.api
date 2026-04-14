@@ -102,7 +102,7 @@ public final class com/harrytmthy/stitch/api/StitchInjector {
 	public static final field INSTANCE Lcom/harrytmthy/stitch/api/StitchInjector;
 	public final fun addToCache (Lcom/harrytmthy/stitch/api/Injector;)V
 	public final fun getInjectorById (I)Lcom/harrytmthy/stitch/api/Injector;
-	public final fun getSingleton ()Lcom/harrytmthy/stitch/api/Injector;
+	public final fun getSingletonGraph ()Lcom/harrytmthy/stitch/api/Injector;
 	public final fun init (Lcom/harrytmthy/stitch/api/Injector;)V
 	public final fun nextId ()I
 	public final fun removeFromCache (Lcom/harrytmthy/stitch/api/Injector;)V

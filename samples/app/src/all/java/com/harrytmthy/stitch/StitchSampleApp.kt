@@ -9,7 +9,7 @@ import io.github.harrytmthy.stitch.generated.StitchSingletonGraph
 class StitchSampleApp : Application() {
 
     override fun onCreate() {
-        StitchInjector.init(StitchSingletonGraph)
+        StitchInjector.init(StitchSingletonGraph())
         super.onCreate()
     }
 }

@@ -77,7 +77,7 @@ object ScopedGraphGenerator {
 
     private fun buildSingletonGraphType(scope: Scope): TypeSpec.Builder {
         val injectorClass = Injector::class.asClassName()
-        return TypeSpec.objectBuilder(graphClassName(scope))
+        return TypeSpec.classBuilder(graphClassName(scope))
             .addAnnotation(
                 AnnotationSpec.builder(Suppress::class)
                     .addMember("%S", "UNCHECKED_CAST")

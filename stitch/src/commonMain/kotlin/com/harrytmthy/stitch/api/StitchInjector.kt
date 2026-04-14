@@ -16,6 +16,8 @@
 
 package com.harrytmthy.stitch.api
 
+import com.harrytmthy.stitch.api.StitchInjector.getSingletonGraph
+import com.harrytmthy.stitch.api.StitchInjector.init
 import com.harrytmthy.stitch.internal.ConcurrentHashMap
 import kotlinx.atomicfu.atomic
 
@@ -48,7 +50,7 @@ object StitchInjector {
     /**
      * Initializes the DI graph with the generated [singletonGraph].
      *
-     * This must be called before any [getSingleton] or scope creation.
+     * This must be called before any [getSingletonGraph] or scope creation.
      */
     fun init(singletonGraph: Injector) {
         singletonInjector = singletonGraph
@@ -56,11 +58,11 @@ object StitchInjector {
     }
 
     /**
-     * Returns the singleton [Injector].
+     * Returns the singleton graph which was set via [init].
      *
      * @throws IllegalStateException if [init] has not been called.
      */
-    fun getSingleton(): Injector =
+    fun getSingletonGraph(): Injector =
         singletonInjector ?: error(
             buildString {
                 append("StitchInjector is not yet initialized. ")
