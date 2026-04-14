@@ -31,7 +31,7 @@ class HomeActivity : AppCompatActivity() {
     lateinit var viewModel: HomeViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        StitchInjector.getSingleton()
+        StitchInjector.getSingletonGraph()
             .createInjectorForChildScope("activity")
             .inject(this)
         super.onCreate(savedInstanceState)

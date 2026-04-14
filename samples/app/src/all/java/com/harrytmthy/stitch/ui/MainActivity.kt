@@ -9,6 +9,7 @@ import com.harrytmthy.stitch.R
 import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.api.Stitch
+import com.harrytmthy.stitch.api.StitchInjector
 import com.harrytmthy.stitch.api.get
 import com.harrytmthy.stitch.core.Logger
 import com.harrytmthy.stitch.di.ApiService
@@ -21,12 +22,13 @@ import com.harrytmthy.stitch.di.UserRepository
 import com.harrytmthy.stitch.di.UserRepositoryImpl
 import com.harrytmthy.stitch.di.ViewModel
 import com.harrytmthy.stitch.exception.MissingBindingException
-import io.github.harrytmthy.stitch.generated.StitchSingletonGraph
 
 /**
  * Only for testing convenience. Please ignore the weird architecture 😄
  */
 class MainActivity : AppCompatActivity() {
+
+    private val singletonGraph = StitchInjector.getSingletonGraph()
 
     @Inject
     lateinit var logger: Logger
@@ -78,8 +80,7 @@ class MainActivity : AppCompatActivity() {
             insets
         }
         renderFragment()
-        StitchSingletonGraph
-            .createInjectorForChildScope("activity")
+        singletonGraph.createInjectorForChildScope("activity")
             .inject(this)
         assertStitch()
     }
@@ -94,7 +95,7 @@ class MainActivity : AppCompatActivity() {
     private fun assertStitch() {
         // Singleton objects
         check(logger === userRepositoryImpl.logger)
-        check(logger === StitchSingletonGraph.get<Logger>())
+        check(logger === singletonGraph.get<Logger>())
         check(userRepository === userRepositoryImpl)
         check(userReader === userRepository)
         check(userReader === userRepositoryImpl)
