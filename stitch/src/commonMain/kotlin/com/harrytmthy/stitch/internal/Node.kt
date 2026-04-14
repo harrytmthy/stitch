@@ -31,4 +31,23 @@ internal class Node(
 ) : Bindable {
 
     override fun <T : Any> bind(type: KClass<T>): Bindable = apply { onBind(type, this) }
+
+    /**
+     * Node is unique per [type], [qualifier], and [scopeName].
+     */
+    override fun hashCode(): Int {
+        val qualifierHashCode = qualifier?.let { 31 * it.hashCode() } ?: 0
+        val scopeNameHashCode = scopeName?.let { 31 * it.hashCode() } ?: 0
+        return type.hashCode() + qualifierHashCode + scopeNameHashCode
+    }
+
+    override fun equals(other: Any?): Boolean =
+        other is Node && other.type == this.type && other.qualifier == this.qualifier && other.scopeName == this.scopeName
+
+    override fun toString(): String =
+        buildString {
+            append(type)
+            qualifier?.let { append(" (qualifier: $it)") }
+            scopeName?.let { append(" in scope \"${it}\"") }
+        }
 }

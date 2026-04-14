@@ -21,7 +21,6 @@ import com.harrytmthy.stitch.api.Stitch.inject
 import com.harrytmthy.stitch.api.Stitch.register
 import com.harrytmthy.stitch.api.Stitch.reset
 import com.harrytmthy.stitch.api.Stitch.unregister
-import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
 import kotlin.reflect.KClass
 
@@ -56,16 +55,6 @@ object Stitch {
     fun register(vararg modules: Module) {
         modules.forEach { module ->
             module.register()
-            val eagerNodes = module.getRegisteredEagerNodes()
-            if (eagerNodes.isNotEmpty()) {
-                warmUp(eagerNodes)
-            }
-        }
-    }
-
-    private fun warmUp(nodes: List<Node>) {
-        for (node in nodes) {
-            component.getInternal(node.type, node.qualifier, scope = null, resolutionContext = null)
         }
     }
 
@@ -75,10 +64,7 @@ object Stitch {
     fun unregister(vararg modules: Module) {
         modules.forEach { module ->
             val registeredNodes = module.getRegisteredNodes()
-            val registeredEagerNodes = module.getRegisteredEagerNodes()
-            Registry.remove(registeredNodes + registeredEagerNodes)
-            registeredNodes.clear()
-            registeredEagerNodes.clear()
+            Registry.remove(registeredNodes)
         }
     }
 
@@ -103,6 +89,9 @@ object Stitch {
         Named.clear()
         ScopeManager.clear()
     }
+
+    fun <T : Any> get(type: KClass<T>, qualifier: Qualifier? = null, scope: Scope? = null): T =
+        getInternal(type, qualifier, scope, resolutionContext = null)
 
     /**
      * Resolves a dependency of type [T] with the given [qualifier] and [scope].

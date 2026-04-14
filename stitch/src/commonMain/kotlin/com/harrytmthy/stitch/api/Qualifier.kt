@@ -27,8 +27,8 @@ import kotlinx.atomicfu.atomic
 sealed interface Qualifier
 
 /**
- * A string-based [Qualifier] for the SL path. Instances are pooled; calling [named] or [of]
- * with the same value always returns the same instance.
+ * A string-based [Qualifier] for the runtime path. Instances are pooled, where calling
+ * [named] or [of] with the same value always returns the same instance.
  *
  * ```
  * val prodModule = module {

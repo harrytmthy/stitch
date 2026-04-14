@@ -198,12 +198,15 @@ class StitchTest {
 
     @Test
     fun `register with duplicate binding should throw IllegalStateException`() {
-        val module = module {
+        module {
             singleton { Logger() }
-            singleton { Logger() }
-        }
+        }.register()
 
-        assertFailsWith<IllegalStateException> { Stitch.register(module) }
+        module {
+            singleton { Logger() }
+        }.apply {
+            assertFailsWith<IllegalStateException> { Stitch.register(this) }
+        }
     }
 
     @Test
@@ -297,11 +300,10 @@ class StitchTest {
 
     @Test
     fun `singletons with the same type when one is eager should throw IllegalStateException`() {
-        val module = module {
+        module {
             singleton(eager = true) { Logger() }
-            singleton { Logger() }
+            assertFailsWith<IllegalStateException> { singleton { Logger() } }
         }
-        assertFailsWith<IllegalStateException> { Stitch.register(module) }
     }
 
     @Test
