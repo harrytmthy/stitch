@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Harry Timothy Tumalewa
+ * Copyright 2026 Harry Timothy Tumalewa
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,26 +14,15 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.di
+package com.harrytmthy.stitch.core
 
-interface UserRepository {
-    fun getUser(id: Int): String
+interface Logger {
+    fun log(message: String)
 }
 
-interface UserReader {
-    fun readUser(id: Int): String
-}
+class LoggerImpl : Logger {
 
-interface CacheService
-
-class CacheServiceImpl : CacheService {
-    fun get(key: String): String {
-        return "cached_$key"
+    override fun log(message: String) {
+        println(message)
     }
-}
-
-const val BASE_URL = "https://api.example.com/"
-
-interface Processor {
-    fun process(): String
 }

@@ -26,7 +26,6 @@ android {
     productFlavors {
         create("withStitch") { dimension = "di" }
         create("withDagger") { dimension = "di" }
-        create("withStitchAndDagger") { dimension = "di" }
         create("withNone") { dimension = "di" }
     }
 
@@ -36,17 +35,13 @@ android {
 }
 
 dependencies {
-    compileOnly(libs.javax.inject)
     implementation(project(":core"))
-    "withStitchImplementation"(project(":stitch"))
-    "withStitchCompileOnly"(project(":stitch-annotations"))
-    "withDaggerImplementation"(libs.dagger)
-    "withStitchAndDaggerImplementation"(project(":stitch"))
-    "withStitchAndDaggerCompileOnly"(project(":stitch-annotations"))
-    "withStitchAndDaggerImplementation"(libs.dagger)
     implementation(libs.androidx.appcompat)
+    "withStitchCompileOnly"(libs.javax.inject)
+    "withStitchCompileOnly"(project(":stitch-annotations"))
+    "withStitchImplementation"(project(":stitch"))
     "kspWithStitch"(project(":stitch-compiler"))
+    "withDaggerCompileOnly"(libs.javax.inject)
+    "withDaggerImplementation"(libs.dagger)
     "kspWithDagger"(libs.dagger.compiler)
-    "kspWithStitchAndDagger"(project(":stitch-compiler"))
-    "kspWithStitchAndDagger"(libs.dagger.compiler)
 }

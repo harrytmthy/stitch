@@ -1,5 +1,5 @@
 /*
- * Copyright 2026 Harry Timothy Tumalewa
+ * Copyright 2025 Harry Timothy Tumalewa
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,16 @@
 
 package com.harrytmthy.stitch.feature.home
 
-import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import com.harrytmthy.stitch.api.StitchInjector
 import com.harrytmthy.stitch.core.Logger
-import javax.inject.Inject
 
-class HomeActivity : AppCompatActivity() {
+interface HomeService {
+    fun fetch(): Result<Unit>
+}
 
-    @Inject
-    lateinit var logger: Logger
+class HomeServiceImpl(private val logger: Logger) : HomeService {
 
-    @Inject
-    lateinit var viewModel: HomeViewModel
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        StitchInjector.getSingletonGraph()
-            .createInjectorForChildScope("activity")
-            .inject(this)
-        super.onCreate(savedInstanceState)
-        setContentView(android.R.layout.list_content)
+    override fun fetch(): Result<Unit> {
+        logger.log("Fetch success!")
+        return Result.success(Unit)
     }
 }

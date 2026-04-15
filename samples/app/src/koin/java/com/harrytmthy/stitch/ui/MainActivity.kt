@@ -6,8 +6,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.harrytmthy.stitch.R
+import com.harrytmthy.stitch.fixture.InjectionTarget
 
 class MainActivity : AppCompatActivity() {
+
+    private val fixtureTarget = InjectionTarget()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -18,5 +21,14 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        renderFragment()
+        fixtureTarget.inject()
+    }
+
+    private fun renderFragment() {
+        val fragment = MainFragment()
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, fragment)
+            .commit()
     }
 }
