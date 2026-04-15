@@ -20,15 +20,15 @@ import com.harrytmthy.stitch.annotations.DependsOn
 import com.harrytmthy.stitch.annotations.Scope
 
 @Scope
-@Retention(AnnotationRetention.RUNTIME)
+@Retention(AnnotationRetention.BINARY)
 annotation class Activity
 
 @Scope
 @DependsOn(Activity::class)
-@Retention(AnnotationRetention.RUNTIME)
+@Retention(AnnotationRetention.BINARY)
 annotation class Fragment
 
 @Scope
 @DependsOn(Fragment::class)
-@Retention(AnnotationRetention.RUNTIME)
+@Retention(AnnotationRetention.BINARY)
 annotation class ViewWithFragment

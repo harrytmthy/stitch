@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.feature.home
+package com.harrytmthy.stitch.core
 
-import androidx.appcompat.app.AppCompatActivity
-import com.harrytmthy.stitch.core.Logger
+import com.harrytmthy.stitch.annotations.Binds
 import javax.inject.Inject
+import javax.inject.Singleton
 
-class HomeActivity : AppCompatActivity() {
+interface Logger {
+    fun log(message: String)
+}
 
-    @Inject
-    lateinit var logger: Logger
+@Singleton
+@Binds(aliases = [Logger::class])
+class LoggerImpl @Inject constructor() : Logger {
 
-    @Inject
-    lateinit var viewModel: HomeViewModel
+    override fun log(message: String) {
+        println(message)
+    }
 }

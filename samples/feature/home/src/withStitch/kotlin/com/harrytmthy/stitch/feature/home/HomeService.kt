@@ -14,24 +14,23 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.core
+package com.harrytmthy.stitch.feature.home
 
-import com.harrytmthy.stitch.annotations.DependsOn
-import com.harrytmthy.stitch.annotations.Scope
+import com.harrytmthy.stitch.annotations.Binds
+import com.harrytmthy.stitch.core.Logger
+import javax.inject.Inject
+import javax.inject.Singleton
 
-@Scope
-@javax.inject.Scope
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Activity
+interface HomeService {
+    fun fetch(): Result<Unit>
+}
 
-@Scope
-@javax.inject.Scope
-@DependsOn(Activity::class)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Fragment
+@Singleton
+@Binds(aliases = [HomeService::class])
+class HomeServiceImpl @Inject constructor(private val logger: Logger) : HomeService {
 
-@Scope
-@javax.inject.Scope
-@DependsOn(Fragment::class)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class ViewWithFragment
+    override fun fetch(): Result<Unit> {
+        logger.log("Fetch success!")
+        return Result.success(Unit)
+    }
+}

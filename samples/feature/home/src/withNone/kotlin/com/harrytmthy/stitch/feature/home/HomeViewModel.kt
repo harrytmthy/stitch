@@ -16,15 +16,15 @@
 
 package com.harrytmthy.stitch.feature.home
 
-import androidx.appcompat.app.AppCompatActivity
 import com.harrytmthy.stitch.core.Logger
-import javax.inject.Inject
 
-class HomeActivity : AppCompatActivity() {
+class HomeViewModel(
+    private val logger1: Logger,
+    private val logger2: Logger,
+    private val homeService: HomeService,
+) {
 
-    @Inject
-    lateinit var logger: Logger
-
-    @Inject
-    lateinit var viewModel: HomeViewModel
+    fun fetchHomeData() {
+        homeService.fetch()
+    }
 }

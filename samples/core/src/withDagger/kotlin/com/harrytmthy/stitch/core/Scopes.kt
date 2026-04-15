@@ -19,13 +19,13 @@ package com.harrytmthy.stitch.core
 import javax.inject.Scope
 
 @Scope
-@Retention(AnnotationRetention.RUNTIME)
+@Retention(AnnotationRetention.BINARY)
 annotation class Activity
 
 @Scope
-@Retention(AnnotationRetention.RUNTIME)
+@Retention(AnnotationRetention.BINARY)
 annotation class Fragment
 
 @Scope
-@Retention(AnnotationRetention.RUNTIME)
+@Retention(AnnotationRetention.BINARY)
 annotation class ViewWithFragment
