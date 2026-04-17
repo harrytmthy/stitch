@@ -11,8 +11,8 @@ clean_build_none {
     tasks = [":app:assembleNoneRelease"]
     cleanup-tasks = ["clean"]
     gradle-args = ["--no-build-cache", "-Pfixture=1", "-PexcludeOtherModules=true"]
-    warm-ups = 3
-    iterations = 5
+    warm-ups = 2
+    iterations = 10
     daemon = cold
 }
 
@@ -21,8 +21,8 @@ clean_build_koin {
     tasks = [":app:assembleKoinRelease"]
     cleanup-tasks = ["clean"]
     gradle-args = ["--no-build-cache", "-Pfixture=1", "-PexcludeOtherModules=true"]
-    warm-ups = 3
-    iterations = 5
+    warm-ups = 2
+    iterations = 10
     daemon = cold
 }
 
@@ -31,8 +31,8 @@ clean_build_dagger {
     tasks = [":app:assembleDaggerRelease"]
     cleanup-tasks = ["clean"]
     gradle-args = ["--no-build-cache", "-Pfixture=1", "-PexcludeOtherModules=true"]
-    warm-ups = 3
-    iterations = 5
+    warm-ups = 2
+    iterations = 10
     daemon = cold
 }
 
@@ -41,7 +41,7 @@ clean_build_stitch {
     tasks = [":app:assembleStitchRelease"]
     cleanup-tasks = ["clean"]
     gradle-args = ["--no-build-cache", "-Pfixture=1", "-PexcludeOtherModules=true"]
-    warm-ups = 3
-    iterations = 5
+    warm-ups = 2
+    iterations = 10
     daemon = cold
 }
