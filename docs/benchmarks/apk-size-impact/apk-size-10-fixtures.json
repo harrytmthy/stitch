@@ -1,0 +1,42 @@
+{
+  "apk_size_comparison": {
+    "title": "APK Size Impact - 10 Fixtures",
+    "unit": "bytes",
+    "note": "Release unsigned APKs. 'none' is the no-DI baseline.",
+    "fixture_count": 10,
+    "results": [
+      {
+        "flavor": "none",
+        "bytes": 2806287,
+        "kb": 2740.5,
+        "delta_bytes": 0,
+        "delta_kb": 0.0,
+        "is_baseline": true
+      },
+      {
+        "flavor": "koin",
+        "bytes": 3185575,
+        "kb": 3110.9,
+        "delta_bytes": 379288,
+        "delta_kb": 370.4,
+        "is_baseline": false
+      },
+      {
+        "flavor": "dagger",
+        "bytes": 2821070,
+        "kb": 2755.0,
+        "delta_bytes": 14783,
+        "delta_kb": 14.4,
+        "is_baseline": false
+      },
+      {
+        "flavor": "stitch",
+        "bytes": 2842679,
+        "kb": 2776.1,
+        "delta_bytes": 36392,
+        "delta_kb": 35.5,
+        "is_baseline": false
+      }
+    ]
+  }
+}
