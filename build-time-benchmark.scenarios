@@ -8,40 +8,44 @@
 
 clean_build_none {
     title = "Clean Build (none)"
-    tasks = [":app:assembleNoneRelease"]
+    tasks = [":app:assembleNoneDebug"]
     cleanup-tasks = ["clean"]
-    gradle-args = ["--no-build-cache", "-Pfixture=1", "-PexcludeOtherModules=true"]
-    warm-ups = 2
+    clear-project-cache-before = SCENARIO
+    clear-transform-cache-before = SCENARIO
+    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true"]
+    warm-ups = 12
     iterations = 10
-    daemon = cold
 }
 
 clean_build_koin {
     title = "Clean Build (koin)"
-    tasks = [":app:assembleKoinRelease"]
+    tasks = [":app:assembleKoinDebug"]
     cleanup-tasks = ["clean"]
-    gradle-args = ["--no-build-cache", "-Pfixture=1", "-PexcludeOtherModules=true"]
-    warm-ups = 2
+    clear-project-cache-before = SCENARIO
+    clear-transform-cache-before = SCENARIO
+    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true"]
+    warm-ups = 12
     iterations = 10
-    daemon = cold
 }
 
 clean_build_dagger {
     title = "Clean Build (dagger)"
-    tasks = [":app:assembleDaggerRelease"]
+    tasks = [":app:assembleDaggerDebug"]
     cleanup-tasks = ["clean"]
-    gradle-args = ["--no-build-cache", "-Pfixture=1", "-PexcludeOtherModules=true"]
-    warm-ups = 2
+    clear-project-cache-before = SCENARIO
+    clear-transform-cache-before = SCENARIO
+    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true"]
+    warm-ups = 12
     iterations = 10
-    daemon = cold
 }
 
 clean_build_stitch {
     title = "Clean Build (stitch)"
-    tasks = [":app:assembleStitchRelease"]
+    tasks = [":app:assembleStitchDebug"]
     cleanup-tasks = ["clean"]
-    gradle-args = ["--no-build-cache", "-Pfixture=1", "-PexcludeOtherModules=true"]
-    warm-ups = 2
+    clear-project-cache-before = SCENARIO
+    clear-transform-cache-before = SCENARIO
+    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true"]
+    warm-ups = 12
     iterations = 10
-    daemon = cold
 }

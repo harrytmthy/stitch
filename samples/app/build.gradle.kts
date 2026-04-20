@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("com.android.application")
     alias(libs.plugins.ksp)
+    alias(libs.plugins.koin.compiler)
 }
 
 android {
@@ -105,25 +106,47 @@ abstract class GenerateFixturesTask : DefaultTask() {
         val dir = baseDir.resolve(pkgPath)
         dir.mkdirs()
 
-        // Shared fixture
+        // Fixture classes (per-flavor annotations)
         dir.resolve("FixtureClasses.kt").writeText(buildString {
             appendLine("package $pkg")
             appendLine()
-            if (fl == "stitch") {
-                appendLine("import com.harrytmthy.stitch.annotations.Binds")
+            when (fl) {
+                "stitch" -> {
+                    appendLine("import com.harrytmthy.stitch.annotations.Binds")
+                    appendLine("import javax.inject.Inject")
+                    appendLine("import javax.inject.Singleton")
+                }
+                "dagger" -> {
+                    appendLine("import javax.inject.Inject")
+                    appendLine("import javax.inject.Singleton")
+                }
+                "koin" -> {
+                    appendLine("import org.koin.core.annotation.Single")
+                }
             }
-            appendLine("import javax.inject.Inject")
-            appendLine("import javax.inject.Singleton")
             appendLine()
             for (i in 1..n) {
                 appendLine("interface Service$i")
                 appendLine()
                 val dep = if (i == 1) "" else "val dep: Service${i - 1}Impl"
-                if (fl == "stitch") {
-                    appendLine("@Binds(aliases = [Service${i}::class])")
+                when (fl) {
+                    "stitch" -> {
+                        appendLine("@Binds(aliases = [Service${i}::class])")
+                        appendLine("@Singleton")
+                        appendLine("class Service${i}Impl @Inject constructor($dep) : Service$i")
+                    }
+                    "dagger" -> {
+                        appendLine("@Singleton")
+                        appendLine("class Service${i}Impl @Inject constructor($dep) : Service$i")
+                    }
+                    "koin" -> {
+                        appendLine("@Single")
+                        appendLine("class Service${i}Impl($dep) : Service$i")
+                    }
+                    else -> {
+                        appendLine("class Service${i}Impl($dep) : Service$i")
+                    }
                 }
-                appendLine("@Singleton")
-                appendLine("class Service${i}Impl @Inject constructor($dep) : Service$i")
                 appendLine()
             }
         })
@@ -137,8 +160,7 @@ abstract class GenerateFixturesTask : DefaultTask() {
                     appendLine("import org.koin.core.component.KoinComponent")
                     appendLine("import org.koin.core.component.get")
                 }
-                "none" -> {}
-                else -> appendLine("import javax.inject.Inject")
+                "stitch", "dagger" -> appendLine("import javax.inject.Inject")
             }
             appendLine()
             val impl = if (fl == "koin") ": KoinComponent" else ""
@@ -147,13 +169,25 @@ abstract class GenerateFixturesTask : DefaultTask() {
                 val annotation = if (fl in listOf("stitch", "dagger")) "@Inject " else ""
                 appendLine("    ${annotation}lateinit var service$i: Service$i")
             }
-            if (fl == "koin") {
-                appendLine()
-                appendLine("    fun inject() {")
-                for (i in 1..n) {
-                    appendLine("        service$i = get<Service$i>()")
+            when (fl) {
+                "koin" -> {
+                    appendLine()
+                    appendLine("    fun inject() {")
+                    for (i in 1..n) {
+                        appendLine("        service$i = get<Service$i>()")
+                    }
+                    appendLine("    }")
                 }
-                appendLine("    }")
+                "none" -> {
+                    appendLine()
+                    appendLine("    fun inject() {")
+                    // Build chain: Service1Impl(), Service2Impl(Service1Impl()), etc.
+                    for (i in 1..n) {
+                        val dep = if (i == 1) "" else "service${i - 1} as Service${i - 1}Impl"
+                        appendLine("        service$i = Service${i}Impl($dep)")
+                    }
+                    appendLine("    }")
+                }
             }
             appendLine("}")
         })
@@ -185,20 +219,17 @@ abstract class GenerateFixturesTask : DefaultTask() {
             })
         }
 
-        // Koin wiring
+        // Koin module (annotation-based, auto-discovers @Single classes)
         if (fl == "koin") {
-            dir.resolve("KoinFixture.kt").writeText(buildString {
+            dir.resolve("KoinFixtureModule.kt").writeText(buildString {
                 appendLine("package $pkg")
                 appendLine()
-                appendLine("import org.koin.core.module.dsl.singleOf")
-                appendLine("import org.koin.dsl.bind")
-                appendLine("import org.koin.dsl.module")
+                appendLine("import org.koin.core.annotation.ComponentScan")
+                appendLine("import org.koin.core.annotation.Module")
                 appendLine()
-                appendLine("val fixtureModule = module {")
-                for (i in 1..n) {
-                    appendLine("    singleOf(::Service${i}Impl) bind Service${i}::class")
-                }
-                appendLine("}")
+                appendLine("@Module")
+                appendLine("@ComponentScan")
+                appendLine("class KoinFixtureModule")
             })
         }
     }
@@ -242,17 +273,19 @@ dependencies {
     }
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
-    compileOnly(libs.javax.inject)
 
     // Stitch flavor only
     "stitchImplementation"(project(":stitch"))
     "stitchCompileOnly"(project(":stitch-annotations"))
+    "stitchCompileOnly"(libs.javax.inject)
     "kspStitch"(project(":stitch-compiler"))
 
     // Dagger flavor only
     "daggerImplementation"(libs.dagger)
+    "daggerCompileOnly"(libs.javax.inject)
     "kspDagger"(libs.dagger.compiler)
 
     // Koin flavor only
     "koinImplementation"(libs.koin.android)
+    "koinImplementation"(libs.koin.annotations)
 }
