@@ -1,0 +1,96 @@
+/*
+ * Copyright 2025 Harry Timothy Tumalewa
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.harrytmthy.stitch.ksp
+
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
+import com.google.devtools.ksp.symbol.KSAnnotated
+import com.harrytmthy.stitch.ksp.model.LocalScanResult
+import com.harrytmthy.stitch.ksp.provider.InjectorPlanProvider
+import com.harrytmthy.stitch.ksp.provider.ScopeMetadataProvider
+import com.harrytmthy.stitch.ksp.scanner.ContributionScanner
+import com.harrytmthy.stitch.ksp.scanner.LocalAnnotationScanner
+import com.harrytmthy.stitch.ksp.utils.StitchErrorLogger
+import java.security.MessageDigest
+
+/**
+ * KSP symbol processor for Stitch dependency injection code generation.
+ *
+ * This processor scans for @Module classes, @Provides methods, and @Inject constructors/fields,
+ * then generates DI component and injector objects for compile-time dependency resolution.
+ */
+class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment) : SymbolProcessor {
+
+    private var processed = false
+
+    override fun process(resolver: Resolver): List<KSAnnotated> {
+        // Only process once per compilation
+        if (processed) {
+            return emptyList()
+        }
+        val logger = environment.logger
+        logger.info("Stitch: Starting dependency injection code generation")
+        try {
+            val moduleName = getOption("stitch.moduleName")
+            val moduleKey = moduleName.toModuleKey()
+            val localScanResult = LocalScanResult()
+            LocalAnnotationScanner(resolver, localScanResult).scan()
+            if (!localScanResult.isAggregator) {
+                ContributionCodeGenerator(environment.codeGenerator)
+                    .generate(moduleName, moduleKey, localScanResult)
+            } else {
+                val logger = StitchErrorLogger(environment.logger)
+                val scanResult = ContributionScanner.scan(resolver, logger, localScanResult)
+                    ?: return emptyList() // Null when there is an error
+                val scopeMetadata = ScopeMetadataProvider.get(scanResult)
+                val validationResult = BindingGraphValidator(scanResult, scopeMetadata.ancestors)
+                    .validate()
+                val injectorPlans = InjectorPlanProvider.get(
+                    validationResult = validationResult,
+                    requestedBindings = scanResult.requestedBindings,
+                    scopeMetadata = scopeMetadata,
+                    scopeDependencies = scanResult.scopeDependencies,
+                )
+                ScopedGraphGenerator.generate(environment.codeGenerator, injectorPlans)
+            }
+            processed = true
+        } catch (e: StitchProcessingException) {
+            e.message?.let { logger.error(it, e.symbol) }
+            throw e
+        }
+        return emptyList()
+    }
+
+    private fun getOption(name: String): String =
+        environment.options[name] ?: throw StitchProcessingException(
+            "Missing KSP option '$name'. Configure via ksp { arg(...) } or apply 'io.github.harrytmthy.stitch' plugin.",
+        )
+
+    /**
+     * Produces a stable 6-byte hex key used to disambiguate generated contribution names
+     * for modules that normalize to the same PascalCase name.
+     */
+    private fun String.toModuleKey(): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(toByteArray())
+        return digest.take(6).joinToString("") { "%02X".format(it.toInt() and 0xFF) }
+    }
+
+    companion object {
+        const val GENERATED_PACKAGE_NAME = "io.github.harrytmthy.stitch.generated"
+    }
+}

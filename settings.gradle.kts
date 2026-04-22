@@ -35,7 +35,7 @@ include(":core")
 include(":feature:home")
 include(":stitch")
 include(":stitch-annotations")
-include(":stitch-compiler")
+include(":stitch-ksp")
 
 project(":app").projectDir = file("samples/app")
 project(":core").projectDir = file("samples/core")

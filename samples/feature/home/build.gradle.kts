@@ -40,7 +40,7 @@ dependencies {
     "withStitchCompileOnly"(libs.javax.inject)
     "withStitchCompileOnly"(project(":stitch-annotations"))
     "withStitchImplementation"(project(":stitch"))
-    "kspWithStitch"(project(":stitch-compiler"))
+    "kspWithStitch"(project(":stitch-ksp"))
     "withDaggerCompileOnly"(libs.javax.inject)
     "withDaggerImplementation"(libs.dagger)
     "kspWithDagger"(libs.dagger.compiler)
