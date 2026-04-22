@@ -16,6 +16,7 @@
 
 package com.harrytmthy.stitch.api
 
+import com.harrytmthy.stitch.exception.MissingBindingException
 import com.harrytmthy.stitch.exception.ScopeClosedException
 import com.harrytmthy.stitch.internal.ConcurrentHashMap
 import com.harrytmthy.stitch.internal.Registry
@@ -35,7 +36,7 @@ import kotlinx.atomicfu.atomic
  * instance.close() // Clears all cached instances for this scope
  * ```
  *
- * A scope must be [open]ed before resolution and [close]d when the lifecycle ends.
+ * A scope must be opened before resolution and closed when no longer used.
  * Resolving from a closed scope throws [ScopeClosedException].
  */
 class Scope internal constructor(val id: Int, val name: String) {
@@ -46,6 +47,8 @@ class Scope internal constructor(val id: Int, val name: String) {
      * Opens this scope, allowing bindings to be resolved.
      */
     fun open() {
+        val inner = ScopeManager.idsByScopeName.computeIfAbsent(name) { HashSet() }
+        inner.add(id)
         open.value = true
     }
 
@@ -64,19 +67,10 @@ class Scope internal constructor(val id: Int, val name: String) {
      * Resolves a scoped dependency of type [T].
      *
      * @throws ScopeClosedException if this scope is not open.
-     * @throws com.harrytmthy.stitch.exception.MissingBindingException if no binding is found.
+     * @throws MissingBindingException if no binding is found.
      */
-    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T {
-        if (!isOpen()) {
-            // Fail-fast: We already have this exception
-            throw ScopeClosedException(T::class, qualifier, id)
-        }
-        val value = Stitch.get<T>(qualifier, scope = this)
-        if (!isOpen()) {
-            throw ScopeClosedException(T::class, qualifier, id)
-        }
-        return value
-    }
+    inline fun <reified T : Any> get(qualifier: Qualifier? = null): T =
+        Stitch.get<T>(qualifier, scope = this)
 
     /**
      * Returns a [Lazy] that resolves a scoped dependency of type [T] on first access.
@@ -102,12 +96,7 @@ class ScopeRef(val name: String) {
     /**
      * Creates a new [Scope] instance. The scope starts closed; call [Scope.open] before use.
      */
-    fun createScope(): Scope {
-        val id = ScopeManager.nextId()
-        val inner = ScopeManager.idsByScopeName.computeIfAbsent(name) { HashSet() }
-        inner.add(id)
-        return Scope(id, name)
-    }
+    fun createScope(): Scope = Scope(id = ScopeManager.nextId(), name)
 
     override fun hashCode(): Int = name.hashCode()
 
