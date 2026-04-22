@@ -1,0 +1,168 @@
+/*
+ * Copyright 2025 Harry Timothy Tumalewa
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.harrytmthy.stitch.ksp.model
+
+/**
+ * Represents a binding.
+ */
+open class Binding(val type: String, val qualifier: Qualifier?) {
+
+    override fun toString(): String =
+        buildString {
+            append(type)
+            qualifier?.let { append(" (qualifier: $it)") }
+        }
+
+    override fun hashCode(): Int =
+        if (qualifier != null) {
+            type.hashCode() + (31 * qualifier.hashCode())
+        } else {
+            type.hashCode()
+        }
+
+    override fun equals(other: Any?): Boolean =
+        other is Binding && other.type == this.type && other.qualifier == this.qualifier
+}
+
+/**
+ * Represents a binding declaration, which could be a provided or requested binding.
+ * Declaration means the binding has [location] of where it is declared.
+ */
+open class BindingDeclaration(
+    type: String,
+    qualifier: Qualifier?,
+    val location: String,
+) : Binding(type, qualifier)
+
+/**
+ * Represents a provided binding that has been finalized by the aggregator module.
+ *
+ * @see com.harrytmthy.stitch.annotations.ContributedBinding
+ */
+class ProvidedBinding(
+    type: String,
+    qualifier: Qualifier?,
+    val scope: Scope?,
+    val nullable: Boolean,
+    location: String, // File path + line number
+    val kind: Int,
+    val providerPackageName: String = "",
+    val providerFunctionName: String = "",
+    val providerClassName: String = "",
+) : BindingDeclaration(type, qualifier, location) {
+
+    var dependencies: ArrayList<BindingDeclaration>? = null
+}
+
+/**
+ * Represents a requested binding via `@Inject`-annotated field. If there are requested bindings
+ * that are never provided, Stitch will apply an action based on the current module type:
+ * - Contributor: Put them as params of `@BindingContributions` to be collected by the aggregator.
+ * - Aggregator: After collecting all contributions, they are considered as missing bindings.
+ */
+class RequestedBinding(
+    type: String,
+    qualifier: Qualifier?,
+    location: String,
+    val fieldName: String,
+) : BindingDeclaration(type, qualifier, location)
+
+/**
+ * Represents a provided binding that has been validated by the aggregator.
+ */
+class ValidatedBinding(
+    type: String,
+    qualifier: Qualifier?,
+    val declaredScope: Scope?, // null means originally unscoped
+    val owningScope: Scope,
+    val nullable: Boolean,
+    val kind: Int,
+    val providerPackageName: String,
+    val providerFunctionName: String,
+    val providerClassName: String,
+) : Binding(type, qualifier) {
+
+    var dependencies: List<ValidatedBinding>? = null
+}
+
+sealed class Qualifier {
+
+    abstract fun encode(): String
+
+    data class Named(val value: String) : Qualifier() {
+        override fun encode(): String = "Named:$value"
+    }
+
+    companion object {
+
+        fun of(value: String): Qualifier? {
+            if (value.isEmpty()) {
+                return null
+            }
+            val parts = value.split(":")
+            if (parts.size < 2) {
+                error("Should not happen")
+            }
+            return when {
+                parts[0] == "Named" -> Named(parts[1])
+                else -> error("Should not happen")
+            }
+        }
+    }
+}
+
+sealed class Scope {
+
+    abstract val originalName: String
+
+    abstract val canonicalName: String
+
+    var depth: Int = 0 // Only used by the aggregator
+
+    object Singleton : Scope() {
+
+        init {
+            depth = 1
+        }
+
+        override val originalName: String = "Singleton"
+
+        override val canonicalName: String = "singleton"
+
+        override fun toString(): String = originalName
+
+        override fun hashCode(): Int = canonicalName.hashCode()
+
+        override fun equals(other: Any?): Boolean =
+            other is Singleton && other.canonicalName == this.canonicalName
+    }
+
+    class Custom(
+        override val originalName: String,
+        override val canonicalName: String,
+        val qualifiedName: String = "",
+        val location: String = "",
+    ) : Scope() {
+
+        override fun toString(): String = qualifiedName.ifBlank { originalName }
+
+        override fun hashCode(): Int = canonicalName.hashCode()
+
+        override fun equals(other: Any?): Boolean =
+            other is Custom && other.canonicalName == this.canonicalName
+    }
+}

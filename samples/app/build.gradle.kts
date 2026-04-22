@@ -278,7 +278,7 @@ dependencies {
     "stitchImplementation"(project(":stitch"))
     "stitchCompileOnly"(project(":stitch-annotations"))
     "stitchCompileOnly"(libs.javax.inject)
-    "kspStitch"(project(":stitch-compiler"))
+    "kspStitch"(project(":stitch-ksp"))
 
     // Dagger flavor only
     "daggerImplementation"(libs.dagger)

@@ -186,7 +186,7 @@ dependencies {
     // Stitch
     implementation(project(":stitch"))
     implementation(project(":stitch-annotations"))
-    ksp(project(":stitch-compiler"))
+    "ksp"(project(":stitch-ksp"))
 
     // Dagger
     implementation(libs.dagger)
