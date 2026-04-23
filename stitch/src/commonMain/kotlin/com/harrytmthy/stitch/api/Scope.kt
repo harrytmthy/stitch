@@ -39,7 +39,7 @@ import kotlinx.atomicfu.atomic
  * A scope must be opened before resolution and closed when no longer used.
  * Resolving from a closed scope throws [ScopeClosedException].
  */
-class Scope internal constructor(val id: Int, val name: String) {
+class Scope internal constructor(val id: Int, val name: String, val parent: Scope?) {
 
     private val open = atomic(false)
 
@@ -80,6 +80,39 @@ class Scope internal constructor(val id: Int, val name: String) {
     inline fun <reified T : Any> inject(qualifier: Qualifier? = null): Lazy<T> =
         lazy(LazyThreadSafetyMode.NONE) { get(qualifier) }
 
+    /**
+     * Creates a child [Scope] instance with this scope as its parent.
+     *
+     * The child can resolve bindings from its own scope and all ancestor scopes.
+     * Prefer this over [ScopeRef.createScope] with a manual [parent] when the
+     * parent-child relationship is declared via [dependsOn].
+     *
+     * ```
+     * val homeActivityScope = activityScope.createScope()
+     * val homeFragmentScope = homeActivityScope.createChildScope(fragmentScope)
+     * ```
+     *
+     * @throws IllegalStateException if [scopeRef] is not a declared child of this scope.
+     */
+    fun createChildScope(scopeRef: ScopeRef): Scope = createChildScope(scopeRef.name)
+
+    /**
+     * Creates a child [Scope] instance with this scope as its parent.
+     *
+     * The child can resolve bindings from its own scope and all ancestor scopes.
+     *
+     * ```
+     * val fragmentScopeInstance = activityScopeInstance.createChildScope("fragment")
+     * ```
+     *
+     * @throws IllegalStateException if [scopeName] is not a declared child of this scope.
+     */
+    fun createChildScope(scopeName: String): Scope {
+        val scopeChildren = ScopeManager.scopeChildren[name] ?: error("Scope '$name' has no child")
+        require(scopeName in scopeChildren) { "'$scopeName' is not a child of scope '$name'" }
+        return Scope(id = ScopeManager.nextId(), name = scopeName, parent = this)
+    }
+
     override fun hashCode(): Int = id
 
     override fun equals(other: Any?): Boolean = other is Scope && other.id == this.id
@@ -94,18 +127,33 @@ class Scope internal constructor(val id: Int, val name: String) {
 class ScopeRef(val name: String) {
 
     /**
-     * Creates a new [Scope] instance. The scope starts closed; call [Scope.open] before use.
+     * Creates a new [Scope] instance.
+     * - Scope instances are closed by default.
+     * - Use [parent] to allow this scope to resolve bindings from ancestor scopes.
+     *
+     * ```
+     * val homeActivityScope = activityScope.createScope()
+     * val homeFragmentScope = fragmentScope.createScope(parent = homeActivityScope)
+     * ```
+     *
+     * @param parent the parent scope instance, or null for a root scope.
      */
-    fun createScope(): Scope = Scope(id = ScopeManager.nextId(), name)
+    fun createScope(parent: Scope? = null): Scope = Scope(id = ScopeManager.nextId(), name, parent)
 
     override fun hashCode(): Int = name.hashCode()
 
     override fun equals(other: Any?): Boolean = other is ScopeRef && other.name == this.name
+
+    override fun toString(): String = name
 }
 
 internal object ScopeManager {
 
     val pool = ConcurrentHashMap<String, ScopeRef>()
+
+    val scopeDependencies = ConcurrentHashMap<String, String>() // Child -> Parent
+
+    val scopeChildren = ConcurrentHashMap<String, HashSet<String>>()
 
     val idsByScopeName = ConcurrentHashMap<String, HashSet<Int>>()
 
@@ -124,6 +172,8 @@ internal object ScopeManager {
 
     fun clear() {
         pool.clear()
+        scopeDependencies.clear()
+        scopeChildren.clear()
         idsByScopeName.clear()
         nextId.value = 1
     }
@@ -139,3 +189,46 @@ internal object ScopeManager {
  * @throws IllegalStateException if [name] is empty.
  */
 fun scope(name: String): ScopeRef = ScopeManager.getOrCreate(name)
+
+/**
+ * Defines scope dependency. Each scope can only depend on one parent.
+ *
+ * ```
+ * val activityScope = scope("activity")
+ * val fragmentScope = scope("fragment").dependsOn(activityScope)
+ * ```
+ */
+fun ScopeRef.dependsOn(parent: ScopeRef): ScopeRef = dependsOn(parent.name)
+
+/**
+ * Defines scope dependency. Each scope can only depend on one parent.
+ *
+ * ```
+ * val fragmentScope = scope("fragment").dependsOn("activity")
+ * ```
+ */
+fun ScopeRef.dependsOn(parentName: String): ScopeRef {
+    require(parentName != this.name) { "Scope '$this' cannot depend on itself" }
+    ScopeManager.scopeDependencies[this.name]?.let { parent ->
+        if (parent == parentName) {
+            // Multiple dependsOn towards the same parent should be ignored
+            return this
+        }
+        throw IllegalArgumentException("Scope '$this' already has '$parent' as its parent")
+    }
+
+    // Cycle detection
+    var path = this.name
+    var currentParent: String? = parentName
+    while (currentParent != null) {
+        path += " -> $currentParent"
+        check(currentParent != this.name) { "Cycle detected in scope dependencies: $path" }
+        currentParent = ScopeManager.scopeDependencies[currentParent]
+    }
+
+    // No cycle, register the edge
+    ScopeManager.scopeDependencies[this.name] = parentName
+    val scopeChildren = ScopeManager.scopeChildren.getOrPut(parentName, ::HashSet)
+    scopeChildren.add(this.name)
+    return this
+}

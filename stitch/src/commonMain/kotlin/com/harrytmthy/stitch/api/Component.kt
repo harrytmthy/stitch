@@ -42,35 +42,35 @@ class Component internal constructor() {
     ): T {
         val qualifierKey = qualifier ?: DefaultQualifier
 
-        // Fast-path: check caches with the requested key first
-        scope?.id?.let { scopeId ->
-            Registry.scoped[scopeId]?.get(type)?.get(qualifierKey)?.let {
-                scope.ensureOpen(type, qualifier)
-                return it as T
-            }
-        }
-        if (scope == null) {
-            Registry.singletons[type]?.get(qualifierKey)?.let { return it as T }
-        }
+        // Resolve once to learn the canonical cache type + owning scope
+        val (node, owningScope) = lookupNode(type, qualifier, scope)
+        val canonicalType = if (node.type !== type) node.type else type
 
-        // Resolve once to learn the canonical cache key
-        val node = lookupNode(type, qualifier, scope?.name)
-
-        // Fast-path: If alias, recheck caches under canonical key
-        if (node.type !== type) {
-            scope?.id?.let { scopeId ->
-                Registry.scoped[scopeId]?.get(node.type)?.get(qualifierKey)?.let {
+        // Fast-path: Check caches under canonical type
+        if (scope != null) {
+            if (owningScope == scope) {
+                // Current scope owns the binding. Check for cache hit.
+                Registry.scoped[scope.id]?.get(canonicalType)?.get(qualifierKey)?.let {
                     scope.ensureOpen(type, qualifier)
                     return it as T
                 }
+            } else {
+                // Current scope doesn't own the binding. Check for ancestor's cache hit.
+                var currentScope = scope.parent
+                while (currentScope != null) {
+                    Registry.scoped[currentScope.id]?.get(canonicalType)?.get(qualifierKey)?.let {
+                        scope.ensureOpen(type, qualifier)
+                        return it as T
+                    }
+                    currentScope = currentScope.parent
+                }
             }
-            if (scope == null) {
-                Registry.singletons[node.type]?.get(qualifierKey)?.let { return it as T }
-            }
+        } else {
+            Registry.singletons[canonicalType]?.get(qualifierKey)?.let { return it as T }
         }
 
         // Build with cycle guard, cache under canonical key
-        val resolving = resolutionContext ?: ResolutionContext(this, scope)
+        val resolving = resolutionContext ?: ResolutionContext(this, owningScope)
         resolving.enter(node)
         try {
             return when (node.definitionType) {
@@ -78,7 +78,7 @@ class Component internal constructor() {
 
                 DefinitionType.Scoped -> {
                     scope ?: throw MissingScopeException(type, qualifier)
-                    val perScope = Registry.scoped.computeIfAbsent(scope.id) { ConcurrentHashMap() }
+                    val perScope = Registry.scoped.computeIfAbsent(owningScope!!.id) { ConcurrentHashMap() }
                     val inner = perScope.computeIfAbsent(node.type) { ConcurrentHashMap() }
                     inner[qualifierKey]?.let {
                         scope.ensureOpen(type, qualifier)
@@ -101,7 +101,7 @@ class Component internal constructor() {
                         ConcurrentHashMap()
                     }
                     inner[qualifierKey]?.let { return it as T }
-                    return synchronized(inner) {
+                    synchronized(inner) {
                         inner[qualifierKey]?.let { return it as T }
                         val built = node.factory(resolving)
                         (inner.putIfAbsent(qualifierKey, built) ?: built) as T
@@ -113,12 +113,28 @@ class Component internal constructor() {
         }
     }
 
-    private fun lookupNode(type: KClass<*>, qualifier: Qualifier?, scopeName: String?): Node {
-        Registry.scopedDefinitions[scopeName]?.get(type)?.get(qualifier)?.let { return it }
+    /**
+     * Returns [Node] paired with the scope that owns the binding.
+     */
+    private fun lookupNode(
+        type: KClass<*>,
+        qualifier: Qualifier?,
+        scope: Scope?,
+    ): Pair<Node, Scope?> {
+        // Scope ancestors lookup
+        var currentScope = scope
+        while (currentScope != null) {
+            Registry.scopedDefinitions[currentScope.name]?.get(type)?.get(qualifier)?.let {
+                return it to currentScope
+            }
+            currentScope = currentScope.parent
+        }
+
+        // Fallback to the main definition lookup
         val inner = Registry.definitions[type] ?: throw MissingBindingException.missingType(type)
         return inner.getOrElse(qualifier) {
             throw MissingBindingException.missingQualifier(type, qualifier, inner.keys)
-        }
+        } to null
     }
 
     private fun Scope.ensureOpen(type: KClass<*>, qualifier: Qualifier?) {
