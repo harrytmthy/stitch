@@ -1,0 +1,193 @@
+{
+  "benchmark_comparison": {
+    "title": "Stitch vs Dagger vs Koin - Injection Performance",
+    "unit": "nanoseconds",
+    "note": "Compilation mode: speed-profile. Dagger values are reference baseline.",
+    "benchmarks": [
+      {
+        "name": "Factory Inject - 10 Fixtures",
+        "dagger": {
+          "min": 124.82,
+          "median": 212.87,
+          "max": 351.89
+        },
+        "stitchPrecompiled": {
+          "min": 152.39,
+          "median": 205.44,
+          "max": 286.29
+        },
+        "stitchRuntime": {
+          "min": 1252.44,
+          "median": 1328.05,
+          "max": 5823.83
+        },
+        "koin": {
+          "min": 12979.91,
+          "median": 14885.81,
+          "max": 21332.99
+        }
+      },
+      {
+        "name": "Singleton Inject - 10 Fixtures",
+        "dagger": {
+          "min": 308.1,
+          "median": 429.67,
+          "max": 969.61
+        },
+        "stitchPrecompiled": {
+          "min": 351.26,
+          "median": 363.41,
+          "max": 700.07
+        },
+        "stitchRuntime": {
+          "min": 655.65,
+          "median": 736.82,
+          "max": 1612.38
+        },
+        "koin": {
+          "min": 6368.37,
+          "median": 6934.35,
+          "max": 10768.13
+        }
+      },
+      {
+        "name": "Factory Inject - 25 Fixtures",
+        "dagger": {
+          "min": 307.77,
+          "median": 364.26,
+          "max": 893.71
+        },
+        "stitchPrecompiled": {
+          "min": 312.48,
+          "median": 399.93,
+          "max": 680.88
+        },
+        "stitchRuntime": {
+          "min": 3435.8,
+          "median": 3853.4,
+          "max": 16376.49
+        },
+        "koin": {
+          "min": 34139.08,
+          "median": 37597.67,
+          "max": 54751.6
+        }
+      },
+      {
+        "name": "Singleton Inject - 25 Fixtures",
+        "dagger": {
+          "min": 804.65,
+          "median": 898.73,
+          "max": 2670.6
+        },
+        "stitchPrecompiled": {
+          "min": 763.69,
+          "median": 814.54,
+          "max": 2251.3
+        },
+        "stitchRuntime": {
+          "min": 1738.26,
+          "median": 1945.52,
+          "max": 3271.24
+        },
+        "koin": {
+          "min": 15881.64,
+          "median": 17511.96,
+          "max": 27121.66
+        }
+      },
+      {
+        "name": "Factory Inject - 50 Fixtures",
+        "dagger": {
+          "min": 538.95,
+          "median": 696.04,
+          "max": 1877.45
+        },
+        "stitchPrecompiled": {
+          "min": 571.88,
+          "median": 703.38,
+          "max": 1667.61
+        },
+        "stitchRuntime": {
+          "min": 7644.49,
+          "median": 9004.81,
+          "max": 34684.01
+        },
+        "koin": {
+          "min": 66393.47,
+          "median": 78707.14,
+          "max": 114202.42
+        }
+      },
+      {
+        "name": "Singleton Inject - 50 Fixtures",
+        "dagger": {
+          "min": 1581.95,
+          "median": 1806.24,
+          "max": 6645.27
+        },
+        "stitchPrecompiled": {
+          "min": 1518.87,
+          "median": 1634.6,
+          "max": 6008.64
+        },
+        "stitchRuntime": {
+          "min": 4000.15,
+          "median": 4236.7,
+          "max": 8045.33
+        },
+        "koin": {
+          "min": 32317.05,
+          "median": 35772.29,
+          "max": 49366.51
+        }
+      },
+      {
+        "name": "Factory Inject - 100 Fixtures",
+        "dagger": {
+          "min": 1149.04,
+          "median": 1312.69,
+          "max": 8140.53
+        },
+        "stitchPrecompiled": {
+          "min": 1092.85,
+          "median": 1219.85,
+          "max": 4722.2
+        },
+        "stitchRuntime": {
+          "min": 16223.26,
+          "median": 18723.38,
+          "max": 58074.42
+        },
+        "koin": {
+          "min": 135187.87,
+          "median": 158207.7,
+          "max": 219904.51
+        }
+      },
+      {
+        "name": "Singleton Inject - 100 Fixtures",
+        "dagger": {
+          "min": 3484.39,
+          "median": 4384.39,
+          "max": 19619.78
+        },
+        "stitchPrecompiled": {
+          "min": 3388.82,
+          "median": 3640.85,
+          "max": 19153.0
+        },
+        "stitchRuntime": {
+          "min": 8935.85,
+          "median": 9846.31,
+          "max": 17397.34
+        },
+        "koin": {
+          "min": 65152.35,
+          "median": 73161.62,
+          "max": 104134.28
+        }
+      }
+    ]
+  }
+}

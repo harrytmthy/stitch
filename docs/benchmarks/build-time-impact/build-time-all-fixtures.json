@@ -1,0 +1,101 @@
+{
+  "benchmark_comparison": {
+    "title": "Clean Build Time - Stitch vs Dagger vs Koin vs None",
+    "unit": "milliseconds",
+    "note": "Gradle profiler clean build benchmark, 10 measure iterations. Task: :app:assembleXxxDebug. 'none' is the no-DI baseline.",
+    "benchmarks": [
+      {
+        "name": "Clean Build - 10 Fixtures",
+        "none": {
+          "min": 5232.44,
+          "median": 5360.45,
+          "max": 5571.21
+        },
+        "koin": {
+          "min": 5294.92,
+          "median": 5451.48,
+          "max": 5710.11
+        },
+        "dagger": {
+          "min": 5526.54,
+          "median": 5738.14,
+          "max": 6567.94
+        },
+        "stitch": {
+          "min": 6141.75,
+          "median": 6238.87,
+          "max": 6526.05
+        }
+      },
+      {
+        "name": "Clean Build - 50 Fixtures",
+        "none": {
+          "min": 5105.65,
+          "median": 5367.44,
+          "max": 5889.48
+        },
+        "koin": {
+          "min": 5369.48,
+          "median": 5529.58,
+          "max": 5719.23
+        },
+        "dagger": {
+          "min": 6065.05,
+          "median": 6185.22,
+          "max": 6703.02
+        },
+        "stitch": {
+          "min": 6215.24,
+          "median": 6274.78,
+          "max": 6723.72
+        }
+      },
+      {
+        "name": "Clean Build - 100 Fixtures",
+        "none": {
+          "min": 5320.35,
+          "median": 5456.24,
+          "max": 5698.95
+        },
+        "koin": {
+          "min": 5428.55,
+          "median": 5535.77,
+          "max": 5745.15
+        },
+        "dagger": {
+          "min": 6355.27,
+          "median": 6620.33,
+          "max": 6955.57
+        },
+        "stitch": {
+          "min": 6166.71,
+          "median": 6551.63,
+          "max": 6857.97
+        }
+      },
+      {
+        "name": "Clean Build - 200 Fixtures",
+        "none": {
+          "min": 5399.86,
+          "median": 5803.77,
+          "max": 6281.89
+        },
+        "koin": {
+          "min": 5527.48,
+          "median": 5822.87,
+          "max": 6182.41
+        },
+        "dagger": {
+          "min": 7190.20,
+          "median": 7557.80,
+          "max": 8342.86
+        },
+        "stitch": {
+          "min": 6844.27,
+          "median": 7134.00,
+          "max": 7510.99
+        }
+      }
+    ]
+  }
+}
