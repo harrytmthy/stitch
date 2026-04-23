@@ -70,24 +70,31 @@ public final class com/harrytmthy/stitch/api/ResolutionContext {
 
 public final class com/harrytmthy/stitch/api/Scope {
 	public final fun close ()V
+	public final fun createChildScope (Lcom/harrytmthy/stitch/api/ScopeRef;)Lcom/harrytmthy/stitch/api/Scope;
+	public final fun createChildScope (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/Scope;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getId ()I
 	public final fun getName ()Ljava/lang/String;
+	public final fun getParent ()Lcom/harrytmthy/stitch/api/Scope;
 	public fun hashCode ()I
 	public final fun isOpen ()Z
 	public final fun open ()V
 }
 
 public final class com/harrytmthy/stitch/api/ScopeKt {
+	public static final fun dependsOn (Lcom/harrytmthy/stitch/api/ScopeRef;Lcom/harrytmthy/stitch/api/ScopeRef;)Lcom/harrytmthy/stitch/api/ScopeRef;
+	public static final fun dependsOn (Lcom/harrytmthy/stitch/api/ScopeRef;Ljava/lang/String;)Lcom/harrytmthy/stitch/api/ScopeRef;
 	public static final fun scope (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/ScopeRef;
 }
 
 public final class com/harrytmthy/stitch/api/ScopeRef {
 	public fun <init> (Ljava/lang/String;)V
-	public final fun createScope ()Lcom/harrytmthy/stitch/api/Scope;
+	public final fun createScope (Lcom/harrytmthy/stitch/api/Scope;)Lcom/harrytmthy/stitch/api/Scope;
+	public static synthetic fun createScope$default (Lcom/harrytmthy/stitch/api/ScopeRef;Lcom/harrytmthy/stitch/api/Scope;ILjava/lang/Object;)Lcom/harrytmthy/stitch/api/Scope;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getName ()Ljava/lang/String;
 	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/harrytmthy/stitch/api/Stitch {

@@ -18,6 +18,7 @@ package com.harrytmthy.stitch
 
 import com.harrytmthy.stitch.api.Stitch
 import com.harrytmthy.stitch.api.bind
+import com.harrytmthy.stitch.api.dependsOn
 import com.harrytmthy.stitch.api.module
 import com.harrytmthy.stitch.api.named
 import com.harrytmthy.stitch.api.scope
@@ -823,5 +824,93 @@ class StitchTest {
         assertFailsWith<MissingBindingException> {
             Stitch.get<Logger>(scope = activityScopeInstance)
         }
+    }
+
+    @Test
+    fun `dependsOn with cycle should throw IllegalStateException`() {
+        scope("fragment").dependsOn(scope("activity"))
+
+        assertFailsWith<IllegalStateException> {
+            scope("activity").dependsOn(scope("fragment"))
+        }
+    }
+
+    @Test
+    fun `dependsOn with same scope more than once should throw IllegalArgumentException`() {
+        scope("fragment").dependsOn(scope("activity"))
+
+        assertFailsWith<IllegalArgumentException> {
+            scope("fragment").dependsOn(scope("myActivity"))
+        }
+    }
+
+    @Test
+    fun `scoped get on parent's binding should return the parent's cached instance`() {
+        val activityScope = scope("activity")
+        val fragmentScope = scope("fragment").dependsOn(activityScope)
+        module {
+            scoped(activityScope) { Logger() }
+        }.register()
+
+        val activityScopeInstance = activityScope.createScope().apply { open() }
+        val activityLogger = activityScopeInstance.get<Logger>()
+        val fragmentScopeInstance = activityScopeInstance.createChildScope(fragmentScope)
+            .apply { open() }
+        val fragmentLogger = fragmentScopeInstance.get<Logger>()
+        assertSame(activityLogger, fragmentLogger)
+
+        val anotherFragmentScopeInstance = fragmentScope.createScope(parent = activityScopeInstance)
+            .apply { open() }
+        val anotherFragmentLogger = anotherFragmentScopeInstance.get<Logger>()
+        assertSame(activityLogger, anotherFragmentLogger)
+    }
+
+    @Test
+    fun `scoped get should prioritize current scope binding`() {
+        val activityScope = scope("activity")
+        val fragmentScope = scope("fragment").dependsOn(activityScope)
+        module {
+            scoped(activityScope) { Logger() }
+            scoped(fragmentScope) { Logger() }
+        }.register()
+
+        val activityScopeInstance = activityScope.createScope().apply { open() }
+        val activityLogger = activityScopeInstance.get<Logger>()
+        val fragmentScopeInstance = fragmentScope.createScope().apply { open() }
+        val fragmentLogger = fragmentScopeInstance.get<Logger>()
+        assertNotSame(activityLogger, fragmentLogger)
+    }
+
+    @Test
+    fun `scoped get on parent's binding alias should return the parent's cached instance`() {
+        val activityScope = scope("activity")
+        val fragmentScope = scope("fragment").dependsOn(activityScope)
+        module {
+            scoped(activityScope) { ActivityLifecycleTracker() }.bind<LifecycleTracker>()
+        }.register()
+
+        val activityScopeInstance = activityScope.createScope().apply { open() }
+        val activityTracker = activityScopeInstance.get<LifecycleTracker>()
+        val fragmentScopeInstance = activityScopeInstance.createChildScope(fragmentScope)
+            .apply { open() }
+        val fragmentTracker = fragmentScopeInstance.get<LifecycleTracker>()
+        assertSame(activityTracker, fragmentTracker)
+
+        val anotherFragmentScopeInstance = fragmentScope.createScope(parent = activityScopeInstance)
+            .apply { open() }
+        val anotherFragmentTracker = anotherFragmentScopeInstance.get<LifecycleTracker>()
+        assertSame(activityTracker, anotherFragmentTracker)
+    }
+
+    @Test
+    fun `scoped get on parent's binding without parent ref should throw MissingBindingException`() {
+        val activityScope = scope("activity")
+        val fragmentScope = scope("fragment").dependsOn(activityScope)
+        module {
+            scoped(activityScope) { Logger() }
+        }.register()
+
+        val fragmentScopeInstance = fragmentScope.createScope().apply { open() }
+        assertFailsWith<MissingBindingException> { fragmentScopeInstance.get<Logger>() }
     }
 }
