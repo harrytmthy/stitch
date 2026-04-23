@@ -1,0 +1,117 @@
+{
+  "apk_size_comparison": {
+    "title": "APK Size Impact - All Fixtures",
+    "unit": "bytes",
+    "note": "Release unsigned APKs. 'none' is the no-DI baseline.",
+    "results": [
+      {
+        "name": "APK Size - 10 Fixtures",
+        "none": {
+          "bytes": 2806287,
+          "kb": 2740.5,
+          "delta_bytes": 0,
+          "delta_kb": 0
+        },
+        "koin": {
+          "bytes": 3185575,
+          "kb": 3110.9,
+          "delta_bytes": 379288,
+          "delta_kb": 370.4
+        },
+        "dagger": {
+          "bytes": 2821070,
+          "kb": 2755,
+          "delta_bytes": 14783,
+          "delta_kb": 14.4
+        },
+        "stitch": {
+          "bytes": 2842679,
+          "kb": 2776.1,
+          "delta_bytes": 36392,
+          "delta_kb": 35.5
+        }
+      },
+      {
+        "name": "APK Size - 50 Fixtures",
+        "none": {
+          "bytes": 2815175,
+          "kb": 2749.2,
+          "delta_bytes": 0,
+          "delta_kb": 0
+        },
+        "koin": {
+          "bytes": 3199507,
+          "kb": 3124.5,
+          "delta_bytes": 384332,
+          "delta_kb": 375.3
+        },
+        "dagger": {
+          "bytes": 2847506,
+          "kb": 2780.8,
+          "delta_bytes": 32331,
+          "delta_kb": 31.6
+        },
+        "stitch": {
+          "bytes": 2859571,
+          "kb": 2792.5,
+          "delta_bytes": 44396,
+          "delta_kb": 43.4
+        }
+      },
+      {
+        "name": "APK Size - 100 Fixtures",
+        "none": {
+          "bytes": 2827151,
+          "kb": 2760.9,
+          "delta_bytes": 0,
+          "delta_kb": 0
+        },
+        "koin": {
+          "bytes": 3218731,
+          "kb": 3143.3,
+          "delta_bytes": 391580,
+          "delta_kb": 382.4
+        },
+        "dagger": {
+          "bytes": 2874390,
+          "kb": 2807,
+          "delta_bytes": 47239,
+          "delta_kb": 46.1
+        },
+        "stitch": {
+          "bytes": 2881503,
+          "kb": 2814,
+          "delta_bytes": 54352,
+          "delta_kb": 53.1
+        }
+      },
+      {
+        "name": "APK Size - 200 Fixtures",
+        "none": {
+          "bytes": 2848999,
+          "kb": 2782.2,
+          "delta_bytes": 0,
+          "delta_kb": 0
+        },
+        "koin": {
+          "bytes": 3256683,
+          "kb": 3180.4,
+          "delta_bytes": 407684,
+          "delta_kb": 398.1
+        },
+        "dagger": {
+          "bytes": 2935066,
+          "kb": 2866.3,
+          "delta_bytes": 86067,
+          "delta_kb": 84
+        },
+        "stitch": {
+          "bytes": 2929103,
+          "kb": 2860.5,
+          "delta_bytes": 80104,
+          "delta_kb": 78.2
+        }
+      }
+    ]
+  }
+}

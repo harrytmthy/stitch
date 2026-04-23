@@ -88,6 +88,27 @@ abstract class GenerateFixturesTask : DefaultTask() {
             appendLine("}")
         })
 
+        // Factory injection target (for cold-path factory benchmarks)
+        dir.resolve("FactoryInjectionTarget.kt").writeText(buildString {
+            appendLine("package $pkg")
+            appendLine()
+            appendLine("import com.harrytmthy.stitch.api.Stitch")
+            appendLine("import javax.inject.Inject")
+            appendLine("import org.koin.core.Koin")
+            appendLine()
+            appendLine("class FactoryInjectionTarget {")
+            appendLine("    @Inject lateinit var service1: Service1Factory")
+            appendLine()
+            appendLine("    fun injectWithKoin(koin: Koin) {")
+            appendLine("        service1 = koin.get()")
+            appendLine("    }")
+            appendLine()
+            appendLine("    fun injectWithStitch() {")
+            appendLine("        service1 = Stitch.get()")
+            appendLine("    }")
+            appendLine("}")
+        })
+
         // Stitch precompiled path wiring
         dir.resolve("StitchPrecompiledFixture.kt").writeText(buildString {
             appendLine("package $pkg")
@@ -99,10 +120,17 @@ abstract class GenerateFixturesTask : DefaultTask() {
             for (i in 1..n) {
                 appendLine("interface Service$i")
                 appendLine()
-                val dep = if (i == 1) "" else "val dep: Service${i - 1}Impl"
+                val dep = if (i == 1) "" else "val dep: Service${i - 1}Singleton"
                 appendLine("@Binds(aliases = [Service${i}::class])")
                 appendLine("@Singleton")
-                appendLine("class Service${i}Impl @Inject constructor($dep) : Service$i")
+                appendLine("class Service${i}Singleton @Inject constructor($dep) : Service$i")
+                appendLine()
+            }
+            // Factory classes: descending chain (Service1Factory depends on Service2Factory)
+            // so resolving Service1Factory always traverses the full depth on every call
+            for (i in 1..n) {
+                val dep = if (i == n) "" else "val dep: Service${i + 1}Factory"
+                appendLine("class Service${i}Factory @Inject constructor($dep)")
                 appendLine()
             }
         })
@@ -121,7 +149,7 @@ abstract class GenerateFixturesTask : DefaultTask() {
             for (i in 1..n) {
                 appendLine()
                 appendLine("    @Binds")
-                appendLine("    fun bindService$i(impl: Service${i}Impl): Service$i")
+                appendLine("    fun bindService$i(impl: Service${i}Singleton): Service$i")
             }
             appendLine("}")
             appendLine()
@@ -129,6 +157,7 @@ abstract class GenerateFixturesTask : DefaultTask() {
             appendLine("@Component(modules = [DaggerFixtureModule::class])")
             appendLine("interface DaggerFixtureComponent {")
             appendLine("    fun inject(target: InjectionTarget)")
+            appendLine("    fun inject(target: FactoryInjectionTarget)")
             appendLine("}")
         })
 
@@ -136,13 +165,17 @@ abstract class GenerateFixturesTask : DefaultTask() {
         dir.resolve("KoinFixture.kt").writeText(buildString {
             appendLine("package $pkg")
             appendLine()
+            appendLine("import org.koin.core.module.dsl.factoryOf")
             appendLine("import org.koin.core.module.dsl.singleOf")
             appendLine("import org.koin.dsl.bind")
             appendLine("import org.koin.dsl.module")
             appendLine()
             appendLine("val koinFixtureModule = module {")
             for (i in 1..n) {
-                appendLine("    singleOf(::Service${i}Impl) bind Service${i}::class")
+                appendLine("    singleOf(::Service${i}Singleton) bind Service${i}::class")
+            }
+            for (i in 1..n) {
+                appendLine("    factoryOf(::Service${i}Factory)")
             }
             appendLine("}")
         })
@@ -157,8 +190,12 @@ abstract class GenerateFixturesTask : DefaultTask() {
             appendLine()
             appendLine("val stitchRuntimeFixtureModule = module {")
             for (i in 1..n) {
-                val dep = if (i == 1) "Service${i}Impl()" else "Service${i}Impl(dep = get())"
-                appendLine("    singleton<Service${i}Impl> { $dep }.bind<Service$i>()")
+                val dep = if (i == 1) "Service${i}Singleton()" else "Service${i}Singleton(dep = get())"
+                appendLine("    singleton<Service${i}Singleton> { $dep }.bind<Service$i>()")
+            }
+            for (i in 1..n) {
+                val dep = if (i == n) "Service${i}Factory()" else "Service${i}Factory(dep = get())"
+                appendLine("    factory { $dep }")
             }
             appendLine("}")
         })

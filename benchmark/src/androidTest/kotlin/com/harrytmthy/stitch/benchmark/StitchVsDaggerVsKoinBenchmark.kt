@@ -22,6 +22,7 @@ import androidx.benchmark.junit4.BenchmarkRule
 import androidx.benchmark.junit4.measureRepeated
 import com.harrytmthy.stitch.api.Stitch
 import com.harrytmthy.stitch.benchmark.fixture.DaggerDaggerFixtureComponent
+import com.harrytmthy.stitch.benchmark.fixture.FactoryInjectionTarget
 import com.harrytmthy.stitch.benchmark.fixture.InjectionTarget
 import com.harrytmthy.stitch.benchmark.fixture.koinFixtureModule
 import com.harrytmthy.stitch.benchmark.fixture.stitchRuntimeFixtureModule
@@ -56,7 +57,7 @@ class StitchVsDaggerVsKoinBenchmark {
     )
 
     @Test
-    fun stitchPrecompiledFirstInject() {
+    fun stitchPrecompiledSingletonInject() {
         val target = InjectionTarget()
         benchmarkRule.measureRepeated {
             val singletonGraph = runWithMeasurementDisabled {
@@ -67,30 +68,9 @@ class StitchVsDaggerVsKoinBenchmark {
     }
 
     @Test
-    fun stitchPrecompiledRepeatedInject() {
-        val target = InjectionTarget()
-        val singletonGraph = StitchSingletonGraph()
-        singletonGraph.inject(target) // Warmup once
-        benchmarkRule.measureRepeated {
-            singletonGraph.inject(target)
-        }
-    }
-
-    @Test
-    fun stitchRuntimeFirstInject() {
-        val target = InjectionTarget()
-        benchmarkRule.measureRepeated {
-            runWithMeasurementDisabled { Stitch.register(stitchRuntimeFixtureModule) }
-            target.injectWithStitch()
-            runWithMeasurementDisabled { Stitch.reset() }
-        }
-    }
-
-    @Test
-    fun stitchRuntimeRepeatedInject() {
-        val target = InjectionTarget()
+    fun stitchRuntimeSingletonInject() {
         Stitch.register(stitchRuntimeFixtureModule)
-        target.injectWithStitch() // Warmup once
+        val target = InjectionTarget()
         benchmarkRule.measureRepeated {
             target.injectWithStitch()
         }
@@ -98,7 +78,7 @@ class StitchVsDaggerVsKoinBenchmark {
     }
 
     @Test
-    fun daggerFirstInject() {
+    fun daggerSingletonInject() {
         val target = InjectionTarget()
         benchmarkRule.measureRepeated {
             val fixtureComponent = runWithMeasurementDisabled {
@@ -109,32 +89,51 @@ class StitchVsDaggerVsKoinBenchmark {
     }
 
     @Test
-    fun daggerRepeatedInject() {
+    fun koinSingletonInject() {
+        val koinApp = koinApplication { modules(koinFixtureModule) }
         val target = InjectionTarget()
-        val fixtureComponent = DaggerDaggerFixtureComponent.create()
-        fixtureComponent.inject(target) // Warmup once
         benchmarkRule.measureRepeated {
+            target.injectWithKoin(koinApp.koin)
+        }
+        koinApp.close()
+    }
+
+    @Test
+    fun stitchPrecompiledFactoryInject() {
+        val target = FactoryInjectionTarget()
+        benchmarkRule.measureRepeated {
+            val singletonGraph = runWithMeasurementDisabled {
+                StitchSingletonGraph()
+            }
+            singletonGraph.inject(target)
+        }
+    }
+
+    @Test
+    fun stitchRuntimeFactoryInject() {
+        Stitch.register(stitchRuntimeFixtureModule)
+        val target = FactoryInjectionTarget()
+        benchmarkRule.measureRepeated {
+            target.injectWithStitch()
+        }
+        Stitch.reset()
+    }
+
+    @Test
+    fun daggerFactoryInject() {
+        val target = FactoryInjectionTarget()
+        benchmarkRule.measureRepeated {
+            val fixtureComponent = runWithMeasurementDisabled {
+                DaggerDaggerFixtureComponent.create()
+            }
             fixtureComponent.inject(target)
         }
     }
 
     @Test
-    fun koinFirstInject() {
-        val target = InjectionTarget()
-        benchmarkRule.measureRepeated {
-            val koinApp = runWithMeasurementDisabled {
-                koinApplication { modules(koinFixtureModule) }
-            }
-            target.injectWithKoin(koinApp.koin)
-            runWithMeasurementDisabled { koinApp.close() }
-        }
-    }
-
-    @Test
-    fun koinRepeatedInject() {
+    fun koinFactoryInject() {
         val koinApp = koinApplication { modules(koinFixtureModule) }
-        val target = InjectionTarget()
-        target.injectWithKoin(koinApp.koin) // Warmup once
+        val target = FactoryInjectionTarget()
         benchmarkRule.measureRepeated {
             target.injectWithKoin(koinApp.koin)
         }
