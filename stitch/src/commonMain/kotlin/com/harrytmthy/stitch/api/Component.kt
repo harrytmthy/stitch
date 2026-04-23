@@ -69,8 +69,12 @@ class Component internal constructor() {
             Registry.singletons[canonicalType]?.get(qualifierKey)?.let { return it as T }
         }
 
-        // Build with cycle guard, cache under canonical key
-        val resolving = resolutionContext ?: ResolutionContext(this, owningScope)
+        // Build with cycle guard, cache under canonical key.
+        // Factory lambdas resolve in the context of the owning scope, not the requesting scope,
+        // so `scoped(activityScope) { A(get<B>()) }` resolves B within activityScope's visibility,
+        // not the child scope that triggered the request.
+        val resolving = resolutionContext?.apply { this.scope = owningScope }
+            ?: ResolutionContext(this, owningScope)
         resolving.enter(node)
         try {
             return when (node.definitionType) {

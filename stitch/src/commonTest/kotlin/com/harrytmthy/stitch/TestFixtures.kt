@@ -30,8 +30,10 @@ class LoadUseCase(val dao: Dao)
 
 class NeedsMissing(val repo: Repo) // used to trigger MissingBindingException
 
-class A(val b: B)
+class A(val b: B?)
 class B(val a: A) // used to trigger CycleException
+
+class C(val a: A, val b: B)
 
 class UsesLazyFactory(val barLazy: Lazy<Bar>)
 class Bar
