@@ -913,4 +913,30 @@ class StitchTest {
         val fragmentScopeInstance = fragmentScope.createScope().apply { open() }
         assertFailsWith<MissingBindingException> { fragmentScopeInstance.get<Logger>() }
     }
+
+    @Test
+    fun `get inside scoped binding definitions should resolve upstream`() {
+        val activityScope = scope("activity")
+        val fragmentScope = scope("fragment").dependsOn(activityScope)
+        module {
+            singleton { A(null) }
+            singleton { B(get()) }
+            scoped(activityScope) { A(get()) }
+            scoped(fragmentScope) { B(get()) }
+            scoped(fragmentScope) { C(get(), get()) }
+        }.register()
+
+        val activityScopeInstance = activityScope.createScope().apply { open() }
+        val fragmentScopeInstance = fragmentScope.createScope(activityScopeInstance)
+            .apply { open() }
+
+        val fragmentScopedA = fragmentScopeInstance.get<A>()
+        val singletonScopedA = Stitch.get<A>()
+        assertNotSame(fragmentScopedA, singletonScopedA)
+
+        val fragmentScopedC = fragmentScopeInstance.get<C>()
+        assertSame(fragmentScopedC.a, activityScopeInstance.get<A>())
+        assertSame(fragmentScopedC.b, fragmentScopeInstance.get<B>())
+        assertSame(activityScopeInstance.get<B>(), Stitch.get<B>())
+    }
 }

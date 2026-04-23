@@ -40,7 +40,7 @@ import kotlin.reflect.KClass
  * @param forceEager When true, all singletons in this module are eagerly initialized on
  *                   [Stitch.register], regardless of individual `eager` flags.
  */
-class Module(private val forceEager: Boolean, onInit: Module.() -> Unit) {
+class Module(private val forceEager: Boolean) {
 
     private val definitions = HashSet<Node>()
 
@@ -50,10 +50,12 @@ class Module(private val forceEager: Boolean, onInit: Module.() -> Unit) {
 
     private val eagerNodes = ArrayList<Node>()
 
-    init {
-        onInit(this)
-    }
-
+    /**
+     * Registers this module, making its bindings available for resolution.
+     *
+     * Equivalent to [Stitch.register] for a single module. Eager singletons are warmed up
+     * immediately after registration.
+     */
     fun register() {
         for (node in definitions) {
             Registry.definitions[node.type]?.let { nodeByQualifier ->
@@ -207,5 +209,5 @@ class Module(private val forceEager: Boolean, onInit: Module.() -> Unit) {
  * @param forceEager When true, all singletons defined in this module are eagerly initialized
  *                   on [Stitch.register].
  */
-fun module(forceEager: Boolean = false, onInit: Module.() -> Unit): Module =
-    Module(forceEager, onInit)
+inline fun module(forceEager: Boolean = false, crossinline onInit: Module.() -> Unit): Module =
+    Module(forceEager).also(onInit)

@@ -30,7 +30,7 @@ import com.harrytmthy.stitch.internal.Node
  *
  * @throws com.harrytmthy.stitch.exception.CycleException if a dependency cycle is detected.
  */
-class ResolutionContext internal constructor(val component: Component, val scope: Scope?) {
+class ResolutionContext internal constructor(val component: Component, var scope: Scope?) {
 
     private val stack = ArrayDeque<Node>()
 

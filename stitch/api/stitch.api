@@ -34,7 +34,7 @@ public final class com/harrytmthy/stitch/api/Injector$DefaultImpls {
 }
 
 public final class com/harrytmthy/stitch/api/Module {
-	public fun <init> (ZLkotlin/jvm/functions/Function1;)V
+	public fun <init> (Z)V
 	public final fun define (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/internal/DefinitionType;ZLjava/lang/String;Lkotlin/jvm/functions/Function1;)Lcom/harrytmthy/stitch/api/Bindable;
 	public final fun register ()V
 }
@@ -66,6 +66,7 @@ public final class com/harrytmthy/stitch/api/QualifierKt {
 public final class com/harrytmthy/stitch/api/ResolutionContext {
 	public final fun getComponent ()Lcom/harrytmthy/stitch/api/Component;
 	public final fun getScope ()Lcom/harrytmthy/stitch/api/Scope;
+	public final fun setScope (Lcom/harrytmthy/stitch/api/Scope;)V
 }
 
 public final class com/harrytmthy/stitch/api/Scope {
