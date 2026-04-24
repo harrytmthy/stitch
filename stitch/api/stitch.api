@@ -79,7 +79,6 @@ public final class com/harrytmthy/stitch/api/Scope {
 	public final fun getParent ()Lcom/harrytmthy/stitch/api/Scope;
 	public fun hashCode ()I
 	public final fun isOpen ()Z
-	public final fun open ()V
 }
 
 public final class com/harrytmthy/stitch/api/ScopeKt {
@@ -146,7 +145,7 @@ public final class com/harrytmthy/stitch/exception/MissingScopeException : com/h
 }
 
 public final class com/harrytmthy/stitch/exception/ScopeClosedException : com/harrytmthy/stitch/exception/GetFailedException {
-	public fun <init> (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;I)V
+	public fun <init> (Lkotlin/reflect/KClass;Lcom/harrytmthy/stitch/api/Qualifier;Lcom/harrytmthy/stitch/api/Scope;)V
 }
 
 public final class com/harrytmthy/stitch/internal/DefinitionType : java/lang/Enum {

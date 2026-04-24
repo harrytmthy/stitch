@@ -26,6 +26,7 @@ Stitch brings both models into one library without the combined trade-offs:
 | Runtime binding registration       |          ✅          |     ❌     |     ✅     |
 | Parent-child scope dependencies    |          ✅          |     ✅     |     ❌     |
 | Kotlin Multiplatform support       |          ✅          |     ❌     |     ✅     |
+| Amount of rituals (boilerplate)    |      ✅ Lowest       | ❌ Highest |   ✅ Low   |
 | Injection performance              |      ✅ Fastest      |  ✅ Fast   | ❌ Slowest |
 | APK size impact on larger graphs   |      ✅ Lowest       |   ✅ Low   | ❌ Highest |
 | Build-time impact on larger graphs | ✅ Lower than Dagger | ❌ Highest | ✅ Lowest  |
@@ -97,8 +98,6 @@ Resolve scoped bindings:
 
 ```kotlin
 val homeActivityScope = activityScope.createScope()
-homeActivityScope.open()
-
 val viewModel: HomeViewModel = homeActivityScope.get()
 
 // Cleanup
@@ -112,8 +111,8 @@ Use `dependsOn()` to establish parent-child dependencies:
 val fragmentScope = scope("fragment").dependsOn(activityScope)
 
 // Use it anywhere
-val homeActivityScope = activityScope.createScope().apply { open() }
-val homeFragmentScope = homeActivityScope.createChildScope(fragmentScope).apply { open() }
+val homeActivityScope = activityScope.createScope()
+val homeFragmentScope = homeActivityScope.createChildScope(fragmentScope)
 val activityViewModel = homeFragmentScope.get<HomeViewModel>()
 ```
 
