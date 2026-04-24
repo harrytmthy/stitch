@@ -29,28 +29,17 @@ import kotlinx.atomicfu.atomic
  * ```
  * val activityScope = scope("activity")
  * val instance = activityScope.createScope()
- * instance.open()
  *
  * val viewModel: HomeViewModel = instance.get()
  *
  * instance.close() // Clears all cached instances for this scope
  * ```
  *
- * A scope must be opened before resolution and closed when no longer used.
  * Resolving from a closed scope throws [ScopeClosedException].
  */
 class Scope internal constructor(val id: Int, val name: String, val parent: Scope?) {
 
-    private val open = atomic(false)
-
-    /**
-     * Opens this scope, allowing bindings to be resolved.
-     */
-    fun open() {
-        val inner = ScopeManager.idsByScopeName.computeIfAbsent(name) { HashSet() }
-        inner.add(id)
-        open.value = true
-    }
+    private val open = atomic(true)
 
     /**
      * Closes this scope, clearing all cached instances and preventing further resolution.
@@ -138,7 +127,12 @@ class ScopeRef(val name: String) {
      *
      * @param parent the parent scope instance, or null for a root scope.
      */
-    fun createScope(parent: Scope? = null): Scope = Scope(id = ScopeManager.nextId(), name, parent)
+    fun createScope(parent: Scope? = null): Scope {
+        val scopeId = ScopeManager.nextId()
+        val inner = ScopeManager.idsByScopeName.computeIfAbsent(name) { HashSet() }
+        inner.add(scopeId)
+        return Scope(scopeId, name, parent)
+    }
 
     override fun hashCode(): Int = name.hashCode()
 

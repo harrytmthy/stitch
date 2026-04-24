@@ -473,34 +473,6 @@ class StitchTest {
     }
 
     @Test
-    fun `scoped get with non open scope should throw ScopeClosedException`() {
-        val activityScope = scope("activity")
-        val module = module {
-            scoped(activityScope) { RepoImpl() as Repo }
-        }
-        Stitch.register(module)
-
-        val scopeInstance = activityScope.createScope() // not opened
-        assertFailsWith<ScopeClosedException> {
-            Stitch.get<Repo>(scope = scopeInstance)
-        }
-    }
-
-    @Test
-    fun `open scope then get should work`() {
-        val activityScope = scope("activity")
-        val module = module {
-            scoped(activityScope) { RepoImpl() as Repo }
-        }
-        Stitch.register(module)
-
-        val scopeInstance = activityScope.createScope()
-        scopeInstance.open()
-        val repo = Stitch.get<Repo>(scope = scopeInstance)
-        assertNotNull(repo)
-    }
-
-    @Test
     fun `same scope instance returns same object`() {
         val screenScope = scope("screen")
         val module = module {
@@ -508,7 +480,7 @@ class StitchTest {
         }
         Stitch.register(module)
 
-        val scopeInstance = screenScope.createScope().apply { open() }
+        val scopeInstance = screenScope.createScope()
         val firstRepo = Stitch.get<Repo>(scope = scopeInstance)
         val secondRepo = Stitch.get<Repo>(scope = scopeInstance)
         assertSame(firstRepo, secondRepo)
@@ -522,8 +494,8 @@ class StitchTest {
         }
         Stitch.register(module)
 
-        val firstScopeInstance = screenScope.createScope().apply { open() }
-        val secondScopeInstance = screenScope.createScope().apply { open() }
+        val firstScopeInstance = screenScope.createScope()
+        val secondScopeInstance = screenScope.createScope()
 
         val firstRepo = Stitch.get<Repo>(scope = firstScopeInstance)
         val secondRepo = Stitch.get<Repo>(scope = secondScopeInstance)
@@ -538,7 +510,7 @@ class StitchTest {
         }
         Stitch.register(module)
 
-        val scopeInstance = screenScope.createScope().apply { open() }
+        val scopeInstance = screenScope.createScope()
         val repo = Stitch.get<Repo>(scope = scopeInstance)
         assertNotNull(repo)
 
@@ -546,29 +518,6 @@ class StitchTest {
         assertFailsWith<ScopeClosedException> {
             Stitch.get<Repo>(scope = scopeInstance)
         }
-    }
-
-    @Test
-    fun `reopen same scope id rebuilds`() {
-        val screenScope = scope("screen")
-        var builds = 0
-        val module = module {
-            scoped(screenScope) {
-                builds++
-                RepoImpl() as Repo
-            }
-        }
-        Stitch.register(module)
-
-        val scopeInstance = screenScope.createScope()
-        scopeInstance.open()
-        val first = Stitch.get<Repo>(scope = scopeInstance)
-        scopeInstance.close()
-
-        scopeInstance.open()
-        val second = Stitch.get<Repo>(scope = scopeInstance)
-        assertNotSame(first, second)
-        assertEquals(2, builds)
     }
 
     @Test
@@ -580,7 +529,7 @@ class StitchTest {
         }
         Stitch.register(module)
 
-        val fragmentScopeInstance = fragmentScope.createScope().apply { open() }
+        val fragmentScopeInstance = fragmentScope.createScope()
         assertFailsWith<IllegalStateException> {
             Stitch.get<Repo>(scope = fragmentScopeInstance)
         }
@@ -595,7 +544,7 @@ class StitchTest {
         }
         Stitch.register(module)
 
-        val scopeInstance = screenScope.createScope().apply { open() }
+        val scopeInstance = screenScope.createScope()
         val firstProd = Stitch.get<Logger>(named("prod"), scope = scopeInstance)
         val secondProd = Stitch.get<Logger>(named("prod"), scope = scopeInstance)
         val firstStaging = Stitch.get<Logger>(named("staging"), scope = scopeInstance)
@@ -614,7 +563,7 @@ class StitchTest {
         }
         Stitch.register(module)
 
-        val scopeInstance = screenScope.createScope().apply { open() }
+        val scopeInstance = screenScope.createScope()
         val asImpl = Stitch.get<DualRepo>(scope = scopeInstance)
         val asRepo = Stitch.get<Repo>(scope = scopeInstance)
         val asAuditable = Stitch.get<Auditable>(scope = scopeInstance)
@@ -637,8 +586,8 @@ class StitchTest {
         }
         Stitch.register(module)
 
-        val activityScopeInstance = activityScope.createScope().apply { open() }
-        val viewModelScopeInstance = viewModelScope.createScope().apply { open() }
+        val activityScopeInstance = activityScope.createScope()
+        val viewModelScopeInstance = viewModelScope.createScope()
         val dao = Stitch.get<Dao>(scope = activityScopeInstance)
         val logger = Stitch.get<Logger>(scope = activityScopeInstance)
         val fetchUseCase = Stitch.get<FetchUseCase>(scope = viewModelScopeInstance)
@@ -660,53 +609,10 @@ class StitchTest {
         }
         Stitch.register(module)
 
-        val activityScopeInstance = activityScope.createScope().apply { open() }
-        val viewModelScopeInstance = viewModelScope.createScope().apply { open() }
+        val activityScopeInstance = activityScope.createScope()
+        val viewModelScopeInstance = viewModelScope.createScope()
 
         assertNotSame(Stitch.get<Logger>(scope = activityScopeInstance), Stitch.get<Logger>(scope = viewModelScopeInstance))
-    }
-
-    @Test
-    fun `scope should return different instance of the same type (with singleton)`() {
-        val activityScope = scope("activity")
-        val homeModule = module {
-            singleton { Logger() }
-            scoped(activityScope) { Logger() }
-        }
-        Stitch.register(homeModule)
-        val activityScopeInstance = activityScope.createScope().apply { open() }
-
-        val singletonLogger = Stitch.get<Logger>()
-        val scopedLogger = Stitch.get<Logger>(scope = activityScopeInstance)
-
-        assertSame(scopedLogger, activityScopeInstance.get())
-        assertNotSame(singletonLogger, scopedLogger)
-    }
-
-    @Test
-    fun `inject lazy throws when closed and succeeds when open`() {
-        val screenScope = scope("screen")
-        val module = module {
-            scoped(screenScope) { RepoImpl() as Repo }
-        }
-        Stitch.register(module)
-
-        val scopeInstance = screenScope.createScope()
-        val lazyRepo: Lazy<Repo> = scopeInstance.inject()
-
-        // Access while closed → ScopeClosedException
-        assertFailsWith<ScopeClosedException> { lazyRepo.value }
-
-        // Open and access → success
-        scopeInstance.open()
-        val repo = lazyRepo.value
-        assertNotNull(repo)
-        scopeInstance.close()
-
-        // New Lazy should throw on access while closed
-        val newLazy: Lazy<Repo> = scopeInstance.inject()
-        assertFailsWith<ScopeClosedException> { newLazy.value }
-        assertFailsWith<ScopeClosedException> { Stitch.get<Repo>(scope = scopeInstance) }
     }
 
     @Test
@@ -716,7 +622,7 @@ class StitchTest {
             scoped(screenScope) { RepoImpl() as Repo }
         }
         Stitch.register(module)
-        val scopeInstance = screenScope.createScope().apply { open() }
+        val scopeInstance = screenScope.createScope()
         assertNotNull(Stitch.get<Repo>(scope = scopeInstance))
 
         Stitch.unregisterAll()
@@ -754,7 +660,7 @@ class StitchTest {
         }
         Stitch.register(module)
 
-        val scopeInstance = screenScope.createScope().apply { open() }
+        val scopeInstance = screenScope.createScope()
         val daoBefore = Stitch.get<Dao>(scope = scopeInstance)
         val loggerBefore = Stitch.get<Logger>(scope = scopeInstance)
         Stitch.unregister(module)
@@ -812,8 +718,8 @@ class StitchTest {
         val viewModelModule = module { scoped(viewModelScope) { Logger() } }
         Stitch.register(activityModule, viewModelModule)
 
-        val activityScopeInstance = activityScope.createScope().apply { open() }
-        val viewModelScopeInstance = viewModelScope.createScope().apply { open() }
+        val activityScopeInstance = activityScope.createScope()
+        val viewModelScopeInstance = viewModelScope.createScope()
         assertNotNull(Stitch.get<Logger>(scope = activityScopeInstance))
 
         val loggerBeforeUnregister = Stitch.get<Logger>(scope = viewModelScopeInstance)
@@ -852,15 +758,15 @@ class StitchTest {
             scoped(activityScope) { Logger() }
         }.register()
 
-        val activityScopeInstance = activityScope.createScope().apply { open() }
+        val activityScopeInstance = activityScope.createScope()
         val activityLogger = activityScopeInstance.get<Logger>()
         val fragmentScopeInstance = activityScopeInstance.createChildScope(fragmentScope)
-            .apply { open() }
+
         val fragmentLogger = fragmentScopeInstance.get<Logger>()
         assertSame(activityLogger, fragmentLogger)
 
         val anotherFragmentScopeInstance = fragmentScope.createScope(parent = activityScopeInstance)
-            .apply { open() }
+
         val anotherFragmentLogger = anotherFragmentScopeInstance.get<Logger>()
         assertSame(activityLogger, anotherFragmentLogger)
     }
@@ -874,9 +780,9 @@ class StitchTest {
             scoped(fragmentScope) { Logger() }
         }.register()
 
-        val activityScopeInstance = activityScope.createScope().apply { open() }
+        val activityScopeInstance = activityScope.createScope()
         val activityLogger = activityScopeInstance.get<Logger>()
-        val fragmentScopeInstance = fragmentScope.createScope().apply { open() }
+        val fragmentScopeInstance = fragmentScope.createScope()
         val fragmentLogger = fragmentScopeInstance.get<Logger>()
         assertNotSame(activityLogger, fragmentLogger)
     }
@@ -889,15 +795,15 @@ class StitchTest {
             scoped(activityScope) { ActivityLifecycleTracker() }.bind<LifecycleTracker>()
         }.register()
 
-        val activityScopeInstance = activityScope.createScope().apply { open() }
+        val activityScopeInstance = activityScope.createScope()
         val activityTracker = activityScopeInstance.get<LifecycleTracker>()
         val fragmentScopeInstance = activityScopeInstance.createChildScope(fragmentScope)
-            .apply { open() }
+
         val fragmentTracker = fragmentScopeInstance.get<LifecycleTracker>()
         assertSame(activityTracker, fragmentTracker)
 
         val anotherFragmentScopeInstance = fragmentScope.createScope(parent = activityScopeInstance)
-            .apply { open() }
+
         val anotherFragmentTracker = anotherFragmentScopeInstance.get<LifecycleTracker>()
         assertSame(activityTracker, anotherFragmentTracker)
     }
@@ -910,7 +816,7 @@ class StitchTest {
             scoped(activityScope) { Logger() }
         }.register()
 
-        val fragmentScopeInstance = fragmentScope.createScope().apply { open() }
+        val fragmentScopeInstance = fragmentScope.createScope()
         assertFailsWith<MissingBindingException> { fragmentScopeInstance.get<Logger>() }
     }
 
@@ -926,9 +832,8 @@ class StitchTest {
             scoped(fragmentScope) { C(get(), get()) }
         }.register()
 
-        val activityScopeInstance = activityScope.createScope().apply { open() }
+        val activityScopeInstance = activityScope.createScope()
         val fragmentScopeInstance = fragmentScope.createScope(activityScopeInstance)
-            .apply { open() }
 
         val fragmentScopedA = fragmentScopeInstance.get<A>()
         val singletonScopedA = Stitch.get<A>()

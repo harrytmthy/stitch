@@ -143,7 +143,7 @@ class Component internal constructor() {
 
     private fun Scope.ensureOpen(type: KClass<*>, qualifier: Qualifier?) {
         if (!isOpen()) {
-            throw ScopeClosedException(type, qualifier, id)
+            throw ScopeClosedException(type, qualifier, this)
         }
     }
 }

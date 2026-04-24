@@ -17,20 +17,19 @@
 package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
+import com.harrytmthy.stitch.api.Scope
 import kotlin.reflect.KClass
 
 /**
- * Thrown when trying to resolve a scoped binding using a scope that is not open.
- *
- * This guards against using instances after a lifecycle has ended, and against
- * accessing scoped bindings before the scope is opened.
- *
- * To fix:
- * - Call `scope.open()` before resolving.
- * - Avoid holding on to references after `scope.close()`.
+ * Thrown when trying to resolve a scoped binding using a scope that is already closed.
+ * This guards against using instances after a lifecycle has ended.
  */
 class ScopeClosedException(
     type: KClass<*>,
     qualifier: Qualifier?,
-    scopeId: Int,
-) : GetFailedException(type, qualifier, explanation = "Scope with id '$scopeId' is not open!")
+    scope: Scope,
+) : GetFailedException(
+    type = type,
+    qualifier = qualifier,
+    explanation = "Scope '${scope.name}' with id ${scope.id} is already closed!",
+)
