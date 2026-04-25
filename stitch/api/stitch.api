@@ -54,6 +54,7 @@ public abstract interface class com/harrytmthy/stitch/api/Qualifier {
 }
 
 public final class com/harrytmthy/stitch/api/QualifierKt {
+	public static final fun named (Ljava/lang/Enum;)Lcom/harrytmthy/stitch/api/Named;
 	public static final fun named (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/Named;
 	public static final fun typed (Lkotlin/reflect/KClass;)Lcom/harrytmthy/stitch/api/Typed;
 }
