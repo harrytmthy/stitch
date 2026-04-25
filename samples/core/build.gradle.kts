@@ -36,9 +36,9 @@ android {
 
 dependencies {
     "withStitchCompileOnly"(libs.javax.inject)
-    "withStitchCompileOnly"(project(":stitch-annotations"))
-    "withStitchImplementation"(project(":stitch"))
-    "kspWithStitch"(project(":stitch-ksp"))
+    "withStitchCompileOnly"(libs.stitch.annotations)
+    "withStitchImplementation"(libs.stitch)
+    "kspWithStitch"(libs.stitch.ksp)
     "withDaggerCompileOnly"(libs.javax.inject)
     "withDaggerImplementation"(libs.dagger)
     "kspWithDagger"(libs.dagger.compiler)

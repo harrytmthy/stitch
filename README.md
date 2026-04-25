@@ -2,6 +2,7 @@
 
 [![Build](https://img.shields.io/github/actions/workflow/status/harrytmthy/stitch/ci.yml?branch=main&label=build&logo=githubactions&logoColor=white&style=flat-square)](https://github.com/harrytmthy/stitch/actions)
 [![License](https://img.shields.io/github/license/harrytmthy/stitch?label=license&color=blue&style=flat-square)](https://github.com/harrytmthy/stitch/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/harrytmthy/stitch?include_prereleases&label=release&color=orange&style=flat-square)](https://github.com/harrytmthy/stitch/releases)
 
 A Kotlin Multiplatform dependency injection library with a precompiled path and a runtime
 registration path, designed to replace the Dagger + Koin split with one consistent model.
