@@ -408,6 +408,7 @@ object ScopedGraphGenerator {
     private fun TypeSpec.Builder.addUniversalGetterFunction(plan: InjectorPlan) {
         val qualifierClass = com.harrytmthy.stitch.api.Qualifier::class.asClassName()
         val namedClass = com.harrytmthy.stitch.api.Named::class.asClassName()
+        val typedClass = com.harrytmthy.stitch.api.Typed::class.asClassName()
         val kClassClass = kotlin.reflect.KClass::class.asClassName()
 
         addFunction(
@@ -420,18 +421,21 @@ object ScopedGraphGenerator {
                         .build(),
                 )
                 .returns(TypeVariableName("T"))
-                .addCode(buildUniversalGetterBody(plan, namedClass))
+                .addCode(buildUniversalGetterBody(plan, namedClass, typedClass))
                 .build(),
         )
     }
 
-    private fun buildUniversalGetterBody(plan: InjectorPlan, namedClass: ClassName): CodeBlock {
+    private fun buildUniversalGetterBody(
+        plan: InjectorPlan,
+        namedClass: ClassName,
+        typedClass: ClassName,
+    ): CodeBlock {
         val bindingsByType = linkedMapOf<String, List<ValidatedBinding>>()
         for (binding in plan.ancestorBindings) {
             bindingsByType.getOrPut(binding.type) { ArrayList() }
         }
         for (binding in plan.ancestorBindings) {
-            @Suppress("UNCHECKED_CAST")
             (bindingsByType.getValue(binding.type) as MutableList<ValidatedBinding>).add(binding)
         }
 
@@ -444,11 +448,15 @@ object ScopedGraphGenerator {
 
                 val unqualified = bindings.firstOrNull { it.qualifier == null }
                 val namedBindings = bindings.mapNotNull { binding ->
-                    val qualifier = binding.qualifier
-                    if (qualifier is Qualifier.Named) {
-                        qualifier.value to binding
-                    } else {
-                        null
+                    when (val qualifier = binding.qualifier) {
+                        is Qualifier.Named -> qualifier.value to binding
+                        else -> null
+                    }
+                }
+                val typedBindings = bindings.mapNotNull { binding ->
+                    when (val qualifier = binding.qualifier) {
+                        is Qualifier.Custom -> qualifier.qualifiedName to binding
+                        else -> null
                     }
                 }
 
@@ -465,22 +473,60 @@ object ScopedGraphGenerator {
                             endControlFlow()
                         }
 
-                        if (namedBindings.isNotEmpty()) {
-                            beginControlFlow("if (qualifier is %T)", namedClass)
-                            beginControlFlow("when (qualifier.value)")
-                            for ((name, binding) in namedBindings) {
-                                addStatement("%S -> return %L as T", name, dependencyAccess(plan.scope, binding))
+                        if (namedBindings.isNotEmpty() || typedBindings.isNotEmpty()) {
+                            beginControlFlow("when (qualifier)")
+                            if (namedBindings.isNotEmpty()) {
+                                beginControlFlow("is %T ->", namedClass)
+                                beginControlFlow("when (qualifier.value)")
+                                for ((name, binding) in namedBindings) {
+                                    addStatement(
+                                        "%S -> return %L as T",
+                                        name,
+                                        dependencyAccess(plan.scope, binding),
+                                    )
+                                }
+                                addStatement(
+                                    $$"else -> error(\"Binding with type '${type.simpleName}' has no qualifier with name '${qualifier.value}'\")",
+                                )
+                                endControlFlow()
+                                endControlFlow()
                             }
-                            addStatement($$"else -> error(\"Binding with type '${type.simpleName}' has no qualifier with name '${qualifier.value}'\")")
+
+                            if (typedBindings.isNotEmpty()) {
+                                beginControlFlow("is %T ->", typedClass)
+                                beginControlFlow("when (qualifier.value)")
+                                for ((qualifiedName, binding) in typedBindings) {
+                                    addStatement(
+                                        "%T::class -> return %L as T",
+                                        ClassName.bestGuess(qualifiedName),
+                                        dependencyAccess(plan.scope, binding),
+                                    )
+                                }
+                                addStatement(
+                                    $$"else -> error(\"Binding with type '${type.simpleName}' has no qualifier with type '${qualifier.value.qualifiedName}'\")",
+                                )
+                                endControlFlow()
+                                endControlFlow()
+                            }
+
+                            addStatement(
+                                $$"else -> error(\"Binding with type '${type.simpleName}' has no matching qualifier '$qualifier'\")",
+                            )
                             endControlFlow()
-                            endControlFlow()
+                        } else {
+                            addStatement(
+                                $$"error(\"Binding with type '${type.simpleName}' has no matching qualifier '$qualifier'\")",
+                            )
                         }
-                        addStatement($$"error(\"Binding with type '${type.simpleName}' has no matching qualifier '$qualifier'\")")
+
                         endControlFlow()
                     }
                 }
             }
-            addStatement($$"else -> error(\"Binding with type '${type.simpleName}' is not found in $currentScope scope and its ancestors.\")")
+
+            addStatement(
+                $$"else -> error(\"Binding with type '${type.simpleName}' is not found in $currentScope scope and its ancestors.\")",
+            )
             endControlFlow()
         }.build()
     }
@@ -493,6 +539,11 @@ object ScopedGraphGenerator {
             append(baseTypeName(binding.type))
             when (val qualifier = binding.qualifier) {
                 null -> Unit
+
+                is Qualifier.Custom -> {
+                    append("_custom_")
+                    append(sanitizeName(qualifier.qualifiedName))
+                }
 
                 is Qualifier.Named -> {
                     append("_named_")

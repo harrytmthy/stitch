@@ -103,8 +103,14 @@ sealed class Qualifier {
 
     abstract fun encode(): String
 
+    data class Custom(val qualifiedName: String) : Qualifier() {
+        override fun encode(): String = "Custom:$qualifiedName"
+        override fun toString(): String = qualifiedName
+    }
+
     data class Named(val value: String) : Qualifier() {
         override fun encode(): String = "Named:$value"
+        override fun toString(): String = "Named '$value'"
     }
 
     companion object {
@@ -118,6 +124,7 @@ sealed class Qualifier {
                 error("Should not happen")
             }
             return when {
+                parts[0] == "Custom" -> Custom(parts[1])
                 parts[0] == "Named" -> Named(parts[1])
                 else -> error("Should not happen")
             }

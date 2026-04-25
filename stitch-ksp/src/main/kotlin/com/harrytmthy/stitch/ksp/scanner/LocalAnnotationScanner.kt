@@ -48,6 +48,7 @@ import com.harrytmthy.stitch.ksp.utils.filePathAndLineNumber
 import com.harrytmthy.stitch.ksp.utils.find
 import com.harrytmthy.stitch.ksp.utils.findArgument
 import com.harrytmthy.stitch.ksp.utils.qualifiedName
+import com.harrytmthy.stitch.annotations.Qualifier as QualifierAnnotation
 import com.harrytmthy.stitch.annotations.Scope as ScopeAnnotation
 
 class LocalAnnotationScanner(
@@ -59,7 +60,7 @@ class LocalAnnotationScanner(
 
     private val customScopeByQualifiedName = HashMap<String, Scope.Custom>()
 
-    private val qualifierBySymbol = HashMap<KSAnnotated, Qualifier>()
+    private val customQualifierByQualifiedName = HashMap<String, Qualifier>()
 
     private val nullableBySymbol = HashSet<KSAnnotated>()
 
@@ -73,7 +74,6 @@ class LocalAnnotationScanner(
         scanRoot()
         scanScopes()
         scanDependsOn()
-        scanQualifiers()
         scanNullables()
         scanProvides()
         scanInjects()
@@ -237,23 +237,6 @@ class LocalAnnotationScanner(
         }
     }
 
-    private fun scanQualifiers() {
-        scanNamedQualifiers()
-        // TODO: Add more qualifier types
-    }
-
-    private fun scanNamedQualifiers() {
-        for (annotationName in namedAnnotations) {
-            for (symbol in resolver.getSymbolsWithAnnotation(annotationName)) {
-                if (symbol in qualifierBySymbol) {
-                    fatalError("@Named cannot be used with other qualifiers", symbol)
-                }
-                val name = symbol.annotations.find(annotationName).arguments.first().value as String
-                qualifierBySymbol[symbol] = Qualifier.Named(name)
-            }
-        }
-    }
-
     private fun scanNullables() {
         for (nullableAnnotation in nullableAnnotations) {
             for (symbol in resolver.getSymbolsWithAnnotation(nullableAnnotation)) {
@@ -308,7 +291,7 @@ class LocalAnnotationScanner(
             val resolvedType = symbol.returnType?.resolve()
             val type = resolvedType?.declaration?.qualifiedName(symbol)
                 ?: fatalError("@Provides has no return type", symbol)
-            val qualifier = qualifierBySymbol[symbol]
+            val qualifier = getQualifierFromSymbol(symbol)
             val scope = getScopeFromSymbol(symbol)
             val location = symbol.filePathAndLineNumber!!
             val parentDeclaration = symbol.parentDeclaration as? KSClassDeclaration
@@ -393,7 +376,7 @@ class LocalAnnotationScanner(
         }
         val resolvedType = canonicalSymbol.asStarProjectedType()
         val type = resolvedType.declaration.qualifiedName(canonicalSymbol)
-        val qualifier = qualifierBySymbol[canonicalSymbol]
+        val qualifier = getQualifierFromSymbol(canonicalSymbol)
         val scope = getScopeFromSymbol(canonicalSymbol)
         val location = canonicalSymbol.filePathAndLineNumber!!
         val annotatedWithNullable = canonicalSymbol in nullableBySymbol
@@ -432,7 +415,7 @@ class LocalAnnotationScanner(
             fatalError("@Inject field '${symbol.simpleName}' cannot be private", symbol)
         }
         val type = symbol.type.resolve().declaration.qualifiedName(symbol)
-        val qualifier = qualifierBySymbol[symbol]
+        val qualifier = getQualifierFromSymbol(symbol)
         val location = symbol.filePathAndLineNumber!!
         val fieldName = symbol.simpleName.asString()
         val binding = RequestedBinding(type, qualifier, location, fieldName)
@@ -445,7 +428,7 @@ class LocalAnnotationScanner(
         for ((providedBinding, parameters) in parametersByBinding) {
             for (parameter in parameters) {
                 val type = parameter.type.resolve().declaration.qualifiedName(parameter)
-                val qualifier = qualifierBySymbol[parameter]
+                val qualifier = getQualifierFromSymbol(parameter)
                 val location = parameter.filePathAndLineNumber!!
                 val binding = BindingDeclaration(type, qualifier, location)
                 val dependencies = providedBinding.dependencies
@@ -507,7 +490,7 @@ class LocalAnnotationScanner(
                     }
                     // TODO: Display a proper KSP warning to inform about the skipped @Binds
                     val dependency = providedBindingBySymbol[symbol] ?: continue
-                    val qualifier = qualifierBySymbol[symbol]
+                    val qualifier = getQualifierFromSymbol(symbol)
                     val location = symbol.filePathAndLineNumber.orEmpty()
                     for (alias in aliases) {
                         val type = (alias as KSType).declaration.qualifiedName(symbol)
@@ -526,7 +509,7 @@ class LocalAnnotationScanner(
                             "@Binds requires a return type when annotating functions",
                             symbol,
                         )
-                    val qualifier = qualifierBySymbol[symbol]
+                    val qualifier = getQualifierFromSymbol(symbol)
                     val location = symbol.filePathAndLineNumber.orEmpty()
                     if (symbol.isAbstract) {
                         val parameter = symbol.parameters.singleOrNull()
@@ -596,6 +579,44 @@ class LocalAnnotationScanner(
         scanResult.providedBindings[alias] = alias
     }
 
+    private fun getQualifierFromSymbol(symbol: KSAnnotated): Qualifier? {
+        var qualifier: Qualifier? = null
+        for (annotation in symbol.annotations) {
+            val declaration = annotation.annotationType.resolve().declaration
+            val qualifiedName = declaration.qualifiedName(symbol)
+            if (qualifiedName in namedAnnotations) {
+                // @Named("...") path
+                if (qualifier != null) {
+                    fatalError("Multiple qualifiers are not allowed", symbol)
+                }
+                val value = annotation.arguments[0].value as String
+                qualifier = Qualifier.Named(value)
+                continue
+            }
+
+            // @CustomQualifier path
+            customQualifierByQualifiedName[qualifiedName]?.let {
+                if (qualifier != null) {
+                    fatalError("Multiple qualifiers are not allowed", symbol)
+                }
+                qualifier = it
+                continue
+            }
+            for (metaAnnotation in declaration.annotations) {
+                val fqn = metaAnnotation.annotationType.resolve().declaration.qualifiedName(symbol)
+                if (fqn in qualifierAnnotations) {
+                    if (qualifier != null) {
+                        fatalError("Multiple qualifiers are not allowed", symbol)
+                    }
+                    qualifier = Qualifier.Custom(qualifiedName)
+                    customQualifierByQualifiedName[qualifiedName] = qualifier
+                    break
+                }
+            }
+        }
+        return qualifier
+    }
+
     /**
      * Should be used only when scanning `@Provides` + constructor injections.
      */
@@ -647,7 +668,12 @@ class LocalAnnotationScanner(
             "javax.inject.Inject",
         )
 
-        val namedAnnotations = listOf(
+        val qualifierAnnotations = setOf(
+            QualifierAnnotation::class.qualifiedName!!,
+            "javax.inject.Qualifier",
+        )
+
+        val namedAnnotations = setOf(
             Named::class.qualifiedName!!,
             "javax.inject.Named",
         )

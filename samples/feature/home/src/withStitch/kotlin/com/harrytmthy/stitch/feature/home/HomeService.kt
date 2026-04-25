@@ -17,7 +17,10 @@
 package com.harrytmthy.stitch.feature.home
 
 import com.harrytmthy.stitch.annotations.Binds
+import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.core.Logger
+import com.harrytmthy.stitch.core.Production
+import com.harrytmthy.stitch.core.Staging
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,10 +30,33 @@ interface HomeService {
 
 @Singleton
 @Binds(aliases = [HomeService::class])
+@Production
 class HomeServiceImpl @Inject constructor(private val logger: Logger) : HomeService {
 
     override fun fetch(): Result<Unit> {
         logger.log("Fetch success!")
+        return Result.success(Unit)
+    }
+}
+
+@Singleton
+@Binds(aliases = [HomeService::class])
+@Staging
+class HomeServiceStaging @Inject constructor(private val logger: Logger) : HomeService {
+
+    override fun fetch(): Result<Unit> {
+        logger.log("Fetch on staging success!")
+        return Result.success(Unit)
+    }
+}
+
+@Singleton
+@Binds(aliases = [HomeService::class])
+@Named("dev")
+class HomeServiceDev @Inject constructor(private val logger: Logger) : HomeService {
+
+    override fun fetch(): Result<Unit> {
+        logger.log("Fetch on dev success!")
         return Result.success(Unit)
     }
 }

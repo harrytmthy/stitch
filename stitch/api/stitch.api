@@ -45,15 +45,9 @@ public final class com/harrytmthy/stitch/api/ModuleKt {
 }
 
 public final class com/harrytmthy/stitch/api/Named : com/harrytmthy/stitch/api/Qualifier {
-	public static final field Companion Lcom/harrytmthy/stitch/api/Named$Companion;
-	public synthetic fun <init> (Ljava/lang/String;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getValue ()Ljava/lang/String;
 	public fun hashCode ()I
-}
-
-public final class com/harrytmthy/stitch/api/Named$Companion {
-	public final fun of (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/Named;
 }
 
 public abstract interface class com/harrytmthy/stitch/api/Qualifier {
@@ -61,6 +55,7 @@ public abstract interface class com/harrytmthy/stitch/api/Qualifier {
 
 public final class com/harrytmthy/stitch/api/QualifierKt {
 	public static final fun named (Ljava/lang/String;)Lcom/harrytmthy/stitch/api/Named;
+	public static final fun typed (Lkotlin/reflect/KClass;)Lcom/harrytmthy/stitch/api/Typed;
 }
 
 public final class com/harrytmthy/stitch/api/ResolutionContext {
@@ -121,6 +116,12 @@ public final class com/harrytmthy/stitch/api/StitchInjector {
 
 public final class com/harrytmthy/stitch/api/StitchInjectorKt {
 	public static final fun close (Lcom/harrytmthy/stitch/api/Injector;)V
+}
+
+public final class com/harrytmthy/stitch/api/Typed : com/harrytmthy/stitch/api/Qualifier {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()Lkotlin/reflect/KClass;
+	public fun hashCode ()I
 }
 
 public final class com/harrytmthy/stitch/exception/CycleException : com/harrytmthy/stitch/exception/GetFailedException {
