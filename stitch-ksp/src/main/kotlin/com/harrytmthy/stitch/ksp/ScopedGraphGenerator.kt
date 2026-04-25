@@ -150,16 +150,15 @@ object ScopedGraphGenerator {
             if (binding.kind != BindingKind.PROVIDED_IN_CLASS) {
                 continue
             }
-            val fqcn = "${binding.providerPackageName}.${binding.providerClassName}"
-            if (!seen.add(fqcn)) {
+            if (!seen.add(binding.providerClassName)) {
                 continue
             }
             addProperty(
                 PropertySpec.builder(
-                    providerFieldName(binding),
-                    ClassName.bestGuess(fqcn),
+                    baseTypeName(binding.providerClassName),
+                    ClassName.bestGuess(binding.providerClassName),
                     KModifier.PRIVATE,
-                ).initializer("%T()", ClassName.bestGuess(fqcn))
+                ).initializer("%T()", ClassName.bestGuess(binding.providerClassName))
                     .build(),
             )
         }
@@ -278,7 +277,7 @@ object ScopedGraphGenerator {
                 CodeBlock.builder().apply {
                     add(
                         "%T.%N(",
-                        ClassName.bestGuess("${binding.providerPackageName}.${binding.providerClassName}"),
+                        ClassName.bestGuess(binding.providerClassName),
                         binding.providerFunctionName,
                     )
                     dependencyArgs.forEachIndexed { index, arg ->
@@ -290,8 +289,9 @@ object ScopedGraphGenerator {
             }
 
             BindingKind.PROVIDED_IN_CLASS -> {
+                val formattedClassName = baseTypeName(binding.providerClassName)
                 CodeBlock.builder().apply {
-                    add("%N.%N(", providerFieldName(binding), binding.providerFunctionName)
+                    add("%N.%N(", formattedClassName, binding.providerFunctionName)
                     dependencyArgs.forEachIndexed { index, arg ->
                         if (index > 0) add(", ")
                         add("%L", arg)
@@ -551,9 +551,6 @@ object ScopedGraphGenerator {
                 }
             }
         }
-
-    private fun providerFieldName(binding: ValidatedBinding): String =
-        binding.providerClassName.replaceFirstChar(Char::lowercase)
 
     private fun baseTypeName(fqcn: String): String {
         val raw = fqcn.substringAfterLast('.').substringAfterLast('$')

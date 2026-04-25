@@ -60,6 +60,9 @@ class HomeActivity : AppCompatActivity() {
     @Inject
     lateinit var homeServiceDevImpl: HomeServiceDev
 
+    @Inject
+    lateinit var homeTracker: HomeTracker
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val activityInjector = StitchInjector.getSingletonGraph()
             .createInjectorForChildScope("activity")
