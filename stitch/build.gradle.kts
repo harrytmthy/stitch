@@ -35,6 +35,6 @@ kotlin {
 mavenPublishing {
     pom {
         name.set("Stitch")
-        description.set("")
+        description.set("A Kotlin Multiplatform dependency injection library with a precompiled path and a runtime registration path.")
     }
 }

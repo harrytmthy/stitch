@@ -10,14 +10,11 @@ registration path, designed to replace the Dagger + Koin split with one consiste
 
 Today, dependency injection tools often force a tradeoff:
 
-- **Dagger 2** is fast, but no runtime binding registration and no multiplatform support.
+- **Dagger 2** is fast, but has no runtime binding registration and no multiplatform support.
 - **Koin** allows runtime registration, but has slower resolutions and higher APK-size impact.
 - Using **Dagger 2 + Koin** means carrying two mental models and the combined trade-offs.
 
-Stitch brings both models into one library without the combined trade-offs:
-
-- **Precompiled path** for generated graphs and top-tier injection performance
-- **Runtime registration path** for dynamic bindings and feature-driven registration
+Stitch brings both models into one library without the combined trade-offs.
 
 ## At a Glance
 
@@ -31,7 +28,9 @@ Stitch brings both models into one library without the combined trade-offs:
 | APK size impact on larger graphs   |      ✅ Lowest       |   ✅ Low   | ❌ Highest |
 | Build-time impact on larger graphs | ✅ Lower than Dagger | ❌ Highest | ✅ Lowest  |
 
-**Note:** "Larger graphs" refers to projects with 100-200+ registered bindings.
+**Notes:**
+- "Larger graphs" refers to projects with 100-200+ registered bindings.
+- See [Performance Benchmarks](#performance-benchmarks) for the measurement details.
 
 ## Installation
 
