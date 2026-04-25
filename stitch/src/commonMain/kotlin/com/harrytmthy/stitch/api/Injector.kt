@@ -19,7 +19,7 @@ package com.harrytmthy.stitch.api
 import kotlin.reflect.KClass
 
 /**
- * Core interface for Stitch's DI path. Generated scope graphs implement this interface.
+ * Core interface for Stitch's precompiled path. Generated graphs implement this interface.
  *
  * Each [Injector] represents a single scope in the dependency graph and can create child
  * injectors for downstream scopes:

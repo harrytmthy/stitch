@@ -17,7 +17,7 @@
 package com.harrytmthy.stitch.annotations
 
 /**
- * Marks a class as the root aggregation point for Stitch's DI code generation.
+ * Marks a class as the root aggregation point for the precompiled path's code generation.
  *
  * The KSP processor collects all contributed bindings and scopes across modules and
  * generates the final dependency graph at this class's module. Typically placed on

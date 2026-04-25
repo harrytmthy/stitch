@@ -275,10 +275,10 @@ dependencies {
     implementation(libs.androidx.core.ktx)
 
     // Stitch flavor only
-    "stitchImplementation"(project(":stitch"))
-    "stitchCompileOnly"(project(":stitch-annotations"))
+    "stitchImplementation"(libs.stitch)
+    "stitchCompileOnly"(libs.stitch.annotations)
     "stitchCompileOnly"(libs.javax.inject)
-    "kspStitch"(project(":stitch-ksp"))
+    "kspStitch"(libs.stitch.ksp)
 
     // Dagger flavor only
     "daggerImplementation"(libs.dagger)

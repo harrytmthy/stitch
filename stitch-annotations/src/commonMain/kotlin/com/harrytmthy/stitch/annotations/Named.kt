@@ -17,7 +17,7 @@
 package com.harrytmthy.stitch.annotations
 
 /**
- * A string-based qualifier annotation for the DI path.
+ * A string-based qualifier annotation for the precompiled path.
  *
  * Use this to differentiate between multiple bindings of the same type.
  *

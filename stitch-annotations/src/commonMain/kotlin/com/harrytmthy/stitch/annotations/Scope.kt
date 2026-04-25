@@ -17,7 +17,7 @@
 package com.harrytmthy.stitch.annotations
 
 /**
- * Meta-annotation that identifies a scope annotation for the DI path.
+ * Meta-annotation that identifies a scope annotation for the precompiled path.
  *
  * Scope annotations control the lifecycle and sharing of dependencies within a specific scope
  * (e.g. Activity scope, Fragment scope). Combine with [DependsOn] to form a unidirectional

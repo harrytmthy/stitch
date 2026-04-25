@@ -22,7 +22,7 @@ import com.harrytmthy.stitch.internal.ConcurrentHashMap
 import kotlinx.atomicfu.atomic
 
 /**
- * Global registry for Stitch's DI path. Manages the singleton graph and caches
+ * Global registry for Stitch's precompiled path. Manages the singleton graph and caches
  * injector instances across scopes.
  *
  * Initialize with the generated singleton graph on application startup:
@@ -48,7 +48,7 @@ object StitchInjector {
     private val nextId = atomic(1)
 
     /**
-     * Initializes the DI graph with the generated [singletonGraph].
+     * Initializes the precompiled graph with the generated [singletonGraph].
      *
      * This must be called before any [getSingletonGraph] or scope creation.
      */

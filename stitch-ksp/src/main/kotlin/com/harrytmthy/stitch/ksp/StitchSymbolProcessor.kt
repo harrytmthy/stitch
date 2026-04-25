@@ -29,10 +29,10 @@ import com.harrytmthy.stitch.ksp.utils.StitchErrorLogger
 import java.security.MessageDigest
 
 /**
- * KSP symbol processor for Stitch dependency injection code generation.
+ * KSP symbol processor for Stitch precompiled graph generation.
  *
- * This processor scans for @Module classes, @Provides methods, and @Inject constructors/fields,
- * then generates DI component and injector objects for compile-time dependency resolution.
+ * This processor scans `@Provides`, constructor injection, field injection, and scope declarations,
+ * then generates injectors and graphs for Stitch's precompiled path.
  */
 class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment) : SymbolProcessor {
 

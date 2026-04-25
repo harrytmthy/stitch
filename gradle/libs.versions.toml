@@ -16,6 +16,7 @@ kotlinpoet = "2.3.0"
 kotlinAtomicfu = "0.32.1"
 ksp = "2.3.6"
 mavenPublishPlugin = "0.32.0"
+stitch = "1.0.0-rc01"
 
 [libraries]
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "androidxAppcompat" }
@@ -36,6 +37,9 @@ kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.re
 kotlinpoet = { group = "com.squareup", name = "kotlinpoet", version.ref = "kotlinpoet" }
 kotlinpoet-ksp = { group = "com.squareup", name = "kotlinpoet-ksp", version.ref = "kotlinpoet" }
 ksp-api = { group = "com.google.devtools.ksp", name = "symbol-processing-api", version.ref = "ksp" }
+stitch = { group = "io.github.harrytmthy", name = "stitch", version.ref = "stitch" }
+stitch-annotations = { group = "io.github.harrytmthy", name = "stitch-annotations", version.ref = "stitch" }
+stitch-ksp = { group = "io.github.harrytmthy", name = "stitch-ksp", version.ref = "stitch" }
 
 # Dependencies of build-logic
 android-gradle = { group = "com.android.tools.build", name = "gradle", version.ref = "androidGradlePlugin" }

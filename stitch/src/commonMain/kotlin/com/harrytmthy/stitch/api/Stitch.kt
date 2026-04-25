@@ -25,7 +25,7 @@ import com.harrytmthy.stitch.internal.Registry
 import kotlin.reflect.KClass
 
 /**
- * Main entry point for Stitch's service locator (SL) path.
+ * Main entry point for Stitch's runtime registration path.
  *
  * Use [register] and [unregister] to manage modules at runtime, and [get] or [inject] to
  * resolve dependencies.
@@ -41,7 +41,7 @@ import kotlin.reflect.KClass
  * val logger: Logger = Stitch.get()
  * ```
  *
- * For the DI path, see [StitchInjector].
+ * For the precompiled path, see [StitchInjector].
  */
 object Stitch {
 
