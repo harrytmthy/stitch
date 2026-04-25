@@ -235,6 +235,10 @@ Stitch has a larger build-time overhead than Dagger on small graphs, but crosses
 Stitch scales better than Dagger as graph size grows, while remaining far ahead of Koin in injection
 performance and APK size impact.
 
+## Migrating to Stitch
+
+Looking to move from Dagger 2, Hilt, or Koin? See [MIGRATION.md](docs/MIGRATION.md).
+
 ## License
 
 ```text
