@@ -48,7 +48,7 @@ dependencies {
 mavenPublishing {
     pom {
         name.set("Stitch KSP")
-        description.set("Stitch KSP handler and Gradle plugin for module-aware code generation.")
+        description.set("KSP processor for Stitch's precompiled path.")
     }
 }
 

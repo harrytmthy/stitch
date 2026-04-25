@@ -22,6 +22,6 @@ plugins {
 mavenPublishing {
     pom {
         name.set("Stitch Annotations")
-        description.set("Annotation definitions for Stitch DI")
+        description.set("Annotation definitions for Stitch's precompiled path.")
     }
 }
