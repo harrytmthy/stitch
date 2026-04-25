@@ -22,6 +22,7 @@ import com.harrytmthy.stitch.api.dependsOn
 import com.harrytmthy.stitch.api.module
 import com.harrytmthy.stitch.api.named
 import com.harrytmthy.stitch.api.scope
+import com.harrytmthy.stitch.api.typed
 import com.harrytmthy.stitch.exception.CycleException
 import com.harrytmthy.stitch.exception.MissingBindingException
 import com.harrytmthy.stitch.exception.ScopeClosedException
@@ -843,5 +844,63 @@ class StitchTest {
         assertSame(fragmentScopedC.a, activityScopeInstance.get<A>())
         assertSame(fragmentScopedC.b, fragmentScopeInstance.get<B>())
         assertSame(activityScopeInstance.get<B>(), Stitch.get<B>())
+    }
+
+    @Test
+    fun `named enum qualifier should resolve the same instance as its string equivalent`() {
+        module {
+            singleton(qualifier = named(Environment.Prod)) { Logger() }
+        }.register()
+
+        val loggerFromEnum = Stitch.get<Logger>(named(Environment.Prod))
+        val loggerFromString = Stitch.get<Logger>(named("Prod"))
+        assertSame(loggerFromEnum, loggerFromString)
+    }
+
+    @Test
+    fun `named enum qualifiers with different values should not clash`() {
+        module {
+            singleton(qualifier = named(Environment.Prod)) { Logger() }
+            singleton(qualifier = named(Environment.Staging)) { Logger() }
+        }.register()
+
+        val prodLogger = Stitch.get<Logger>(named(Environment.Prod))
+        val stagingLogger = Stitch.get<Logger>(named(Environment.Staging))
+        assertNotSame(prodLogger, stagingLogger)
+    }
+
+    @Test
+    fun `typed qualifier should resolve the same instance across calls`() {
+        module {
+            singleton(qualifier = typed<Environment>()) { Logger() }
+        }.register()
+
+        val first = Stitch.get<Logger>(typed<Environment>())
+        val second = Stitch.get<Logger>(typed<Environment>())
+        assertSame(first, second)
+    }
+
+    @Test
+    fun `default singleton and typed qualified singleton should not clash`() {
+        module {
+            singleton { Logger() }
+            singleton(qualifier = typed<Environment>()) { Logger() }
+        }.register()
+
+        val default = Stitch.get<Logger>()
+        val typed = Stitch.get<Logger>(typed<Environment>())
+        assertNotSame(default, typed)
+    }
+
+    @Test
+    fun `typed and named qualifiers of same type should not clash`() {
+        module {
+            singleton(qualifier = typed<Environment>()) { Logger() }
+            singleton(qualifier = named("Environment")) { Logger() }
+        }.register()
+
+        val typedLogger = Stitch.get<Logger>(typed<Environment>())
+        val namedLogger = Stitch.get<Logger>(named("Environment"))
+        assertNotSame(typedLogger, namedLogger)
     }
 }

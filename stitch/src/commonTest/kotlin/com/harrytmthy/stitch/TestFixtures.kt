@@ -38,6 +38,8 @@ class C(val a: A, val b: B)
 class UsesLazyFactory(val barLazy: Lazy<Bar>)
 class Bar
 
+enum class Environment { Prod, Staging }
+
 interface LifecycleTracker
 class ViewModelLifecycleTracker : LifecycleTracker
 class ActivityLifecycleTracker : LifecycleTracker

@@ -98,6 +98,11 @@ internal object QualifierManager {
 fun named(value: String): Named = QualifierManager.getOrCreate(value)
 
 /**
+ * Returns a pooled [Named] qualifier for the given enum [value], creating one if it doesn't exist.
+ */
+fun named(value: Enum<*>): Named = QualifierManager.getOrCreate(value.name)
+
+/**
  * Returns a pooled [Typed] qualifier for the given type, creating one if it doesn't exist.
  */
 inline fun <reified T> typed(): Typed = typed(T::class)
