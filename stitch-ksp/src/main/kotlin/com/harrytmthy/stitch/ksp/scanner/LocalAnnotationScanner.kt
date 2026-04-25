@@ -325,7 +325,7 @@ class LocalAnnotationScanner(
                 kind = kind,
                 providerPackageName = symbol.packageName.asString(),
                 providerFunctionName = symbol.simpleName.asString(),
-                providerClassName = parentDeclaration?.simpleName?.asString().orEmpty(),
+                providerClassName = parentDeclaration?.qualifiedName?.asString().orEmpty(),
             )
 
             // ProvidedBinding is keyed only by type + qualifier, allowing `providedBindings`
