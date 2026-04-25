@@ -86,7 +86,7 @@ object Stitch {
      */
     fun reset() {
         unregisterAll()
-        Named.clear()
+        QualifierManager.clear()
         ScopeManager.clear()
     }
 

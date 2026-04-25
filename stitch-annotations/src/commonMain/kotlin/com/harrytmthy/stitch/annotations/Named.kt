@@ -36,6 +36,7 @@ package com.harrytmthy.stitch.annotations
  */
 @Qualifier
 @Target(
+    AnnotationTarget.CLASS,
     AnnotationTarget.FUNCTION,
     AnnotationTarget.VALUE_PARAMETER,
     AnnotationTarget.FIELD,

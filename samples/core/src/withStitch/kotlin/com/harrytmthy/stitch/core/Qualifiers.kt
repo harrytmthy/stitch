@@ -14,21 +14,14 @@
  * limitations under the License.
  */
 
-package com.harrytmthy.stitch.feature.home
+package com.harrytmthy.stitch.core
 
-import com.harrytmthy.stitch.core.Activity
-import com.harrytmthy.stitch.core.Logger
-import com.harrytmthy.stitch.core.Production
-import javax.inject.Inject
+import com.harrytmthy.stitch.annotations.Qualifier
 
-@Activity
-class HomeViewModel @Inject constructor(
-    private val logger1: Logger,
-    private val logger2: Logger, // logger1 === logger2
-    @param:Production val homeService: HomeService,
-) {
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class Production
 
-    fun fetchHomeData() {
-        homeService.fetch()
-    }
-}
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class Staging
