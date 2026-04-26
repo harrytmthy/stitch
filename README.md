@@ -133,6 +133,14 @@ Build, then initialize the generated root graph:
 StitchInjector.init(StitchSingletonGraph())
 ```
 
+For multi-module projects, other modules should apply this Gradle plugin:
+
+```kotlin
+plugins {
+    id("io.github.harrytmthy.stitch") version "1.0.0-rc01"
+}
+```
+
 Add other scopes, where each scope represents a generated graph:
 
 ```kotlin
