@@ -26,7 +26,7 @@ Add the core dependency:
 
 ```kotlin
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.0.0-rc01")
+    implementation("io.github.harrytmthy:stitch:1.0.0")
 }
 ```
 
@@ -44,9 +44,9 @@ Add the runtime, annotation surface, and KSP processor:
 
 ```kotlin
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.0.0-rc01")
-    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.0-rc01")
-    ksp("io.github.harrytmthy:stitch-ksp:1.0.0-rc01")
+    implementation("io.github.harrytmthy:stitch:1.0.0")
+    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.0")
+    ksp("io.github.harrytmthy:stitch-ksp:1.0.0")
 }
 ```
 

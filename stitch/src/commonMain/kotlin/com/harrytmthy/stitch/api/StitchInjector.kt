@@ -32,8 +32,8 @@ import kotlinx.atomicfu.atomic
  *
  * Then retrieve injectors to perform injection:
  * ```
- * val injector = StitchInjector.getSingleton()
- *     .createInjectorForChildScope("activity", cached = true)
+ * val injector = StitchInjector.getSingletonGraph()
+ *     .createInjectorForChildScope("activity")
  * injector.inject(this)
  * ```
  *
