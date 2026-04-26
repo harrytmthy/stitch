@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/v/release/harrytmthy/stitch?include_prereleases&label=release&color=orange&style=flat-square)](https://github.com/harrytmthy/stitch/releases)
 
 A Kotlin Multiplatform dependency injection library with a precompiled path and a runtime
-registration path, designed to replace the Dagger + Koin split with one consistent model.
+registration path, built to combine Dagger-like performance with Koin-like flexibility.
 
 ## Why Stitch?
 
@@ -15,7 +15,8 @@ Today, dependency injection tools often force a tradeoff:
 - **Koin** allows runtime registration, but has slower resolutions and higher APK-size impact.
 - Using **Dagger 2 + Koin** means carrying two mental models and the combined trade-offs.
 
-Stitch brings both models into one library without the combined trade-offs.
+Stitch brings both models into one library without the combined trade-offs, while delivering
+**~20× faster injection than Koin** and **10-20% faster injection than Dagger 2**.
 
 ## At a Glance
 
@@ -39,7 +40,7 @@ Stitch brings both models into one library without the combined trade-offs.
 
 ```kotlin
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.0.0-rc01")
+    implementation("io.github.harrytmthy:stitch:1.0.0")
 }
 ```
 
@@ -47,13 +48,20 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.0.0-rc01")
-    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.0-rc01")
-    ksp("io.github.harrytmthy:stitch-ksp:1.0.0-rc01")
+    implementation("io.github.harrytmthy:stitch:1.0.0")
+    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.0")
+    ksp("io.github.harrytmthy:stitch-ksp:1.0.0")
 }
 ```
 
-You can use either path independently, or combine both in the same project.
+This path requires [KSP2](https://kotlinlang.org/docs/ksp-quickstart.html) enabled in every module
+that uses annotations:
+
+```kotlin
+plugins {
+    id("com.google.devtools.ksp") version "2.3.6"
+}
+```
 
 ## Basic Usage
 
@@ -127,21 +135,17 @@ Annotate any class in the main module with `@StitchRoot`:
 class SampleApp : Application()
 ```
 
-Build, then initialize the generated root graph:
+Build, then initialize the generated root graph at your app bootstrap point:
 
 ```kotlin
 StitchInjector.init(StitchSingletonGraph())
 ```
 
-For multi-module projects, other modules should apply this Gradle plugin:
+For multi-module projects, see the [Multi-Module Setup guide](docs/MULTI_MODULE.md).
 
-```kotlin
-plugins {
-    id("io.github.harrytmthy.stitch") version "1.0.0-rc01"
-}
-```
+#### Scopes
 
-Add other scopes, where each scope represents a generated graph:
+Define custom scopes, where 1 scope = 1 generated graph:
 
 ```kotlin
 @Scope // Any scope is a child of @Singleton by default
@@ -190,6 +194,14 @@ val activityInjector = StitchInjector.getSingletonGraph()
 
 // Injects HomeViewModel and other @Inject-annotated fields (if any)
 activityInjector.inject(this)
+```
+
+To inject fragment-scoped bindings:
+
+```kotlin
+// @Fragment depends on @Activity, so use activityInjector to create fragmentInjector
+val fragmentInjector = activityInjector.createInjectorForChildScope("fragment")
+fragmentInjector.inject(this)
 ```
 
 Unlike Dagger 2, there is no `@Module` or `@Component`. Graphs are generated in the same module as
