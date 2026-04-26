@@ -46,11 +46,11 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
         val logger = environment.logger
         logger.info("Stitch: Starting dependency injection code generation")
         try {
-            val moduleName = getOption("stitch.moduleName")
-            val moduleKey = moduleName.toModuleKey()
             val localScanResult = LocalScanResult()
             LocalAnnotationScanner(resolver, localScanResult).scan()
             if (!localScanResult.isAggregator) {
+                val moduleName = getModuleName()
+                val moduleKey = moduleName.toModuleKey()
                 ContributionCodeGenerator(environment.codeGenerator)
                     .generate(moduleName, moduleKey, localScanResult)
             } else {
@@ -76,9 +76,9 @@ class StitchSymbolProcessor(private val environment: SymbolProcessorEnvironment)
         return emptyList()
     }
 
-    private fun getOption(name: String): String =
-        environment.options[name] ?: throw StitchProcessingException(
-            "Missing KSP option '$name'. Configure via ksp { arg(...) } or apply 'io.github.harrytmthy.stitch' plugin.",
+    private fun getModuleName(): String =
+        environment.options["stitch.moduleName"] ?: throw StitchProcessingException(
+            "Missing KSP option 'stitch.moduleName'. Configure via ksp { arg(...) } or apply 'io.github.harrytmthy.stitch' plugin.",
         )
 
     /**

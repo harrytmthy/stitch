@@ -57,6 +57,7 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 koin-compiler = { id = "io.insert-koin.compiler.plugin", version.ref = "koinCompiler" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublishPlugin" }
+stitch = { id = "io.github.harrytmthy.stitch", version.ref = "stitch" }
 
 # Convention Plugins
 stitch-android-library = { id = "stitch.android.library" }

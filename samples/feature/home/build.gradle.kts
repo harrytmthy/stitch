@@ -17,6 +17,7 @@
 plugins {
     alias(libs.plugins.stitch.android.library)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.stitch)
 }
 
 android {
@@ -27,10 +28,6 @@ android {
         create("withStitch") { dimension = "di" }
         create("withDagger") { dimension = "di" }
         create("withNone") { dimension = "di" }
-    }
-
-    ksp {
-        arg("stitch.moduleName", "FeatureHome")
     }
 }
 
