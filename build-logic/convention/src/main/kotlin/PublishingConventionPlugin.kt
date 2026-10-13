@@ -24,9 +24,12 @@ import org.gradle.kotlin.dsl.configure
 class PublishingConventionPlugin : Plugin<Project> {
 
     override fun apply(target: Project) {
+        val version = "1.0.0"
+        val versionSuffix = target.providers.gradleProperty("versionSuffix").getOrElse("")
+        target.version = "$version$versionSuffix"
+
         with(target) {
             group = "io.github.harrytmthy"
-            version = "1.0.0"
 
             pluginManager.apply("org.jetbrains.dokka")
             pluginManager.apply("com.vanniktech.maven.publish")

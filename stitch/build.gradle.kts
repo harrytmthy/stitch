@@ -22,6 +22,7 @@ plugins {
 }
 
 kotlin {
+    compilerOptions { freeCompilerArgs.add("-Xexpect-actual-classes") }
     sourceSets {
         commonMain.dependencies {
             api(libs.kotlin.atomicfu)
@@ -30,6 +31,10 @@ kotlin {
             implementation(libs.kotlin.test)
         }
     }
+}
+
+apiValidation {
+    klib.enabled = true
 }
 
 mavenPublishing {

@@ -117,7 +117,7 @@ class StitchTest {
     }
 
     @Test
-    fun `dependencies are resolved across modules (additive register)`() {
+    fun `dependencies are resolved across modules`() {
         val base = module {
             singleton { Logger() }
         }

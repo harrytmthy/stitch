@@ -17,6 +17,7 @@
 package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
+import com.harrytmthy.stitch.internal.displayName
 import kotlin.reflect.KClass
 
 /**
@@ -29,7 +30,7 @@ class DuplicateBindingException internal constructor(
 ) : IllegalStateException(
     buildString {
         val qualStr = qualifier?.toString() ?: "<default>"
-        append("Duplicate binding for ${type.qualifiedName} / $qualStr")
+        append("Duplicate binding for ${type.displayName} / $qualStr")
         scopeName?.let { append(" / '$it'") }
     },
 )

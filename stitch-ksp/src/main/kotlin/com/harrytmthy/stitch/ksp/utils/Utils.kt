@@ -21,7 +21,6 @@ import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSNode
-import com.google.devtools.ksp.symbol.KSValueArgument
 import com.harrytmthy.stitch.ksp.fatalError
 
 fun KSDeclaration.qualifiedName(symbol: KSAnnotated): String =
@@ -33,6 +32,3 @@ val KSNode.filePathAndLineNumber: String?
 
 fun Sequence<KSAnnotation>.find(annotationName: String): KSAnnotation =
     first { it.annotationType.resolve().declaration.qualifiedName?.asString() == annotationName }
-
-fun KSAnnotation.findArgument(argumentName: String): KSValueArgument =
-    arguments.first { it.name?.asString() == argumentName }

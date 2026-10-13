@@ -17,6 +17,7 @@
 package com.harrytmthy.stitch.exception
 
 import com.harrytmthy.stitch.api.Qualifier
+import com.harrytmthy.stitch.internal.displayName
 import kotlin.reflect.KClass
 
 /**
@@ -30,5 +31,5 @@ open class GetFailedException internal constructor(
     qualifier: Qualifier?,
     explanation: String,
 ) : IllegalStateException(
-    "Failed to get ${type.qualifiedName} (Qualifier: ${qualifier ?: "n/a"}): $explanation",
+    "Failed to get ${type.displayName} (Qualifier: ${qualifier ?: "n/a"}): $explanation",
 )

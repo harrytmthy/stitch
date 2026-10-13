@@ -6,23 +6,18 @@ on:
       - 'v*'  # triggers on v1.1.0, v2.0.0-beta01, etc.
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   publish:
     name: Publish Stitch to Maven Central
-    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    runs-on: macos-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Inject secrets into gradle.properties
-        run: |
-          mkdir -p ~/.gradle
-          echo "signing.keyId=${{ secrets.SIGNING_KEY_ID }}" >> ~/.gradle/gradle.properties
-          echo "signing.password=${{ secrets.SIGNING_PASSWORD }}" >> ~/.gradle/gradle.properties
-          echo "signing.secretKeyRingFile=/home/runner/.gnupg/secring.gpg" >> ~/.gradle/gradle.properties
-          echo "mavenCentralUsername=${{ secrets.MAVEN_CENTRAL_USERNAME }}" >> ~/.gradle/gradle.properties
-          echo "mavenCentralPassword=${{ secrets.MAVEN_CENTRAL_PASSWORD }}" >> ~/.gradle/gradle.properties
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -33,17 +28,32 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Validate release version and tag
+        shell: bash
+        run: |
+          version="$(./gradlew :stitch:properties --quiet --console=plain | sed -n 's/^version: //p')"
+          if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "Release tag must match the project version: v$version"
+            exit 1
+          fi
+
+      - name: Inject secrets into gradle.properties
+        run: |
+          mkdir -p ~/.gradle
+          echo "signing.keyId=${{ secrets.SIGNING_KEY_ID }}" >> ~/.gradle/gradle.properties
+          echo "signing.password=${{ secrets.SIGNING_PASSWORD }}" >> ~/.gradle/gradle.properties
+          echo "signing.secretKeyRingFile=$HOME/.gnupg/secring.gpg" >> ~/.gradle/gradle.properties
+          echo "mavenCentralUsername=${{ secrets.MAVEN_CENTRAL_USERNAME }}" >> ~/.gradle/gradle.properties
+          echo "mavenCentralPassword=${{ secrets.MAVEN_CENTRAL_PASSWORD }}" >> ~/.gradle/gradle.properties
+
       - name: Prepare GPG directory
-        run: mkdir -p /home/runner/.gnupg && chmod 700 /home/runner/.gnupg
+        run: mkdir -p "$HOME/.gnupg" && chmod 700 "$HOME/.gnupg"
 
       - name: Import GPG key
-        run: echo "${{ secrets.SIGNING_SECRET_KEY_RING_BASE64 }}" | base64 -d > /home/runner/.gnupg/secring.gpg
+        run: echo "${{ secrets.SIGNING_SECRET_KEY_RING_BASE64 }}" | base64 --decode > "$HOME/.gnupg/secring.gpg"
 
       - name: Set GPG key file permissions
-        run: chmod 600 /home/runner/.gnupg/secring.gpg
-
-      - name: Print release version
-        run: ./gradlew properties | grep version
+        run: chmod 600 "$HOME/.gnupg/secring.gpg"
 
       - name: Publish to Maven Central
         run: ./gradlew publishToMavenCentral --no-configuration-cache --stacktrace

@@ -46,7 +46,6 @@ import com.harrytmthy.stitch.ksp.model.RequestedBinding
 import com.harrytmthy.stitch.ksp.model.Scope
 import com.harrytmthy.stitch.ksp.utils.filePathAndLineNumber
 import com.harrytmthy.stitch.ksp.utils.find
-import com.harrytmthy.stitch.ksp.utils.findArgument
 import com.harrytmthy.stitch.ksp.utils.qualifiedName
 import com.harrytmthy.stitch.annotations.Qualifier as QualifierAnnotation
 import com.harrytmthy.stitch.annotations.Scope as ScopeAnnotation
@@ -139,7 +138,8 @@ class LocalAnnotationScanner(
             if (symbol in scopeBySymbol) {
                 fatalError("@Scope cannot be used with @Singleton at the same time", symbol)
             }
-            val scopeName = symbol.annotations.find(scopeAnnotation).arguments.first().value as String
+            val scopeName = symbol.annotations.find(scopeAnnotation).arguments.getOrNull(0)
+                ?.let { it.value as String }.orEmpty()
             when (symbol) {
                 is KSClassDeclaration -> {
                     if (symbol.classKind == ClassKind.ANNOTATION_CLASS) {
@@ -208,7 +208,12 @@ class LocalAnnotationScanner(
             val scope = scopeBySymbol[symbol]
                 ?: fatalError("@DependsOn cannot be used without @Scope", symbol)
             val annotation = symbol.annotations.find(dependsOnAnnotation)
-            val dependency = annotation.arguments[0].value as KSType
+            val argument = annotation.arguments.getOrNull(0)
+            if (argument == null) {
+                scanResult.scopeDependencies[scope] = Scope.Singleton
+                continue
+            }
+            val dependency = argument.value as KSType
             val qualifiedName = dependency.declaration.qualifiedName(symbol)
             if (scope is Scope.Custom && scope.qualifiedName == qualifiedName) {
                 fatalError("Scope '$scope' depends on itself", symbol)
@@ -225,7 +230,8 @@ class LocalAnnotationScanner(
                 val qualifiedName = it.annotationType.resolve().declaration.qualifiedName?.asString()
                 qualifiedName == ScopeAnnotation::class.qualifiedName!!
             } ?: fatalError("Scope '$scope' depends on a type that isn't a scope", symbol)
-            val originalName = (scopeAnnotation.arguments[0].value as String)
+            val originalName = scopeAnnotation.arguments.getOrNull(0)
+                ?.let { it.value as String }.orEmpty()
                 .ifBlank { dependency.declaration.simpleName.asString() }
             val canonicalName = originalName.lowercase()
             val scopeDependency = Scope.Custom(originalName, canonicalName)
@@ -480,8 +486,8 @@ class LocalAnnotationScanner(
         for (symbol in resolver.getSymbolsWithAnnotation(bindsAnnotation)) {
             when (symbol) {
                 is KSClassDeclaration -> {
-                    val aliasArg = symbol.annotations.find(bindsAnnotation).findArgument("aliases")
-                    val aliases = aliasArg.value as List<*>
+                    val aliases = symbol.annotations.find(bindsAnnotation).arguments.getOrNull(0)
+                        ?.let { it.value as List<*> } ?: emptyList<Any?>()
                     if (aliases.isEmpty()) {
                         fatalError(
                             "@Binds(aliases = ...) is required when annotating classes",
@@ -517,21 +523,22 @@ class LocalAnnotationScanner(
                                 "@Binds requires one parameter when annotating abstract functions",
                                 symbol,
                             )
-                        val aliasArg = symbol.annotations.find(bindsAnnotation).findArgument("aliases")
+                        val aliases = symbol.annotations.find(bindsAnnotation).arguments.getOrNull(0)
+                            ?.let { it.value as List<*> } ?: emptyList<Any?>()
                         val resolvedType = parameter.type.resolve()
                         val type = resolvedType.declaration.qualifiedName(parameter)
                         val parameterLocation = parameter.filePathAndLineNumber!!
                         val dependency = BindingDeclaration(type, qualifier, parameterLocation)
                         val nullable = resolvedType.nullability == Nullability.NULLABLE
                         registerAlias(returnType, qualifier, nullable, location, dependency, symbol)
-                        for (alias in (aliasArg.value as List<*>)) {
+                        for (alias in aliases) {
                             val type = (alias as KSType).declaration.qualifiedName(parameter)
                             val nullable = alias.nullability == Nullability.NULLABLE
                             registerAlias(type, qualifier, nullable, location, dependency, symbol)
                         }
                     } else {
-                        val aliasArg = symbol.annotations.find(bindsAnnotation).findArgument("aliases")
-                        val aliases = aliasArg.value as List<*>
+                        val aliases = symbol.annotations.find(bindsAnnotation).arguments.getOrNull(0)
+                            ?.let { it.value as List<*> } ?: emptyList<Any?>()
                         if (aliases.isEmpty()) {
                             fatalError(
                                 "@Binds(aliases = ...) is required when annotating functions",
@@ -540,7 +547,7 @@ class LocalAnnotationScanner(
                         }
                         // TODO: Display a proper KSP warning to inform about the skipped @Binds
                         val dependency = providedBindingBySymbol[symbol] ?: continue
-                        for (alias in (aliasArg.value as List<*>)) {
+                        for (alias in aliases) {
                             val type = (alias as KSType).declaration.qualifiedName(symbol)
                             val nullable = alias.nullability == Nullability.NULLABLE
                             registerAlias(type, qualifier, nullable, location, dependency, symbol)
@@ -632,7 +639,8 @@ class LocalAnnotationScanner(
             for (metaAnnotation in declaration.annotations) {
                 val fqn = metaAnnotation.annotationType.resolve().declaration.qualifiedName(symbol)
                 if (fqn == ScopeAnnotation::class.qualifiedName) {
-                    val originalName = (metaAnnotation.arguments[0].value as String)
+                    val originalName = metaAnnotation.arguments.getOrNull(0)
+                        ?.let { it.value as String }.orEmpty()
                         .ifBlank { annotation.shortName.asString() }
                     val canonicalName = originalName.lowercase()
                     val scope = Scope.Custom(originalName, canonicalName)
