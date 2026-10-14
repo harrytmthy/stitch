@@ -1,6 +1,15 @@
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.ksp)
+}
+
+plugins.withType<YarnPlugin> {
+    extensions.configure<YarnRootExtension> {
+        reportNewYarnLockProperty.set(true)
+    }
 }
 
 val stitchVersion = providers.gradleProperty("stitchVersion").get()
