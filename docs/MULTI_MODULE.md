@@ -14,13 +14,13 @@ In practice, a typical setup looks like this:
 
 ```kotlin
 plugins {
-    id("com.google.devtools.ksp") version "2.3.6"
+    id("com.google.devtools.ksp") version "2.3.12"
 }
 
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.0.0")
-    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.0")
-    ksp("io.github.harrytmthy:stitch-ksp:1.0.0")
+    implementation("io.github.harrytmthy:stitch:1.0.1")
+    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.1")
+    ksp("io.github.harrytmthy:stitch-ksp:1.0.1")
 }
 ```
 
@@ -43,14 +43,14 @@ StitchInjector.init(StitchSingletonGraph())
 
 ```kotlin
 plugins {
-    id("com.google.devtools.ksp") version "2.3.6"
-    id("io.github.harrytmthy.stitch") version "1.0.0"
+    id("com.google.devtools.ksp") version "2.3.12"
+    id("io.github.harrytmthy.stitch") version "1.0.1"
 }
 
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.0.0")
-    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.0")
-    ksp("io.github.harrytmthy:stitch-ksp:1.0.0")
+    implementation("io.github.harrytmthy:stitch:1.0.1")
+    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.1")
+    ksp("io.github.harrytmthy:stitch-ksp:1.0.1")
 }
 ```
 
