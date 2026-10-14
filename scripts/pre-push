@@ -16,6 +16,15 @@ if ! ./gradlew apiCheck --quiet; then
   }
 fi
 
+# Check Yarn lockfile
+echo "Checking Yarn lockfile..."
+if ! ./gradlew kotlinStoreYarnLock --quiet; then
+  echo "Yarn lockfile check failed. For a missing or outdated lockfile, run:"
+  echo "./gradlew kotlinUpgradeYarnLock"
+  echo "Review and commit kotlin-js-store/yarn.lock before pushing."
+  exit 1
+fi
+
 # Run lint
 echo "Running lint..."
 if ! ./gradlew lint --quiet; then
