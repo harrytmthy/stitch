@@ -16,52 +16,25 @@
 
 package com.harrytmthy.stitch.internal
 
-import kotlinx.atomicfu.locks.synchronized
+import kotlinx.atomicfu.locks.SynchronizedObject
 
-internal class ConcurrentHashMap<K, V> : HashMap<K, V>() {
+internal expect class ConcurrentHashMap<K, V>() : SynchronizedObject {
 
-    private val lock = Any()
+    operator fun get(key: K): V?
 
-    override fun get(key: K): V? =
-        synchronized(lock) {
-            super[key]
-        }
+    fun put(key: K, value: V): V?
 
-    override fun put(key: K, value: V): V? =
-        synchronized(lock) {
-            super.put(key, value)
-        }
+    operator fun set(key: K, value: V)
 
-    override fun remove(key: K): V? =
-        synchronized(lock) {
-            super.remove(key)
-        }
+    fun remove(key: K): V?
 
-    override fun isEmpty(): Boolean =
-        synchronized(lock) {
-            super.isEmpty()
-        }
+    fun isEmpty(): Boolean
 
-    override fun containsKey(key: K): Boolean =
-        synchronized(lock) {
-            super.containsKey(key)
-        }
+    fun containsKey(key: K): Boolean
 
-    override fun putIfAbsent(key: K, value: V): V? =
-        synchronized(lock) {
-            super.putIfAbsent(key, value)
-        }
+    fun putIfAbsent(key: K, value: V): V?
 
-    inline fun computeIfAbsent(key: K, crossinline mapping: (K) -> V): V =
-        synchronized(lock) {
-            super[key]?.let { return it }
-            val newVal = mapping(key)
-            return super.putIfAbsent(key, newVal) ?: newVal
-        }
+    inline fun computeIfAbsent(key: K, crossinline mapping: (K) -> V): V
 
-    override fun clear() {
-        synchronized(lock) {
-            super.clear()
-        }
-    }
+    fun clear()
 }

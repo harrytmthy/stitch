@@ -222,7 +222,7 @@ fun ScopeRef.dependsOn(parentName: String): ScopeRef {
 
     // No cycle, register the edge
     ScopeManager.scopeDependencies[this.name] = parentName
-    val scopeChildren = ScopeManager.scopeChildren.getOrPut(parentName, ::HashSet)
+    val scopeChildren = ScopeManager.scopeChildren.computeIfAbsent(parentName) { HashSet() }
     scopeChildren.add(this.name)
     return this
 }

@@ -1,4 +1,4 @@
-name: JVM CI
+name: CI
 
 on:
   push:
@@ -12,6 +12,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -38,8 +39,8 @@ jobs:
       - name: Run Spotless
         run: ./gradlew spotlessCheck --init-script gradle/init.gradle.kts --no-configuration-cache --stacktrace
 
-      - name: Run unit tests
-        run: ./gradlew test --stacktrace
+      - name: Run JVM and JS tests
+        run: ./gradlew test :stitch:jvmTest :stitch:jsNodeTest :stitch:jsBrowserTest --stacktrace
 
       - name: Upload test results (XML)
         if: ${{ !cancelled() }}
@@ -47,5 +48,50 @@ jobs:
         with:
           name: unit-test-results
           path: |
-            **/build/test-results/test/**.xml
-            **/build/reports/tests/test/**
+            **/build/test-results/**
+            **/build/reports/tests/**
+
+  multiplatform:
+    name: Multiplatform tests and published artifacts
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Check API and test iOS runtime
+        run: ./gradlew :stitch:apiCheck :stitch:iosSimulatorArm64Test --no-configuration-cache --stacktrace
+
+      - name: Read test publication version
+        id: publication
+        run: |
+          version="$(./gradlew :stitch:properties -PversionSuffix=-kmp-ci --quiet --console=plain | sed -n 's/^version: //p')"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Publish isolated test artifacts
+        run: >-
+          ./gradlew publishToMavenLocal -PversionSuffix=-kmp-ci
+          -Dmaven.repo.local="$RUNNER_TEMP/stitch-maven"
+          --init-script tests/kmp-consumer/local-publication.init.gradle.kts
+          --no-configuration-cache --stacktrace
+
+      - name: Test published runtime and generated graphs
+        run: >-
+          ./gradlew -p tests/kmp-consumer -PstitchVersion="${{ steps.publication.outputs.version }}"
+          -Dmaven.repo.local="$RUNNER_TEMP/stitch-maven"
+          jvmTest jsNodeTest jsBrowserTest iosSimulatorArm64Test compileKotlinIosArm64 compileKotlinIosX64
+          --no-configuration-cache --stacktrace
+
+      - name: Upload multiplatform test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: multiplatform-test-results
+          path: |
+            stitch/build/test-results/**
+            tests/kmp-consumer/build/test-results/**

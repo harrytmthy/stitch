@@ -23,6 +23,7 @@ import com.harrytmthy.stitch.internal.DefinitionType.Scoped
 import com.harrytmthy.stitch.internal.DefinitionType.Singleton
 import com.harrytmthy.stitch.internal.Node
 import com.harrytmthy.stitch.internal.Registry
+import com.harrytmthy.stitch.internal.displayName
 import kotlin.reflect.KClass
 
 /**
@@ -87,7 +88,7 @@ class Module(private val forceEager: Boolean) {
                         ?: error("$node is missing from the registry during alias registration")
                     val existing = Registry.definitions[aliasType]
                     check(existing == null || existing === primary) {
-                        "'${aliasType.qualifiedName}' is already registered as an alias for $node"
+                        "'${aliasType.displayName}' is already registered as an alias for $node"
                     }
                     Registry.definitions[aliasType] = primary
                 } else {
@@ -97,7 +98,7 @@ class Module(private val forceEager: Boolean) {
                         ?: error("$node is missing from the registry during alias registration")
                     val existingScoped = scopedByType[aliasType]
                     check(existingScoped == null || existingScoped === primaryScoped) {
-                        "'${aliasType.qualifiedName}' is already registered as an alias for $node"
+                        "'${aliasType.displayName}' is already registered as an alias for $node"
                     }
                     scopedByType[aliasType] = primaryScoped
                 }
@@ -192,7 +193,7 @@ class Module(private val forceEager: Boolean) {
     private fun registerAlias(aliasType: KClass<*>, target: Node) {
         val aliases = nodeAliases.getOrPut(target, ::HashSet)
         if (!aliases.add(aliasType)) {
-            error("'${aliasType.qualifiedName}' is already registered as an alias for $target")
+            error("'${aliasType.displayName}' is already registered as an alias for $target")
         }
     }
 

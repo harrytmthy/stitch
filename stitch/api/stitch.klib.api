@@ -1,0 +1,182 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, iosX64, js]
+// Alias: ios => [iosArm64, iosSimulatorArm64, iosX64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <io.github.harrytmthy:stitch>
+final enum class com.harrytmthy.stitch.internal/DefinitionType : kotlin/Enum<com.harrytmthy.stitch.internal/DefinitionType> { // com.harrytmthy.stitch.internal/DefinitionType|null[0]
+    enum entry Factory // com.harrytmthy.stitch.internal/DefinitionType.Factory|null[0]
+    enum entry Scoped // com.harrytmthy.stitch.internal/DefinitionType.Scoped|null[0]
+    enum entry Singleton // com.harrytmthy.stitch.internal/DefinitionType.Singleton|null[0]
+
+    final val entries // com.harrytmthy.stitch.internal/DefinitionType.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<com.harrytmthy.stitch.internal/DefinitionType> // com.harrytmthy.stitch.internal/DefinitionType.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): com.harrytmthy.stitch.internal/DefinitionType // com.harrytmthy.stitch.internal/DefinitionType.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<com.harrytmthy.stitch.internal/DefinitionType> // com.harrytmthy.stitch.internal/DefinitionType.values|values#static(){}[0]
+}
+
+abstract interface com.harrytmthy.stitch.api/Bindable { // com.harrytmthy.stitch.api/Bindable|null[0]
+    abstract fun <#A1: kotlin/Any> bind(kotlin.reflect/KClass<#A1>): com.harrytmthy.stitch.api/Bindable // com.harrytmthy.stitch.api/Bindable.bind|bind(kotlin.reflect.KClass<0:0>){0§<kotlin.Any>}[0]
+}
+
+abstract interface com.harrytmthy.stitch.api/Injector { // com.harrytmthy.stitch.api/Injector|null[0]
+    abstract val currentScope // com.harrytmthy.stitch.api/Injector.currentScope|{}currentScope[0]
+        abstract fun <get-currentScope>(): kotlin/String // com.harrytmthy.stitch.api/Injector.currentScope.<get-currentScope>|<get-currentScope>(){}[0]
+    abstract val id // com.harrytmthy.stitch.api/Injector.id|{}id[0]
+        abstract fun <get-id>(): kotlin/Int // com.harrytmthy.stitch.api/Injector.id.<get-id>|<get-id>(){}[0]
+    abstract val upstream // com.harrytmthy.stitch.api/Injector.upstream|{}upstream[0]
+        abstract fun <get-upstream>(): com.harrytmthy.stitch.api/Injector? // com.harrytmthy.stitch.api/Injector.upstream.<get-upstream>|<get-upstream>(){}[0]
+
+    abstract fun <#A1: kotlin/Any> get(kotlin.reflect/KClass<*>, com.harrytmthy.stitch.api/Qualifier? = ...): #A1 // com.harrytmthy.stitch.api/Injector.get|get(kotlin.reflect.KClass<*>;com.harrytmthy.stitch.api.Qualifier?){0§<kotlin.Any>}[0]
+    abstract fun createInjectorForChildScope(kotlin/String, kotlin/Boolean = ...): com.harrytmthy.stitch.api/Injector // com.harrytmthy.stitch.api/Injector.createInjectorForChildScope|createInjectorForChildScope(kotlin.String;kotlin.Boolean){}[0]
+    abstract fun inject(kotlin/Any) // com.harrytmthy.stitch.api/Injector.inject|inject(kotlin.Any){}[0]
+}
+
+sealed interface com.harrytmthy.stitch.api/Qualifier // com.harrytmthy.stitch.api/Qualifier|null[0]
+
+final class <#A: kotlin/Any?> com.harrytmthy.stitch.api/DclHolder { // com.harrytmthy.stitch.api/DclHolder|null[0]
+    constructor <init>() // com.harrytmthy.stitch.api/DclHolder.<init>|<init>(){}[0]
+
+    final val lock // com.harrytmthy.stitch.api/DclHolder.lock|{}lock[0]
+        // Targets: [ios]
+        final fun <get-lock>(): kotlinx.atomicfu.locks/SynchronizedObject // com.harrytmthy.stitch.api/DclHolder.lock.<get-lock>|<get-lock>(){}[0]
+
+        // Targets: [js]
+        final fun <get-lock>(): kotlin/Any // com.harrytmthy.stitch.api/DclHolder.lock.<get-lock>|<get-lock>(){}[0]
+
+    final var reference // com.harrytmthy.stitch.api/DclHolder.reference|{}reference[0]
+        final fun <get-reference>(): kotlin/Any? // com.harrytmthy.stitch.api/DclHolder.reference.<get-reference>|<get-reference>(){}[0]
+        final fun <set-reference>(kotlin/Any?) // com.harrytmthy.stitch.api/DclHolder.reference.<set-reference>|<set-reference>(kotlin.Any?){}[0]
+
+    final object Uninitialized // com.harrytmthy.stitch.api/DclHolder.Uninitialized|null[0]
+}
+
+final class com.harrytmthy.stitch.api/Component { // com.harrytmthy.stitch.api/Component|null[0]
+    final fun <#A1: kotlin/Any> getInternal(kotlin.reflect/KClass<#A1>, com.harrytmthy.stitch.api/Qualifier?, com.harrytmthy.stitch.api/Scope?, com.harrytmthy.stitch.api/ResolutionContext?): #A1 // com.harrytmthy.stitch.api/Component.getInternal|getInternal(kotlin.reflect.KClass<0:0>;com.harrytmthy.stitch.api.Qualifier?;com.harrytmthy.stitch.api.Scope?;com.harrytmthy.stitch.api.ResolutionContext?){0§<kotlin.Any>}[0]
+}
+
+final class com.harrytmthy.stitch.api/Module { // com.harrytmthy.stitch.api/Module|null[0]
+    constructor <init>(kotlin/Boolean) // com.harrytmthy.stitch.api/Module.<init>|<init>(kotlin.Boolean){}[0]
+
+    final fun <#A1: kotlin/Any> define(kotlin.reflect/KClass<#A1>, com.harrytmthy.stitch.api/Qualifier?, com.harrytmthy.stitch.internal/DefinitionType, kotlin/Boolean, kotlin/String?, kotlin/Function1<com.harrytmthy.stitch.api/ResolutionContext, #A1>?): com.harrytmthy.stitch.api/Bindable // com.harrytmthy.stitch.api/Module.define|define(kotlin.reflect.KClass<0:0>;com.harrytmthy.stitch.api.Qualifier?;com.harrytmthy.stitch.internal.DefinitionType;kotlin.Boolean;kotlin.String?;kotlin.Function1<com.harrytmthy.stitch.api.ResolutionContext,0:0>?){0§<kotlin.Any>}[0]
+    final fun register() // com.harrytmthy.stitch.api/Module.register|register(){}[0]
+    final inline fun <#A1: reified kotlin/Any> factory(com.harrytmthy.stitch.api/Qualifier? = ..., noinline kotlin/Function1<com.harrytmthy.stitch.api/ResolutionContext, #A1>): com.harrytmthy.stitch.api/Bindable // com.harrytmthy.stitch.api/Module.factory|factory(com.harrytmthy.stitch.api.Qualifier?;kotlin.Function1<com.harrytmthy.stitch.api.ResolutionContext,0:0>){0§<kotlin.Any>}[0]
+    final inline fun <#A1: reified kotlin/Any> scoped(com.harrytmthy.stitch.api/ScopeRef, com.harrytmthy.stitch.api/Qualifier? = ..., noinline kotlin/Function1<com.harrytmthy.stitch.api/ResolutionContext, #A1>): com.harrytmthy.stitch.api/Bindable // com.harrytmthy.stitch.api/Module.scoped|scoped(com.harrytmthy.stitch.api.ScopeRef;com.harrytmthy.stitch.api.Qualifier?;kotlin.Function1<com.harrytmthy.stitch.api.ResolutionContext,0:0>){0§<kotlin.Any>}[0]
+    final inline fun <#A1: reified kotlin/Any> singleton(com.harrytmthy.stitch.api/Qualifier? = ..., kotlin/Boolean = ..., noinline kotlin/Function1<com.harrytmthy.stitch.api/ResolutionContext, #A1>): com.harrytmthy.stitch.api/Bindable // com.harrytmthy.stitch.api/Module.singleton|singleton(com.harrytmthy.stitch.api.Qualifier?;kotlin.Boolean;kotlin.Function1<com.harrytmthy.stitch.api.ResolutionContext,0:0>){0§<kotlin.Any>}[0]
+}
+
+final class com.harrytmthy.stitch.api/Named : com.harrytmthy.stitch.api/Qualifier { // com.harrytmthy.stitch.api/Named|null[0]
+    final val value // com.harrytmthy.stitch.api/Named.value|{}value[0]
+        final fun <get-value>(): kotlin/String // com.harrytmthy.stitch.api/Named.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // com.harrytmthy.stitch.api/Named.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // com.harrytmthy.stitch.api/Named.hashCode|hashCode(){}[0]
+}
+
+final class com.harrytmthy.stitch.api/ResolutionContext { // com.harrytmthy.stitch.api/ResolutionContext|null[0]
+    final val component // com.harrytmthy.stitch.api/ResolutionContext.component|{}component[0]
+        final fun <get-component>(): com.harrytmthy.stitch.api/Component // com.harrytmthy.stitch.api/ResolutionContext.component.<get-component>|<get-component>(){}[0]
+
+    final var scope // com.harrytmthy.stitch.api/ResolutionContext.scope|{}scope[0]
+        final fun <get-scope>(): com.harrytmthy.stitch.api/Scope? // com.harrytmthy.stitch.api/ResolutionContext.scope.<get-scope>|<get-scope>(){}[0]
+        final fun <set-scope>(com.harrytmthy.stitch.api/Scope?) // com.harrytmthy.stitch.api/ResolutionContext.scope.<set-scope>|<set-scope>(com.harrytmthy.stitch.api.Scope?){}[0]
+
+    final inline fun <#A1: reified kotlin/Any> get(com.harrytmthy.stitch.api/Qualifier? = ...): #A1 // com.harrytmthy.stitch.api/ResolutionContext.get|get(com.harrytmthy.stitch.api.Qualifier?){0§<kotlin.Any>}[0]
+    final inline fun <#A1: reified kotlin/Any> lazyOf(com.harrytmthy.stitch.api/Qualifier? = ...): kotlin/Lazy<#A1> // com.harrytmthy.stitch.api/ResolutionContext.lazyOf|lazyOf(com.harrytmthy.stitch.api.Qualifier?){0§<kotlin.Any>}[0]
+}
+
+final class com.harrytmthy.stitch.api/Scope { // com.harrytmthy.stitch.api/Scope|null[0]
+    final val id // com.harrytmthy.stitch.api/Scope.id|{}id[0]
+        final fun <get-id>(): kotlin/Int // com.harrytmthy.stitch.api/Scope.id.<get-id>|<get-id>(){}[0]
+    final val name // com.harrytmthy.stitch.api/Scope.name|{}name[0]
+        final fun <get-name>(): kotlin/String // com.harrytmthy.stitch.api/Scope.name.<get-name>|<get-name>(){}[0]
+    final val parent // com.harrytmthy.stitch.api/Scope.parent|{}parent[0]
+        final fun <get-parent>(): com.harrytmthy.stitch.api/Scope? // com.harrytmthy.stitch.api/Scope.parent.<get-parent>|<get-parent>(){}[0]
+
+    final fun close() // com.harrytmthy.stitch.api/Scope.close|close(){}[0]
+    final fun createChildScope(com.harrytmthy.stitch.api/ScopeRef): com.harrytmthy.stitch.api/Scope // com.harrytmthy.stitch.api/Scope.createChildScope|createChildScope(com.harrytmthy.stitch.api.ScopeRef){}[0]
+    final fun createChildScope(kotlin/String): com.harrytmthy.stitch.api/Scope // com.harrytmthy.stitch.api/Scope.createChildScope|createChildScope(kotlin.String){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // com.harrytmthy.stitch.api/Scope.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // com.harrytmthy.stitch.api/Scope.hashCode|hashCode(){}[0]
+    final fun isOpen(): kotlin/Boolean // com.harrytmthy.stitch.api/Scope.isOpen|isOpen(){}[0]
+    final inline fun <#A1: reified kotlin/Any> get(com.harrytmthy.stitch.api/Qualifier? = ...): #A1 // com.harrytmthy.stitch.api/Scope.get|get(com.harrytmthy.stitch.api.Qualifier?){0§<kotlin.Any>}[0]
+    final inline fun <#A1: reified kotlin/Any> inject(com.harrytmthy.stitch.api/Qualifier? = ...): kotlin/Lazy<#A1> // com.harrytmthy.stitch.api/Scope.inject|inject(com.harrytmthy.stitch.api.Qualifier?){0§<kotlin.Any>}[0]
+}
+
+final class com.harrytmthy.stitch.api/ScopeRef { // com.harrytmthy.stitch.api/ScopeRef|null[0]
+    constructor <init>(kotlin/String) // com.harrytmthy.stitch.api/ScopeRef.<init>|<init>(kotlin.String){}[0]
+
+    final val name // com.harrytmthy.stitch.api/ScopeRef.name|{}name[0]
+        final fun <get-name>(): kotlin/String // com.harrytmthy.stitch.api/ScopeRef.name.<get-name>|<get-name>(){}[0]
+
+    final fun createScope(com.harrytmthy.stitch.api/Scope? = ...): com.harrytmthy.stitch.api/Scope // com.harrytmthy.stitch.api/ScopeRef.createScope|createScope(com.harrytmthy.stitch.api.Scope?){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // com.harrytmthy.stitch.api/ScopeRef.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // com.harrytmthy.stitch.api/ScopeRef.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // com.harrytmthy.stitch.api/ScopeRef.toString|toString(){}[0]
+}
+
+final class com.harrytmthy.stitch.api/Typed : com.harrytmthy.stitch.api/Qualifier { // com.harrytmthy.stitch.api/Typed|null[0]
+    final val value // com.harrytmthy.stitch.api/Typed.value|{}value[0]
+        final fun <get-value>(): kotlin.reflect/KClass<*> // com.harrytmthy.stitch.api/Typed.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // com.harrytmthy.stitch.api/Typed.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // com.harrytmthy.stitch.api/Typed.hashCode|hashCode(){}[0]
+}
+
+final class com.harrytmthy.stitch.exception/CycleException : com.harrytmthy.stitch.exception/GetFailedException // com.harrytmthy.stitch.exception/CycleException|null[0]
+
+final class com.harrytmthy.stitch.exception/DuplicateBindingException : kotlin/IllegalStateException // com.harrytmthy.stitch.exception/DuplicateBindingException|null[0]
+
+final class com.harrytmthy.stitch.exception/MissingBindingException : com.harrytmthy.stitch.exception/GetFailedException { // com.harrytmthy.stitch.exception/MissingBindingException|null[0]
+    final object Companion { // com.harrytmthy.stitch.exception/MissingBindingException.Companion|null[0]
+        final fun missingQualifier(kotlin.reflect/KClass<*>, com.harrytmthy.stitch.api/Qualifier?, kotlin.collections/Collection<com.harrytmthy.stitch.api/Qualifier?>): com.harrytmthy.stitch.exception/MissingBindingException // com.harrytmthy.stitch.exception/MissingBindingException.Companion.missingQualifier|missingQualifier(kotlin.reflect.KClass<*>;com.harrytmthy.stitch.api.Qualifier?;kotlin.collections.Collection<com.harrytmthy.stitch.api.Qualifier?>){}[0]
+        final fun missingType(kotlin.reflect/KClass<*>): com.harrytmthy.stitch.exception/MissingBindingException // com.harrytmthy.stitch.exception/MissingBindingException.Companion.missingType|missingType(kotlin.reflect.KClass<*>){}[0]
+    }
+}
+
+final class com.harrytmthy.stitch.exception/MissingScopeException : com.harrytmthy.stitch.exception/GetFailedException // com.harrytmthy.stitch.exception/MissingScopeException|null[0]
+
+final class com.harrytmthy.stitch.exception/ScopeClosedException : com.harrytmthy.stitch.exception/GetFailedException { // com.harrytmthy.stitch.exception/ScopeClosedException|null[0]
+    constructor <init>(kotlin.reflect/KClass<*>, com.harrytmthy.stitch.api/Qualifier?, com.harrytmthy.stitch.api/Scope) // com.harrytmthy.stitch.exception/ScopeClosedException.<init>|<init>(kotlin.reflect.KClass<*>;com.harrytmthy.stitch.api.Qualifier?;com.harrytmthy.stitch.api.Scope){}[0]
+}
+
+open class com.harrytmthy.stitch.exception/GetFailedException : kotlin/IllegalStateException // com.harrytmthy.stitch.exception/GetFailedException|null[0]
+
+final object com.harrytmthy.stitch.api/Stitch { // com.harrytmthy.stitch.api/Stitch|null[0]
+    final fun <#A1: kotlin/Any> get(kotlin.reflect/KClass<#A1>, com.harrytmthy.stitch.api/Qualifier? = ..., com.harrytmthy.stitch.api/Scope? = ...): #A1 // com.harrytmthy.stitch.api/Stitch.get|get(kotlin.reflect.KClass<0:0>;com.harrytmthy.stitch.api.Qualifier?;com.harrytmthy.stitch.api.Scope?){0§<kotlin.Any>}[0]
+    final fun <#A1: kotlin/Any> getInternal(kotlin.reflect/KClass<#A1>, com.harrytmthy.stitch.api/Qualifier?, com.harrytmthy.stitch.api/Scope?, com.harrytmthy.stitch.api/ResolutionContext?): #A1 // com.harrytmthy.stitch.api/Stitch.getInternal|getInternal(kotlin.reflect.KClass<0:0>;com.harrytmthy.stitch.api.Qualifier?;com.harrytmthy.stitch.api.Scope?;com.harrytmthy.stitch.api.ResolutionContext?){0§<kotlin.Any>}[0]
+    final fun register(kotlin/Array<out com.harrytmthy.stitch.api/Module>...) // com.harrytmthy.stitch.api/Stitch.register|register(kotlin.Array<out|com.harrytmthy.stitch.api.Module>...){}[0]
+    final fun reset() // com.harrytmthy.stitch.api/Stitch.reset|reset(){}[0]
+    final fun unregister(kotlin/Array<out com.harrytmthy.stitch.api/Module>...) // com.harrytmthy.stitch.api/Stitch.unregister|unregister(kotlin.Array<out|com.harrytmthy.stitch.api.Module>...){}[0]
+    final fun unregisterAll() // com.harrytmthy.stitch.api/Stitch.unregisterAll|unregisterAll(){}[0]
+    final inline fun <#A1: reified kotlin/Any> get(com.harrytmthy.stitch.api/Qualifier? = ..., com.harrytmthy.stitch.api/Scope? = ...): #A1 // com.harrytmthy.stitch.api/Stitch.get|get(com.harrytmthy.stitch.api.Qualifier?;com.harrytmthy.stitch.api.Scope?){0§<kotlin.Any>}[0]
+    final inline fun <#A1: reified kotlin/Any> inject(com.harrytmthy.stitch.api/Qualifier? = ..., com.harrytmthy.stitch.api/Scope? = ...): kotlin/Lazy<#A1> // com.harrytmthy.stitch.api/Stitch.inject|inject(com.harrytmthy.stitch.api.Qualifier?;com.harrytmthy.stitch.api.Scope?){0§<kotlin.Any>}[0]
+}
+
+final object com.harrytmthy.stitch.api/StitchInjector { // com.harrytmthy.stitch.api/StitchInjector|null[0]
+    final fun addToCache(com.harrytmthy.stitch.api/Injector) // com.harrytmthy.stitch.api/StitchInjector.addToCache|addToCache(com.harrytmthy.stitch.api.Injector){}[0]
+    final fun getInjectorById(kotlin/Int): com.harrytmthy.stitch.api/Injector? // com.harrytmthy.stitch.api/StitchInjector.getInjectorById|getInjectorById(kotlin.Int){}[0]
+    final fun getSingletonGraph(): com.harrytmthy.stitch.api/Injector // com.harrytmthy.stitch.api/StitchInjector.getSingletonGraph|getSingletonGraph(){}[0]
+    final fun init(com.harrytmthy.stitch.api/Injector) // com.harrytmthy.stitch.api/StitchInjector.init|init(com.harrytmthy.stitch.api.Injector){}[0]
+    final fun nextId(): kotlin/Int // com.harrytmthy.stitch.api/StitchInjector.nextId|nextId(){}[0]
+    final fun removeFromCache(com.harrytmthy.stitch.api/Injector) // com.harrytmthy.stitch.api/StitchInjector.removeFromCache|removeFromCache(com.harrytmthy.stitch.api.Injector){}[0]
+    final fun requireInjectorById(kotlin/Int): com.harrytmthy.stitch.api/Injector // com.harrytmthy.stitch.api/StitchInjector.requireInjectorById|requireInjectorById(kotlin.Int){}[0]
+}
+
+final fun (com.harrytmthy.stitch.api/Injector).com.harrytmthy.stitch.api/close() // com.harrytmthy.stitch.api/close|close@com.harrytmthy.stitch.api.Injector(){}[0]
+final fun (com.harrytmthy.stitch.api/ScopeRef).com.harrytmthy.stitch.api/dependsOn(com.harrytmthy.stitch.api/ScopeRef): com.harrytmthy.stitch.api/ScopeRef // com.harrytmthy.stitch.api/dependsOn|dependsOn@com.harrytmthy.stitch.api.ScopeRef(com.harrytmthy.stitch.api.ScopeRef){}[0]
+final fun (com.harrytmthy.stitch.api/ScopeRef).com.harrytmthy.stitch.api/dependsOn(kotlin/String): com.harrytmthy.stitch.api/ScopeRef // com.harrytmthy.stitch.api/dependsOn|dependsOn@com.harrytmthy.stitch.api.ScopeRef(kotlin.String){}[0]
+final fun com.harrytmthy.stitch.api/named(kotlin/Enum<*>): com.harrytmthy.stitch.api/Named // com.harrytmthy.stitch.api/named|named(kotlin.Enum<*>){}[0]
+final fun com.harrytmthy.stitch.api/named(kotlin/String): com.harrytmthy.stitch.api/Named // com.harrytmthy.stitch.api/named|named(kotlin.String){}[0]
+final fun com.harrytmthy.stitch.api/scope(kotlin/String): com.harrytmthy.stitch.api/ScopeRef // com.harrytmthy.stitch.api/scope|scope(kotlin.String){}[0]
+final fun com.harrytmthy.stitch.api/typed(kotlin.reflect/KClass<*>): com.harrytmthy.stitch.api/Typed // com.harrytmthy.stitch.api/typed|typed(kotlin.reflect.KClass<*>){}[0]
+final inline fun <#A: reified kotlin/Any> (com.harrytmthy.stitch.api/Bindable).com.harrytmthy.stitch.api/bind(): com.harrytmthy.stitch.api/Bindable // com.harrytmthy.stitch.api/bind|bind@com.harrytmthy.stitch.api.Bindable(){0§<kotlin.Any>}[0]
+final inline fun <#A: reified kotlin/Any> (com.harrytmthy.stitch.api/Injector).com.harrytmthy.stitch.api/get(com.harrytmthy.stitch.api/Qualifier? = ...): #A // com.harrytmthy.stitch.api/get|get@com.harrytmthy.stitch.api.Injector(com.harrytmthy.stitch.api.Qualifier?){0§<kotlin.Any>}[0]
+final inline fun <#A: reified kotlin/Any> com.harrytmthy.stitch.api/get(com.harrytmthy.stitch.api/Qualifier? = ..., com.harrytmthy.stitch.api/Scope? = ...): #A // com.harrytmthy.stitch.api/get|get(com.harrytmthy.stitch.api.Qualifier?;com.harrytmthy.stitch.api.Scope?){0§<kotlin.Any>}[0]
+final inline fun <#A: reified kotlin/Any?> com.harrytmthy.stitch.api/typeQualifier(): com.harrytmthy.stitch.api/Typed // com.harrytmthy.stitch.api/typeQualifier|typeQualifier(){0§<kotlin.Any?>}[0]
+final inline fun <#A: reified kotlin/Any?> com.harrytmthy.stitch.api/typed(): com.harrytmthy.stitch.api/Typed // com.harrytmthy.stitch.api/typed|typed(){0§<kotlin.Any?>}[0]
+final inline fun com.harrytmthy.stitch.api/module(kotlin/Boolean = ..., crossinline kotlin/Function1<com.harrytmthy.stitch.api/Module, kotlin/Unit>): com.harrytmthy.stitch.api/Module // com.harrytmthy.stitch.api/module|module(kotlin.Boolean;kotlin.Function1<com.harrytmthy.stitch.api.Module,kotlin.Unit>){}[0]

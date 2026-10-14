@@ -27,6 +27,15 @@ class MultiplatformConventionPlugin : Plugin<Project> {
         with(target) {
             pluginManager.apply("org.jetbrains.kotlin.multiplatform")
             extensions.configure<KotlinMultiplatformExtension> {
+                js {
+                    browser {
+                        testTask { useKarma { useChromeHeadless() } }
+                    }
+                    nodejs()
+                }
+                iosArm64()
+                iosSimulatorArm64()
+                iosX64()
                 jvm {
                     compilerOptions {
                         jvmTarget = JvmTarget.JVM_11

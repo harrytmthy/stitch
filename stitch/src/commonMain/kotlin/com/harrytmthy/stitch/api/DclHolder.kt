@@ -17,6 +17,7 @@
 package com.harrytmthy.stitch.api
 
 import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.locks.SynchronizedObject
 
 /**
  * A thread-safe holder for double-checked locking, used by generated precompiled graphs
@@ -31,7 +32,7 @@ class DclHolder<T> {
     private val _reference = atomic<Any?>(Uninitialized)
     var reference: Any? by _reference
 
-    val lock = Any()
+    val lock = SynchronizedObject()
 
     object Uninitialized
 }
