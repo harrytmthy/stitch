@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -30,17 +33,16 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Clean project
-        run: ./gradlew clean --stacktrace
-
       - name: API check
-        run: ./gradlew apiCheck --stacktrace
+        run: ./gradlew apiCheck --continue --stacktrace
 
       - name: Run Spotless
-        run: ./gradlew spotlessCheck --init-script gradle/init.gradle.kts --no-configuration-cache --stacktrace
+        if: ${{ !cancelled() }}
+        run: ./gradlew spotlessCheck --init-script gradle/init.gradle.kts --no-configuration-cache --continue --stacktrace
 
       - name: Run JVM and JS tests
-        run: ./gradlew test :stitch:jvmTest :stitch:jsNodeTest :stitch:jsBrowserTest --stacktrace
+        if: ${{ !cancelled() }}
+        run: ./gradlew test :stitch:jvmTest :stitch:jsNodeTest :stitch:jsBrowserTest --continue --stacktrace
 
       - name: Upload test results (XML)
         if: ${{ !cancelled() }}
@@ -64,16 +66,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Check API and test iOS runtime
-        run: ./gradlew :stitch:apiCheck :stitch:iosSimulatorArm64Test --no-configuration-cache --stacktrace
+        run: ./gradlew :stitch:apiCheck :stitch:iosSimulatorArm64Test --continue --no-configuration-cache --stacktrace
 
       - name: Read test publication version
         id: publication
+        if: ${{ !cancelled() }}
         run: |
           version="$(./gradlew :stitch:properties -PversionSuffix=-kmp-ci --quiet --console=plain | sed -n 's/^version: //p')"
           test -n "$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Publish isolated test artifacts
+        id: publish
+        if: ${{ !cancelled() && steps.publication.outcome == 'success' }}
         run: >-
           ./gradlew publishToMavenLocal -PversionSuffix=-kmp-ci
           -Dmaven.repo.local="$RUNNER_TEMP/stitch-maven"
@@ -81,11 +86,12 @@ jobs:
           --no-configuration-cache --stacktrace
 
       - name: Test published runtime and generated graphs
+        if: ${{ !cancelled() && steps.publish.outcome == 'success' }}
         run: >-
           ./gradlew -p tests/kmp-consumer -PstitchVersion="${{ steps.publication.outputs.version }}"
           -Dmaven.repo.local="$RUNNER_TEMP/stitch-maven"
           jvmTest jsNodeTest jsBrowserTest iosSimulatorArm64Test compileKotlinIosArm64 compileKotlinIosX64
-          --no-configuration-cache --stacktrace
+          --continue --no-configuration-cache --stacktrace
 
       - name: Upload multiplatform test results
         if: ${{ !cancelled() }}
