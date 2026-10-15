@@ -19,6 +19,7 @@ package com.harrytmthy.stitch.internal
 import com.harrytmthy.stitch.api.Bindable
 import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.api.ResolutionContext
+import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlin.reflect.KClass
 
 internal class Node(
@@ -28,7 +29,7 @@ internal class Node(
     val definitionType: DefinitionType,
     val factory: (ResolutionContext) -> Any,
     val onBind: (KClass<*>, Node) -> Unit,
-) : Bindable {
+) : SynchronizedObject(), Bindable {
 
     override fun <T : Any> bind(type: KClass<T>): Bindable = apply { onBind(type, this) }
 

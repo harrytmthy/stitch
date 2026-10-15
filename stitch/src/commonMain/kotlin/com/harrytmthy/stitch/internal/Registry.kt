@@ -19,7 +19,12 @@ package com.harrytmthy.stitch.internal
 import com.harrytmthy.stitch.api.DefaultQualifier
 import com.harrytmthy.stitch.api.Qualifier
 import com.harrytmthy.stitch.api.ScopeManager
+import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlin.reflect.KClass
+
+internal class Placeholder : SynchronizedObject() {
+    var published: Any? = null
+}
 
 internal object Registry {
 

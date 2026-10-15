@@ -22,6 +22,7 @@ import com.harrytmthy.stitch.exception.ScopeClosedException
 import com.harrytmthy.stitch.internal.ConcurrentHashMap
 import com.harrytmthy.stitch.internal.DefinitionType
 import com.harrytmthy.stitch.internal.Node
+import com.harrytmthy.stitch.internal.Placeholder
 import com.harrytmthy.stitch.internal.Registry
 import kotlinx.atomicfu.locks.synchronized
 import kotlin.reflect.KClass
@@ -50,7 +51,7 @@ class Component internal constructor() {
         if (scope != null) {
             if (owningScope == scope) {
                 // Current scope owns the binding. Check for cache hit.
-                Registry.scoped[scope.id]?.get(canonicalType)?.get(qualifierKey)?.let {
+                Registry.scoped[scope.id]?.get(canonicalType)?.get(qualifierKey)?.takeIf { it !is Placeholder }?.let {
                     scope.ensureOpen(type, qualifier)
                     return it as T
                 }
@@ -58,7 +59,7 @@ class Component internal constructor() {
                 // Current scope doesn't own the binding. Check for ancestor's cache hit.
                 var currentScope = scope.parent
                 while (currentScope != null) {
-                    Registry.scoped[currentScope.id]?.get(canonicalType)?.get(qualifierKey)?.let {
+                    Registry.scoped[currentScope.id]?.get(canonicalType)?.get(qualifierKey)?.takeIf { it !is Placeholder }?.let {
                         scope.ensureOpen(type, qualifier)
                         return it as T
                     }
@@ -84,19 +85,23 @@ class Component internal constructor() {
                     scope ?: throw MissingScopeException(type, qualifier)
                     val perScope = Registry.scoped.computeIfAbsent(owningScope!!.id) { ConcurrentHashMap() }
                     val inner = perScope.computeIfAbsent(node.type) { ConcurrentHashMap() }
-                    inner[qualifierKey]?.let {
+                    val instance = inner.computeIfAbsent(qualifierKey) { Placeholder() }
+                    if (instance !is Placeholder) {
                         scope.ensureOpen(type, qualifier)
-                        return it as T
+                        return instance as T
                     }
-                    synchronized(inner) {
-                        inner[qualifierKey]?.let {
+                    synchronized(instance) {
+                        instance.published?.let {
                             scope.ensureOpen(type, qualifier)
                             return it as T
                         }
                         scope.ensureOpen(type, qualifier)
                         val built = node.factory(resolving)
                         scope.ensureOpen(type, qualifier)
-                        (inner.putIfAbsent(qualifierKey, built) ?: built) as T
+                        instance.published?.let { return it as T }
+                        instance.published = built
+                        inner[qualifierKey] = built
+                        built as T
                     }
                 }
 
@@ -105,7 +110,7 @@ class Component internal constructor() {
                         ConcurrentHashMap()
                     }
                     inner[qualifierKey]?.let { return it as T }
-                    synchronized(inner) {
+                    synchronized(node) {
                         inner[qualifierKey]?.let { return it as T }
                         val built = node.factory(resolving)
                         (inner.putIfAbsent(qualifierKey, built) ?: built) as T
