@@ -488,6 +488,28 @@ class StitchTest {
     }
 
     @Test
+    fun `scoped binding resolved again by its own factory returns one instance`() {
+        val screenScope = scope("screen")
+        val scopeInstance = screenScope.createScope()
+        var reentered = false
+        var nested: Logger? = null
+        val module = module {
+            scoped(screenScope) {
+                if (!reentered) {
+                    reentered = true
+                    nested = Stitch.get<Logger>(scope = scopeInstance)
+                }
+                Logger()
+            }
+        }
+        Stitch.register(module)
+
+        val outer = Stitch.get<Logger>(scope = scopeInstance)
+        assertSame(nested, outer)
+        assertSame(outer, Stitch.get<Logger>(scope = scopeInstance))
+    }
+
+    @Test
     fun `different scope instances are isolated`() {
         val screenScope = scope("screen")
         val module = module {
