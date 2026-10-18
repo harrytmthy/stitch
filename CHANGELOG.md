@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2026-10-19
+
+### Fixed
+
+- **Nullable cached bindings:** Generated graphs now return `null` on every read of a cached nullable binding. ([#234](https://github.com/harrytmthy/stitch/issues/234))
+- **Child scope names:** The generated `createInjectorForChildScope()` now matches scope names case-insensitively, as documented. ([#236](https://github.com/harrytmthy/stitch/issues/236))
+- **Qualifier validation:** The generated `get()` now throws when the requested qualifier has no matching binding, including for types with a single unqualified binding. ([#237](https://github.com/harrytmthy/stitch/issues/237))
+
 ## [1.0.2] - 2026-10-18
 
 ### Fixed
