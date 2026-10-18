@@ -62,5 +62,38 @@ class Consumer {
     lateinit var session: SessionService
 }
 
+class NullableService
+
+class NullableSessionService
+
+var nullableServiceProvisions = 0
+
+var nullableSessionServiceProvisions = 0
+
+@Provides
+@Singleton
+fun provideNullableService(): NullableService? {
+    nullableServiceProvisions++
+    return null
+}
+
+@Provides
+@Session
+fun provideNullableSessionService(): NullableSessionService? {
+    nullableSessionServiceProvisions++
+    return null
+}
+
+class NullableTarget {
+    @Inject
+    var service: NullableService? = NullableService()
+}
+
+@Session
+class NullableSessionTarget {
+    @Inject
+    var service: NullableSessionService? = NullableSessionService()
+}
+
 @StitchRoot
 object AppGraph

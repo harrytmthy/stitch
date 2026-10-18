@@ -27,8 +27,10 @@ import com.harrytmthy.stitch.exception.MissingBindingException
 import io.github.harrytmthy.stitch.generated.StitchSingletonGraph
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotSame
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 
 class ConsumerTest {
@@ -83,5 +85,21 @@ class ConsumerTest {
         assertSame(first.get<SessionService>(), consumer.session)
         assertSame(consumer.service, consumer.session.service)
         assertNotSame(first.get<SessionService>(), second.get<SessionService>())
+    }
+
+    @Test
+    fun nullableCachedBindings() {
+        val graph = StitchSingletonGraph()
+        val session = graph.createInjectorForChildScope("session")
+        repeat(2) {
+            val target = NullableTarget()
+            graph.inject(target)
+            assertNull(target.service)
+            val sessionTarget = NullableSessionTarget()
+            session.inject(sessionTarget)
+            assertNull(sessionTarget.service)
+        }
+        assertEquals(1, nullableServiceProvisions)
+        assertEquals(1, nullableSessionServiceProvisions)
     }
 }
