@@ -869,6 +869,20 @@ class StitchTest {
     }
 
     @Test
+    fun `scoped factory resolves a scoped binding after a singleton`() {
+        val screenScope = scope("screen")
+        module {
+            singleton { Logger() }
+            scoped(screenScope) { Dao(get()) }
+            scoped(screenScope) { ScreenModel(get(), get()) }
+        }.register()
+
+        val scopeInstance = screenScope.createScope()
+        val model = scopeInstance.get<ScreenModel>()
+        assertSame(scopeInstance.get<Dao>(), model.dao)
+    }
+
+    @Test
     fun `named enum qualifier should resolve the same instance as its string equivalent`() {
         module {
             singleton(qualifier = named(Environment.Prod)) { Logger() }

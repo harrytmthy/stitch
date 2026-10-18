@@ -74,9 +74,10 @@ class Component internal constructor() {
         // Factory lambdas resolve in the context of the owning scope, not the requesting scope,
         // so `scoped(activityScope) { A(get<B>()) }` resolves B within activityScope's visibility,
         // not the child scope that triggered the request.
-        val resolving = resolutionContext?.apply { this.scope = owningScope }
-            ?: ResolutionContext(this, owningScope)
+        val resolving = resolutionContext ?: ResolutionContext(this, owningScope)
         resolving.enter(node)
+        val callerScope = resolving.scope
+        resolving.scope = owningScope
         try {
             return when (node.definitionType) {
                 DefinitionType.Factory -> node.factory(resolving) as T
@@ -119,6 +120,7 @@ class Component internal constructor() {
             }
         } finally {
             resolving.exit()
+            resolving.scope = callerScope
         }
     }
 

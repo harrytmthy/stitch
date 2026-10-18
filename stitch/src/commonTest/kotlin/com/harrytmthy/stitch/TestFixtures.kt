@@ -27,6 +27,7 @@ class DualRepo : Repo, Auditable
 class Logger
 class Dao(val logger: Logger)
 class LoadUseCase(val dao: Dao)
+class ScreenModel(val logger: Logger, val dao: Dao)
 
 class NeedsMissing(val repo: Repo) // used to trigger MissingBindingException
 
