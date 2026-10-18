@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-10-18
+
+### Fixed
+
+- **Scoped factory resolution:** A scoped factory now resolves its own scoped bindings after resolving a singleton or a binding owned by a parent scope. ([#231](https://github.com/harrytmthy/stitch/issues/231))
+
 ## [1.0.1] - 2026-10-14
 
 ### Fixed
