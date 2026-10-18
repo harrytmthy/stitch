@@ -88,6 +88,15 @@ class ConsumerTest {
     }
 
     @Test
+    fun unmatchedQualifierOnSingleBinding() {
+        val graph = StitchSingletonGraph()
+        val session = graph.createInjectorForChildScope("session")
+        assertSame(graph.get<Service>(), graph.get<ServiceApi>())
+        assertFailsWith<IllegalStateException> { graph.get<ServiceApi>(named("missing")) }
+        assertFailsWith<IllegalStateException> { session.get<SessionService>(typed<Remote>()) }
+    }
+
+    @Test
     fun nullableCachedBindings() {
         val graph = StitchSingletonGraph()
         val session = graph.createInjectorForChildScope("session")

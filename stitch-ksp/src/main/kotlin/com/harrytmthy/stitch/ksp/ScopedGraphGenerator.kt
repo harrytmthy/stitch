@@ -463,68 +463,60 @@ object ScopedGraphGenerator {
                     }
                 }
 
-                when {
-                    bindings.size == 1 && unqualified != null -> {
-                        addStatement("%L as T", dependencyAccess(plan.scope, unqualified))
-                    }
+                beginControlFlow("")
+                if (unqualified != null) {
+                    beginControlFlow("if (qualifier == null)")
+                    addStatement("return %L as T", dependencyAccess(plan.scope, unqualified))
+                    endControlFlow()
+                }
 
-                    else -> {
-                        beginControlFlow("")
-                        if (unqualified != null) {
-                            beginControlFlow("if (qualifier == null)")
-                            addStatement("return %L as T", dependencyAccess(plan.scope, unqualified))
-                            endControlFlow()
-                        }
-
-                        if (namedBindings.isNotEmpty() || typedBindings.isNotEmpty()) {
-                            beginControlFlow("when (qualifier)")
-                            if (namedBindings.isNotEmpty()) {
-                                beginControlFlow("is %T ->", namedClass)
-                                beginControlFlow("when (qualifier.value)")
-                                for ((name, binding) in namedBindings) {
-                                    addStatement(
-                                        "%S -> return %L as T",
-                                        name,
-                                        dependencyAccess(plan.scope, binding),
-                                    )
-                                }
-                                addStatement(
-                                    $$"else -> error(\"Binding with type '${type.simpleName}' has no qualifier with name '${qualifier.value}'\")",
-                                )
-                                endControlFlow()
-                                endControlFlow()
-                            }
-
-                            if (typedBindings.isNotEmpty()) {
-                                beginControlFlow("is %T ->", typedClass)
-                                beginControlFlow("when (qualifier.value)")
-                                for ((qualifiedName, binding) in typedBindings) {
-                                    addStatement(
-                                        "%T::class -> return %L as T",
-                                        ClassName.bestGuess(qualifiedName),
-                                        dependencyAccess(plan.scope, binding),
-                                    )
-                                }
-                                addStatement(
-                                    $$"else -> error(\"Binding with type '${type.simpleName}' has no qualifier with type '${qualifier.value.simpleName}'\")",
-                                )
-                                endControlFlow()
-                                endControlFlow()
-                            }
-
+                if (namedBindings.isNotEmpty() || typedBindings.isNotEmpty()) {
+                    beginControlFlow("when (qualifier)")
+                    if (namedBindings.isNotEmpty()) {
+                        beginControlFlow("is %T ->", namedClass)
+                        beginControlFlow("when (qualifier.value)")
+                        for ((name, binding) in namedBindings) {
                             addStatement(
-                                $$"else -> error(\"Binding with type '${type.simpleName}' has no matching qualifier '$qualifier'\")",
-                            )
-                            endControlFlow()
-                        } else {
-                            addStatement(
-                                $$"error(\"Binding with type '${type.simpleName}' has no matching qualifier '$qualifier'\")",
+                                "%S -> return %L as T",
+                                name,
+                                dependencyAccess(plan.scope, binding),
                             )
                         }
-
+                        addStatement(
+                            $$"else -> error(\"Binding with type '${type.simpleName}' has no qualifier with name '${qualifier.value}'\")",
+                        )
+                        endControlFlow()
                         endControlFlow()
                     }
+
+                    if (typedBindings.isNotEmpty()) {
+                        beginControlFlow("is %T ->", typedClass)
+                        beginControlFlow("when (qualifier.value)")
+                        for ((qualifiedName, binding) in typedBindings) {
+                            addStatement(
+                                "%T::class -> return %L as T",
+                                ClassName.bestGuess(qualifiedName),
+                                dependencyAccess(plan.scope, binding),
+                            )
+                        }
+                        addStatement(
+                            $$"else -> error(\"Binding with type '${type.simpleName}' has no qualifier with type '${qualifier.value.simpleName}'\")",
+                        )
+                        endControlFlow()
+                        endControlFlow()
+                    }
+
+                    addStatement(
+                        $$"else -> error(\"Binding with type '${type.simpleName}' has no matching qualifier '$qualifier'\")",
+                    )
+                    endControlFlow()
+                } else {
+                    addStatement(
+                        $$"error(\"Binding with type '${type.simpleName}' has no matching qualifier '$qualifier'\")",
+                    )
                 }
+
+                endControlFlow()
             }
 
             addStatement(
