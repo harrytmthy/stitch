@@ -40,7 +40,7 @@ Stitch brings both models into one library without the combined trade-offs, whil
 
 ```kotlin
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.0.2")
+    implementation("io.github.harrytmthy:stitch:1.0.3")
 }
 ```
 
@@ -48,9 +48,9 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.0.2")
-    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.2")
-    ksp("io.github.harrytmthy:stitch-ksp:1.0.2")
+    implementation("io.github.harrytmthy:stitch:1.0.3")
+    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.3")
+    ksp("io.github.harrytmthy:stitch-ksp:1.0.3")
 }
 ```
 
