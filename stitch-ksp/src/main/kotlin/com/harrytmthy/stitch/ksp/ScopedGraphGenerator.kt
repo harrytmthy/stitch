@@ -223,17 +223,18 @@ object ScopedGraphGenerator {
 
         val holderName = accessorName(binding)
         val dclHolderClass = DclHolder::class.asClassName()
+        val bindingType = ClassName.bestGuess(binding.type).copy(nullable = binding.nullable)
 
         return CodeBlock.builder().apply {
             addStatement("val cached = %N.reference", holderName)
             beginControlFlow("if (cached !== %T.Uninitialized)", dclHolderClass)
-            addStatement("return cached as %T", ClassName.bestGuess(binding.type))
+            addStatement("return cached as %T", bindingType)
             endControlFlow()
 
             beginControlFlow("synchronized(%N.lock)", holderName)
             addStatement("val locked = %N.reference", holderName)
             beginControlFlow("if (locked !== %T.Uninitialized)", dclHolderClass)
-            addStatement("return locked as %T", ClassName.bestGuess(binding.type))
+            addStatement("return locked as %T", bindingType)
             endControlFlow()
 
             addStatement("val created = %L", createBindingExpression(plan.scope, binding))
