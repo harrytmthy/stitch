@@ -102,4 +102,11 @@ class ConsumerTest {
         assertEquals(1, nullableServiceProvisions)
         assertEquals(1, nullableSessionServiceProvisions)
     }
+
+    @Test
+    fun childScopeNameIgnoresCase() {
+        val session = StitchSingletonGraph().createInjectorForChildScope("Session")
+        assertEquals("session", session.currentScope)
+        assertSame(session.get<SessionService>(), session.get<SessionService>())
+    }
 }

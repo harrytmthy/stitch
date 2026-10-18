@@ -382,13 +382,14 @@ object ScopedGraphGenerator {
                 .returns(injectorClass)
                 .addCode(
                     CodeBlock.builder().apply {
-                        beginControlFlow("return when (scopeName)")
+                        beginControlFlow("return when (scopeName.lowercase())")
                         for (childScope in plan.directChildScopes) {
                             addStatement(
-                                "%S -> %T(%T.nextId(), scopeName, this)",
+                                "%S -> %T(%T.nextId(), %S, this)",
                                 childScope.canonicalName,
                                 ClassName(GENERATED_PACKAGE_NAME, graphClassName(childScope)),
                                 StitchInjector::class.asClassName(),
+                                childScope.canonicalName,
                             )
                         }
                         addStatement($$"else -> error(\"Scope '$currentScope' doesn't have a child with name '$scopeName'\")")
