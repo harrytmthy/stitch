@@ -24,6 +24,7 @@ import com.harrytmthy.stitch.annotations.Provides
 import com.harrytmthy.stitch.annotations.Qualifier
 import com.harrytmthy.stitch.annotations.Scope
 import com.harrytmthy.stitch.annotations.Singleton
+import com.harrytmthy.stitch.api.Provider
 
 interface ServiceApi
 
@@ -64,4 +65,14 @@ class ContributedConsumer {
     @Inject
     @Named("remote")
     lateinit var namedRemote: Service
+}
+
+class ContributedProviderHolder @Inject constructor(
+    val service: Service,
+    val serviceProvider: Provider<Service>,
+)
+
+class ContributedProviderTarget {
+    @Inject
+    lateinit var service: Provider<Service>
 }

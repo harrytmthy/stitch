@@ -69,6 +69,7 @@ annotation class ContributedBinding(
     val providerFunctionName: String,
     val providerClassName: String,
     val dependsOn: IntArray,
+    val dependencyProviderTypes: Array<String>,
 )
 
 /**
@@ -85,4 +86,4 @@ annotation class BindingRequester(val name: String, val fields: Array<RequestedF
  * @param bindingId The locally unique ID of the [ContributedBinding] this field resolves to.
  * @param fieldName The name of the field in the requesting class.
  */
-annotation class RequestedField(val bindingId: Int, val fieldName: String)
+annotation class RequestedField(val bindingId: Int, val fieldName: String, val providerType: String)

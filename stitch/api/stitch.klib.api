@@ -19,6 +19,10 @@ final enum class com.harrytmthy.stitch.internal/DefinitionType : kotlin/Enum<com
     final fun values(): kotlin/Array<com.harrytmthy.stitch.internal/DefinitionType> // com.harrytmthy.stitch.internal/DefinitionType.values|values#static(){}[0]
 }
 
+abstract fun interface <#A: out kotlin/Any?> com.harrytmthy.stitch.api/Provider { // com.harrytmthy.stitch.api/Provider|null[0]
+    abstract fun get(): #A // com.harrytmthy.stitch.api/Provider.get|get(){}[0]
+}
+
 abstract interface com.harrytmthy.stitch.api/Bindable { // com.harrytmthy.stitch.api/Bindable|null[0]
     abstract fun <#A1: kotlin/Any> bind(kotlin.reflect/KClass<#A1>): com.harrytmthy.stitch.api/Bindable // com.harrytmthy.stitch.api/Bindable.bind|bind(kotlin.reflect.KClass<0:0>){0§<kotlin.Any>}[0]
 }
@@ -37,23 +41,6 @@ abstract interface com.harrytmthy.stitch.api/Injector { // com.harrytmthy.stitch
 }
 
 sealed interface com.harrytmthy.stitch.api/Qualifier // com.harrytmthy.stitch.api/Qualifier|null[0]
-
-final class <#A: kotlin/Any?> com.harrytmthy.stitch.api/DclHolder { // com.harrytmthy.stitch.api/DclHolder|null[0]
-    constructor <init>() // com.harrytmthy.stitch.api/DclHolder.<init>|<init>(){}[0]
-
-    final val lock // com.harrytmthy.stitch.api/DclHolder.lock|{}lock[0]
-        // Targets: [ios]
-        final fun <get-lock>(): kotlinx.atomicfu.locks/SynchronizedObject // com.harrytmthy.stitch.api/DclHolder.lock.<get-lock>|<get-lock>(){}[0]
-
-        // Targets: [js]
-        final fun <get-lock>(): kotlin/Any // com.harrytmthy.stitch.api/DclHolder.lock.<get-lock>|<get-lock>(){}[0]
-
-    final var reference // com.harrytmthy.stitch.api/DclHolder.reference|{}reference[0]
-        final fun <get-reference>(): kotlin/Any? // com.harrytmthy.stitch.api/DclHolder.reference.<get-reference>|<get-reference>(){}[0]
-        final fun <set-reference>(kotlin/Any?) // com.harrytmthy.stitch.api/DclHolder.reference.<set-reference>|<set-reference>(kotlin.Any?){}[0]
-
-    final object Uninitialized // com.harrytmthy.stitch.api/DclHolder.Uninitialized|null[0]
-}
 
 final class com.harrytmthy.stitch.api/Component { // com.harrytmthy.stitch.api/Component|null[0]
     final fun <#A1: kotlin/Any> getInternal(kotlin.reflect/KClass<#A1>, com.harrytmthy.stitch.api/Qualifier?, com.harrytmthy.stitch.api/Scope?, com.harrytmthy.stitch.api/ResolutionContext?): #A1 // com.harrytmthy.stitch.api/Component.getInternal|getInternal(kotlin.reflect.KClass<0:0>;com.harrytmthy.stitch.api.Qualifier?;com.harrytmthy.stitch.api.Scope?;com.harrytmthy.stitch.api.ResolutionContext?){0§<kotlin.Any>}[0]
@@ -180,3 +167,37 @@ final inline fun <#A: reified kotlin/Any> com.harrytmthy.stitch.api/get(com.harr
 final inline fun <#A: reified kotlin/Any?> com.harrytmthy.stitch.api/typeQualifier(): com.harrytmthy.stitch.api/Typed // com.harrytmthy.stitch.api/typeQualifier|typeQualifier(){0§<kotlin.Any?>}[0]
 final inline fun <#A: reified kotlin/Any?> com.harrytmthy.stitch.api/typed(): com.harrytmthy.stitch.api/Typed // com.harrytmthy.stitch.api/typed|typed(){0§<kotlin.Any?>}[0]
 final inline fun com.harrytmthy.stitch.api/module(kotlin/Boolean = ..., crossinline kotlin/Function1<com.harrytmthy.stitch.api/Module, kotlin/Unit>): com.harrytmthy.stitch.api/Module // com.harrytmthy.stitch.api/module|module(kotlin.Boolean;kotlin.Function1<com.harrytmthy.stitch.api.Module,kotlin.Unit>){}[0]
+
+// Targets: [ios]
+final class <#A: kotlin/Any?> com.harrytmthy.stitch.api/DclHolder : kotlinx.atomicfu.locks/SynchronizedObject { // com.harrytmthy.stitch.api/DclHolder|null[0]
+    constructor <init>() // com.harrytmthy.stitch.api/DclHolder.<init>|<init>(){}[0]
+
+    final val lock // com.harrytmthy.stitch.api/DclHolder.lock|{}lock[0]
+        final fun <get-lock>(): kotlinx.atomicfu.locks/SynchronizedObject // com.harrytmthy.stitch.api/DclHolder.lock.<get-lock>|<get-lock>(){}[0]
+
+    final var initializing // com.harrytmthy.stitch.api/DclHolder.initializing|{}initializing[0]
+        final fun <get-initializing>(): kotlin/Boolean // com.harrytmthy.stitch.api/DclHolder.initializing.<get-initializing>|<get-initializing>(){}[0]
+        final fun <set-initializing>(kotlin/Boolean) // com.harrytmthy.stitch.api/DclHolder.initializing.<set-initializing>|<set-initializing>(kotlin.Boolean){}[0]
+    final var reference // com.harrytmthy.stitch.api/DclHolder.reference|{}reference[0]
+        final fun <get-reference>(): kotlin/Any? // com.harrytmthy.stitch.api/DclHolder.reference.<get-reference>|<get-reference>(){}[0]
+        final fun <set-reference>(kotlin/Any?) // com.harrytmthy.stitch.api/DclHolder.reference.<set-reference>|<set-reference>(kotlin.Any?){}[0]
+
+    final object Uninitialized // com.harrytmthy.stitch.api/DclHolder.Uninitialized|null[0]
+}
+
+// Targets: [js]
+final class <#A: kotlin/Any?> com.harrytmthy.stitch.api/DclHolder { // com.harrytmthy.stitch.api/DclHolder|null[0]
+    constructor <init>() // com.harrytmthy.stitch.api/DclHolder.<init>|<init>(){}[0]
+
+    final val lock // com.harrytmthy.stitch.api/DclHolder.lock|{}lock[0]
+        final fun <get-lock>(): kotlin/Any // com.harrytmthy.stitch.api/DclHolder.lock.<get-lock>|<get-lock>(){}[0]
+
+    final var initializing // com.harrytmthy.stitch.api/DclHolder.initializing|{}initializing[0]
+        final fun <get-initializing>(): kotlin/Boolean // com.harrytmthy.stitch.api/DclHolder.initializing.<get-initializing>|<get-initializing>(){}[0]
+        final fun <set-initializing>(kotlin/Boolean) // com.harrytmthy.stitch.api/DclHolder.initializing.<set-initializing>|<set-initializing>(kotlin.Boolean){}[0]
+    final var reference // com.harrytmthy.stitch.api/DclHolder.reference|{}reference[0]
+        final fun <get-reference>(): kotlin/Any? // com.harrytmthy.stitch.api/DclHolder.reference.<get-reference>|<get-reference>(){}[0]
+        final fun <set-reference>(kotlin/Any?) // com.harrytmthy.stitch.api/DclHolder.reference.<set-reference>|<set-reference>(kotlin.Any?){}[0]
+
+    final object Uninitialized // com.harrytmthy.stitch.api/DclHolder.Uninitialized|null[0]
+}

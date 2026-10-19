@@ -18,4 +18,4 @@ package com.harrytmthy.stitch.ksp.model.plan
 
 import com.harrytmthy.stitch.ksp.model.ValidatedBinding
 
-class RequestedFieldPlan(val fieldName: String, val binding: ValidatedBinding)
+class RequestedFieldPlan(val fieldName: String, val binding: ValidatedBinding, val providerType: String?)

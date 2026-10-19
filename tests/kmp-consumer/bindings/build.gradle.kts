@@ -14,6 +14,7 @@ kotlin {
     sourceSets.commonMain {
         kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
         dependencies {
+            implementation("io.github.harrytmthy:stitch:$stitchVersion")
             implementation("io.github.harrytmthy:stitch-annotations:$stitchVersion")
         }
     }

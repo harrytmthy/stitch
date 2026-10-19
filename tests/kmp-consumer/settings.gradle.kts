@@ -20,3 +20,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "stitch-kmp-consumer"
 include(":bindings")
+include(":jvm")

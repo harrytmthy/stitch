@@ -18,6 +18,7 @@ package com.harrytmthy.stitch.ksp
 
 import com.harrytmthy.stitch.ksp.consts.BindingKind
 import com.harrytmthy.stitch.ksp.model.Binding
+import com.harrytmthy.stitch.ksp.model.BindingDeclaration
 import com.harrytmthy.stitch.ksp.model.ContributionScanResult
 import com.harrytmthy.stitch.ksp.model.ProvidedBinding
 import com.harrytmthy.stitch.ksp.model.Qualifier
@@ -139,6 +140,73 @@ class BindingGraphValidatorTest {
         validator.validate() // should not throw
     }
 
+    @Test
+    fun validate_shouldAllowCycle_whenOneEdgeIsProvider() {
+        val a = provided("A")
+        val b = provided("B")
+
+        a.dependencies = arrayListOf(providerOf(b))
+        b.dependencies = arrayListOf(a)
+
+        val validator = BindingGraphValidator(
+            scanResult = scanResult(a, b),
+            scopeAncestors = scopeAncestors(),
+        )
+
+        validator.validate() // should not throw
+    }
+
+    @Test
+    fun validate_shouldFail_whenProviderTargetIsNeverProvided() {
+        val missing = provided("Missing")
+        val presenter = provided("Presenter")
+
+        presenter.dependencies = arrayListOf(providerOf(missing))
+
+        val validator = BindingGraphValidator(
+            scanResult = scanResult(presenter),
+            scopeAncestors = scopeAncestors(),
+        )
+
+        assertFailsWith<StitchProcessingException> {
+            validator.validate()
+        }
+    }
+
+    @Test
+    fun validate_shouldFail_whenProviderTargetResolvesToDeeperScope() {
+        val activity = customScope("activity", depth = 2)
+        val repository = provided("Repository", scope = activity)
+        val presenter = provided("Presenter")
+
+        presenter.dependencies = arrayListOf(providerOf(repository))
+
+        val validator = BindingGraphValidator(
+            scanResult = scanResult(repository, presenter),
+            scopeAncestors = scopeAncestors(activity),
+        )
+
+        assertFailsWith<StitchProcessingException> {
+            validator.validate()
+        }
+    }
+
+    @Test
+    fun validate_shouldAllowProvider_whenTargetIsVisible() {
+        val activity = customScope("activity", depth = 2)
+        val repository = provided("Repository", scope = activity)
+        val presenter = provided("Presenter", scope = activity)
+
+        presenter.dependencies = arrayListOf(providerOf(repository))
+
+        val validator = BindingGraphValidator(
+            scanResult = scanResult(repository, presenter),
+            scopeAncestors = scopeAncestors(activity),
+        )
+
+        validator.validate() // should not throw
+    }
+
     private fun scanResult(vararg bindings: ProvidedBinding): ContributionScanResult {
         val providedBindings = LinkedHashMap<Binding, ProvidedBinding>()
         bindings.forEach { providedBindings[it] = it }
@@ -167,6 +235,9 @@ class BindingGraphValidatorTest {
         ).apply {
             this.dependencies = ArrayList(dependencies)
         }
+
+    private fun providerOf(binding: ProvidedBinding): BindingDeclaration =
+        BindingDeclaration(binding.type, binding.qualifier, binding.location, providerType = "com.harrytmthy.stitch.api.Provider")
 
     private fun customScope(name: String, depth: Int): Scope.Custom =
         Scope.Custom(

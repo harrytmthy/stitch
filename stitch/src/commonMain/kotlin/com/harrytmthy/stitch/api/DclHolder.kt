@@ -27,12 +27,15 @@ import kotlinx.atomicfu.locks.SynchronizedObject
  * using [lock] for synchronization.
  */
 @Suppress("UNCHECKED_CAST")
-class DclHolder<T> {
+class DclHolder<T> : SynchronizedObject() {
 
     private val _reference = atomic<Any?>(Uninitialized)
     var reference: Any? by _reference
 
-    val lock = SynchronizedObject()
+    val lock: SynchronizedObject
+        get() = this
+
+    var initializing = false
 
     object Uninitialized
 }

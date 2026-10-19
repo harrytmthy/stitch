@@ -41,7 +41,7 @@ object InjectorPlanProvider {
                     if (binding.owningScope in scopeAncestors) {
                         val requesters = requestedFieldPlans.getOrPut(scope, ::HashMap)
                         val requests = requesters.getOrPut(requester, ::ArrayList)
-                        val plan = RequestedFieldPlan(requestedBinding.fieldName, binding)
+                        val plan = RequestedFieldPlan(requestedBinding.fieldName, binding, requestedBinding.providerType)
                         requests.add(plan)
                     }
                 }

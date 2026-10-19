@@ -118,4 +118,41 @@ class ConsumerTest {
         assertEquals("session", session.currentScope)
         assertSame(session.get<SessionService>(), session.get<SessionService>())
     }
+
+    @Test
+    fun providerRequests() {
+        val graph = StitchSingletonGraph()
+        val holder = graph.get<ProviderHolder>()
+        assertSame(graph.get<Service>(), holder.service.get())
+        assertSame(graph.get<Service>(named("remote")), holder.remote.get())
+        assertNotSame(holder.fresh.get(), holder.fresh.get())
+        assertSame(graph.get<Service>(), graph.get<ServiceClient>().service.get())
+        val start = graph.get<CycleStart>()
+        assertSame(start, start.end.get().start)
+        val contributed = graph.get<ContributedProviderHolder>()
+        assertSame(contributed.service, contributed.serviceProvider.get())
+        val contributedTarget = ContributedProviderTarget()
+        graph.inject(contributedTarget)
+        assertSame(graph.get<Service>(), contributedTarget.service.get())
+        val session = graph.createInjectorForChildScope("session")
+        val target = ProviderTarget()
+        session.inject(target)
+        assertSame(session.get<SessionService>(), target.session.get())
+    }
+
+    @Test
+    fun reentrantInitialization() {
+        val graph = StitchSingletonGraph()
+        repeat(2) {
+            val cycle = assertFailsWith<IllegalStateException> { graph.get<EagerCycleStart>() }
+            assertEquals(
+                "Binding with type 'EagerCycleStart' is requested during its own initialization",
+                cycle.message,
+            )
+        }
+        assertFailsWith<IllegalStateException> { graph.get<ReentrantCycleStart>() }
+        assertEquals(1, reentrantCycleStarts)
+        assertFailsWith<IllegalArgumentException> { graph.get<RetriedService>() }
+        assertSame(graph.get<RetriedService>(), graph.get<RetriedService>())
+    }
 }

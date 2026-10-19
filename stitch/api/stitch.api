@@ -8,8 +8,10 @@ public final class com/harrytmthy/stitch/api/Component {
 
 public final class com/harrytmthy/stitch/api/DclHolder {
 	public fun <init> ()V
+	public final fun getInitializing ()Z
 	public final fun getLock ()Ljava/lang/Object;
 	public final fun getReference ()Ljava/lang/Object;
+	public final fun setInitializing (Z)V
 	public final fun setReference (Ljava/lang/Object;)V
 }
 
@@ -48,6 +50,10 @@ public final class com/harrytmthy/stitch/api/Named : com/harrytmthy/stitch/api/Q
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getValue ()Ljava/lang/String;
 	public fun hashCode ()I
+}
+
+public abstract interface class com/harrytmthy/stitch/api/Provider {
+	public abstract fun get ()Ljava/lang/Object;
 }
 
 public abstract interface class com/harrytmthy/stitch/api/Qualifier {
