@@ -93,7 +93,7 @@ object ContributionScanner {
 
         // Step 5: Scan binding contributions
         val contributedBindings = ArrayList<BindingDeclaration>()
-        val contributedDependencies = ArrayList<List<Int>>() // Flattened indices, NOT bindingId
+        val contributedDependencies = ArrayList<List<Pair<Int, String?>>>() // Flattened indices, NOT bindingId
         scanBindingContributions(
             bindingContributions = bindingContributions,
             providedBindings = providedBindings,
@@ -126,9 +126,20 @@ object ContributionScanner {
             val providedBinding = providedBindings.getValue(binding)
             val providedBindingDependencies = providedBinding.dependencies
                 ?: ArrayList<BindingDeclaration>(dependencies.size).also { providedBinding.dependencies = it }
-            for (index in dependencies) {
-                val bindingDependency = contributedBindings[index]
-                providedBindingDependencies.add(bindingDependency)
+            for ((dependencyIndex, providerType) in dependencies) {
+                val bindingDependency = contributedBindings[dependencyIndex]
+                providedBindingDependencies.add(
+                    if (providerType != null) {
+                        BindingDeclaration(
+                            type = bindingDependency.type,
+                            qualifier = bindingDependency.qualifier,
+                            location = bindingDependency.location,
+                            providerType = providerType,
+                        )
+                    } else {
+                        bindingDependency
+                    },
+                )
             }
         }
 
@@ -197,7 +208,7 @@ object ContributionScanner {
         providedBindings: HashMap<Binding, ProvidedBinding>,
         requestedBindings: HashMap<String, ArrayList<RequestedBinding>>,
         contributedBindings: ArrayList<BindingDeclaration>,
-        contributedDependencies: ArrayList<List<Int>>,
+        contributedDependencies: ArrayList<List<Pair<Int, String?>>>,
         customScopeByCanonicalName: Map<String, Scope.Custom>,
         logger: StitchErrorLogger,
     ) {
@@ -219,10 +230,14 @@ object ContributionScanner {
                 val providerFunctionName = bindingAnnotation.arguments[8].value as String
                 val providerClassName = bindingAnnotation.arguments[9].value as String
                 val dependsOn = bindingAnnotation.arguments[10].value as List<Int>
+                // Contributions compiled before Provider support lack this argument,
+                // and every dependency they declare is a direct request.
+                val dependencyProviderTypes = bindingAnnotation.arguments.getOrNull(11)?.value as List<String>?
                 val binding = BindingDeclaration(type, qualifier, location)
                 contributedBindings.add(binding)
-                contributedDependencies += dependsOn.map {
-                    lastBindingIndex + it // Converts bindingId to contributedBindings's index
+                contributedDependencies += dependsOn.mapIndexed { position, id ->
+                    // Converts bindingId to contributedBindings's index
+                    lastBindingIndex + id to dependencyProviderTypes?.get(position)?.ifEmpty { null }
                 }
                 if (kind != BindingKind.REQUESTED) {
                     providedBindings[binding]?.let {
@@ -258,12 +273,15 @@ object ContributionScanner {
                 for (field in fields) {
                     val bindingId = field.arguments[0].value as Int
                     val fieldName = field.arguments[1].value as String
+                    // Missing in contributions compiled before Provider support.
+                    val providerType = (field.arguments.getOrNull(2)?.value as String?)?.ifEmpty { null }
                     val binding = contributedBindings[lastBindingIndex + bindingId]
                     val requestedBinding = RequestedBinding(
                         type = binding.type,
                         qualifier = binding.qualifier,
                         location = binding.location,
                         fieldName = fieldName,
+                        providerType = providerType,
                     )
                     requested.add(requestedBinding)
                 }

@@ -36,6 +36,7 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.asClassName
+import com.squareup.kotlinpoet.joinToCode
 import java.io.OutputStreamWriter
 
 class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
@@ -135,6 +136,10 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                         ?.joinToString(", ")
                         .orEmpty()
                     add("dependsOn = [%L],\n", dependencies)
+                    val dependencyProviderTypes = binding.dependencies.orEmpty()
+                        .map { CodeBlock.of("%S", it.providerType.orEmpty()) }
+                        .joinToCode(", ")
+                    add("dependencyProviderTypes = [%L],\n", dependencyProviderTypes)
                 } else {
                     add("scope = \"\",\n")
                     add("nullable = false,\n")
@@ -144,6 +149,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                     add("providerFunctionName = \"\",\n")
                     add("providerClassName = \"\",\n")
                     add("dependsOn = [],\n")
+                    add("dependencyProviderTypes = [],\n")
                 }
                 unindent()
                 add("),\n")
@@ -174,6 +180,7 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                     indent()
                     add("bindingId = %L,\n", id)
                     add("fieldName = %S,\n", requested.fieldName)
+                    add("providerType = %S,\n", requested.providerType.orEmpty())
                     unindent()
                     add("),\n")
                 }

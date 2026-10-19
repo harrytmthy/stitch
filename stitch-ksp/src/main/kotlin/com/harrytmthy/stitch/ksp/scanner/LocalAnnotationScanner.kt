@@ -35,6 +35,7 @@ import com.harrytmthy.stitch.annotations.Nullable
 import com.harrytmthy.stitch.annotations.Provides
 import com.harrytmthy.stitch.annotations.Singleton
 import com.harrytmthy.stitch.annotations.StitchRoot
+import com.harrytmthy.stitch.api.Provider
 import com.harrytmthy.stitch.ksp.consts.BindingKind
 import com.harrytmthy.stitch.ksp.fatalError
 import com.harrytmthy.stitch.ksp.model.BindingDeclaration
@@ -420,11 +421,14 @@ class LocalAnnotationScanner(
         if (symbol.modifiers.contains(Modifier.PRIVATE)) {
             fatalError("@Inject field '${symbol.simpleName}' cannot be private", symbol)
         }
-        val type = symbol.type.resolve().declaration.qualifiedName(symbol)
+        val resolvedType = symbol.type.resolve()
+        val providerType = resolvedType.providerType()
+        val requestedType = if (providerType != null) resolvedType.providedType(symbol) else resolvedType
+        val type = requestedType.declaration.qualifiedName(symbol)
         val qualifier = getQualifierFromSymbol(symbol)
         val location = symbol.filePathAndLineNumber!!
         val fieldName = symbol.simpleName.asString()
-        val binding = RequestedBinding(type, qualifier, location, fieldName)
+        val binding = RequestedBinding(type, qualifier, location, fieldName, providerType)
         val parentQualifiedName = symbol.parentDeclaration!!.qualifiedName!!.asString()
         val bindings = scanResult.requestedBindings.getOrPut(parentQualifiedName) { ArrayList() }
         bindings.add(binding)
@@ -433,16 +437,26 @@ class LocalAnnotationScanner(
     private fun collectDependencies() {
         for ((providedBinding, parameters) in parametersByBinding) {
             for (parameter in parameters) {
-                val type = parameter.type.resolve().declaration.qualifiedName(parameter)
+                val resolvedType = parameter.type.resolve()
+                val providerType = resolvedType.providerType()
+                val requestedType = if (providerType != null) resolvedType.providedType(parameter) else resolvedType
+                val type = requestedType.declaration.qualifiedName(parameter)
                 val qualifier = getQualifierFromSymbol(parameter)
                 val location = parameter.filePathAndLineNumber!!
-                val binding = BindingDeclaration(type, qualifier, location)
+                val binding = BindingDeclaration(type, qualifier, location, providerType)
                 val dependencies = providedBinding.dependencies
                     ?: ArrayList<BindingDeclaration>(parameters.size).also { providedBinding.dependencies = it }
                 dependencies.add(binding)
             }
         }
     }
+
+    private fun KSType.providerType(): String? =
+        declaration.qualifiedName?.asString()?.takeIf { it in providerTypes }
+
+    private fun KSType.providedType(symbol: KSAnnotated): KSType =
+        arguments.single().type?.resolve()
+            ?: fatalError("Provider<*> cannot be injected. Declare its type argument", symbol)
 
     /**
      * `@Binds` has 3 different cases:
@@ -674,6 +688,11 @@ class LocalAnnotationScanner(
         val injectAnnotations = listOf(
             Inject::class.qualifiedName!!,
             "javax.inject.Inject",
+        )
+
+        val providerTypes = setOf(
+            Provider::class.qualifiedName!!,
+            "javax.inject.Provider",
         )
 
         val qualifierAnnotations = setOf(

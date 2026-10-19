@@ -4,7 +4,8 @@ This standalone build resolves Stitch from Maven Local, never from a project dep
 or Maven Central. It checks runtime registration and real KSP-generated graphs from
 shared Kotlin sources on JVM, JS, and iOS. A separate `bindings` module also checks
 binding and scope contributions, aliases, qualifiers, and injected fields across a
-common-metadata module boundary.
+common-metadata module boundary. A JVM-only `jvm` module checks `javax.inject.Provider`
+requests in its own generated graph.
 
 ## Publish and test
 

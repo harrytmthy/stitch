@@ -46,6 +46,7 @@ open class BindingDeclaration(
     type: String,
     qualifier: Qualifier?,
     val location: String,
+    val providerType: String? = null,
 ) : Binding(type, qualifier)
 
 /**
@@ -79,7 +80,8 @@ class RequestedBinding(
     qualifier: Qualifier?,
     location: String,
     val fieldName: String,
-) : BindingDeclaration(type, qualifier, location)
+    providerType: String?,
+) : BindingDeclaration(type, qualifier, location, providerType)
 
 /**
  * Represents a provided binding that has been validated by the aggregator.
@@ -96,8 +98,10 @@ class ValidatedBinding(
     val providerClassName: String,
 ) : Binding(type, qualifier) {
 
-    var dependencies: List<ValidatedBinding>? = null
+    var dependencies: List<ValidatedDependency>? = null
 }
+
+class ValidatedDependency(val binding: ValidatedBinding, val providerType: String?)
 
 sealed class Qualifier {
 

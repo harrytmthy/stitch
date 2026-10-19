@@ -209,7 +209,7 @@ object ScopedGraphGenerator {
         binding: ValidatedBinding,
     ): CodeBlock {
         if (binding.kind == BindingKind.PROVIDED_ALIAS) {
-            val dependency = binding.dependencies!!.single()
+            val dependency = binding.dependencies!!.single().binding
             return CodeBlock.builder()
                 .addStatement("return %L", dependencyAccess(plan.scope, dependency))
                 .build()
@@ -223,7 +223,8 @@ object ScopedGraphGenerator {
 
         val holderName = accessorName(binding)
         val dclHolderClass = DclHolder::class.asClassName()
-        val bindingType = ClassName.bestGuess(binding.type).copy(nullable = binding.nullable)
+        val bindingClass = ClassName.bestGuess(binding.type)
+        val bindingType = bindingClass.copy(nullable = binding.nullable)
 
         return CodeBlock.builder().apply {
             addStatement("val cached = %N.reference", holderName)
@@ -231,15 +232,24 @@ object ScopedGraphGenerator {
             addStatement("return cached as %T", bindingType)
             endControlFlow()
 
-            beginControlFlow("synchronized(%N.lock)", holderName)
+            beginControlFlow("synchronized(%N)", holderName)
             addStatement("val locked = %N.reference", holderName)
             beginControlFlow("if (locked !== %T.Uninitialized)", dclHolderClass)
             addStatement("return locked as %T", bindingType)
             endControlFlow()
 
+            // The lock is reentrant, so only the initializing thread can find the flag set.
+            beginControlFlow("check(!%N.initializing)", holderName)
+            addStatement("%S", "Binding with type '${bindingClass.simpleName}' is requested during its own initialization")
+            endControlFlow()
+            addStatement("%N.initializing = true", holderName)
+            beginControlFlow("try")
             addStatement("val created = %L", createBindingExpression(plan.scope, binding))
             addStatement("%N.reference = created", holderName)
             addStatement("return created")
+            nextControlFlow("finally")
+            addStatement("%N.initializing = false", holderName)
+            endControlFlow()
             endControlFlow()
         }.build()
     }
@@ -249,7 +259,7 @@ object ScopedGraphGenerator {
         binding: ValidatedBinding,
     ): CodeBlock {
         val dependencyArgs = binding.dependencies
-            ?.map { dependencyAccess(currentScope, it) }
+            ?.map { requestAccess(currentScope, it.binding, it.providerType) }
             .orEmpty()
 
         return when (binding.kind) {
@@ -306,6 +316,15 @@ object ScopedGraphGenerator {
         }
     }
 
+    private fun requestAccess(
+        currentScope: Scope,
+        dependency: ValidatedBinding,
+        providerType: String?,
+    ): CodeBlock {
+        val access = dependencyAccess(currentScope, dependency)
+        return if (providerType != null) CodeBlock.of("%T { %L }", ClassName.bestGuess(providerType), access) else access
+    }
+
     private fun dependencyAccess(
         currentScope: Scope,
         dependency: ValidatedBinding,
@@ -343,7 +362,7 @@ object ScopedGraphGenerator {
                 addStatement(
                     "target.%N = %L",
                     field.fieldName,
-                    dependencyAccess(currentScope, field.binding),
+                    requestAccess(currentScope, field.binding, field.providerType),
                 )
             }
         }.build()

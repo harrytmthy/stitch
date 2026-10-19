@@ -36,6 +36,9 @@ class BindingGraphValidator(
         for (binding in scanResult.providedBindings.values) {
             resolve(binding, visiting, bindingResolutions)
         }
+        for (binding in scanResult.providedBindings.values) {
+            validateProviderDependencies(binding, bindingResolutions)
+        }
         return BindingValidationResultMapper.map(bindingResolutions, scopeCount = scopeAncestors.size)
     }
 
@@ -55,8 +58,12 @@ class BindingGraphValidator(
             binding.dependencies?.forEach { dependencyDeclaration ->
                 val dependency = scanResult.providedBindings[dependencyDeclaration]
                     ?: missingBindingError(dependencyDeclaration)
-                val resolvedDependency = resolve(dependency, visiting, bindingResolutions)
-                dependencyResults += dependency to resolvedDependency
+                // A Provider defers construction, so it neither closes a cycle nor places this
+                // binding. Its scope is checked once every binding is resolved.
+                if (dependencyDeclaration.providerType == null) {
+                    val resolvedDependency = resolve(dependency, visiting, bindingResolutions)
+                    dependencyResults += dependency to resolvedDependency
+                }
             }
             val result = when (val declaredScope = binding.scope) {
                 null -> resolveUnscoped(binding, dependencyResults)
@@ -132,6 +139,23 @@ class BindingGraphValidator(
         )
     }
 
+    private fun validateProviderDependencies(
+        binding: ProvidedBinding,
+        bindingResolutions: Map<ProvidedBinding, BindingResolution>,
+    ) {
+        val owningScope = bindingResolutions.getValue(binding).owningScope
+        val allowedScopes = scopeAncestors.getValue(owningScope)
+        binding.dependencies?.forEach { dependencyDeclaration ->
+            if (dependencyDeclaration.providerType != null) {
+                val dependency = scanResult.providedBindings.getValue(dependencyDeclaration)
+                val dependencyOwningScope = bindingResolutions.getValue(dependency).owningScope
+                if (dependencyOwningScope !in allowedScopes) {
+                    providerScopeError(binding, owningScope, dependency, dependencyOwningScope, allowedScopes)
+                }
+            }
+        }
+    }
+
     private fun cycleError(
         binding: ProvidedBinding,
         visiting: LinkedHashSet<ProvidedBinding>,
@@ -165,6 +189,22 @@ class BindingGraphValidator(
             message = buildString {
                 append("Binding $binding is declared in ${binding.scope} (${binding.location}), ")
                 append("but depends on $dependency which resolves to $dependencyOwningScope ")
+                append("(${dependency.location}). Allowed scopes: ${allowedScopes.joinToString()}")
+            },
+            symbol = null,
+        )
+
+    private fun providerScopeError(
+        binding: ProvidedBinding,
+        owningScope: Scope,
+        dependency: ProvidedBinding,
+        dependencyOwningScope: Scope,
+        allowedScopes: Set<Scope>,
+    ): Nothing =
+        fatalError(
+            message = buildString {
+                append("Binding $binding resolves to $owningScope (${binding.location}), ")
+                append("but requests Provider<$dependency> which resolves to $dependencyOwningScope ")
                 append("(${dependency.location}). Allowed scopes: ${allowedScopes.joinToString()}")
             },
             symbol = null,

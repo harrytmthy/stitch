@@ -22,6 +22,7 @@ import com.harrytmthy.stitch.ksp.model.BindingValidationResult
 import com.harrytmthy.stitch.ksp.model.ProvidedBinding
 import com.harrytmthy.stitch.ksp.model.Scope
 import com.harrytmthy.stitch.ksp.model.ValidatedBinding
+import com.harrytmthy.stitch.ksp.model.ValidatedDependency
 
 /**
  * Transforms all [ProvidedBinding] into [ValidatedBinding] grouped by owning scope,
@@ -53,7 +54,9 @@ object BindingValidationResultMapper {
         }
         for ((providedBinding, _) in bindingResolutions) {
             val binding = bindingPool.getValue(providedBinding)
-            binding.dependencies = providedBinding.dependencies?.map(bindingPool::getValue)
+            binding.dependencies = providedBinding.dependencies?.map {
+                ValidatedDependency(bindingPool.getValue(it), it.providerType)
+            }
         }
         return BindingValidationResult(bindingPool, bindingsByScope)
     }
