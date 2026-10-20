@@ -117,7 +117,7 @@ class ScopeRef(val name: String) {
 
     /**
      * Creates a new [Scope] instance.
-     * - Scope instances are closed by default.
+     * - Scope instances are open until [Scope.close] is called.
      * - Use [parent] to allow this scope to resolve bindings from ancestor scopes.
      *
      * ```

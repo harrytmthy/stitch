@@ -27,7 +27,7 @@ dependencies {
 and annotate a class with `@StitchRoot`:
 
 ```kotlin
-import io.github.harrytmthy.stitch.annotations.StitchRoot
+import com.harrytmthy.stitch.annotations.StitchRoot
 
 @StitchRoot
 class SampleApp
