@@ -123,7 +123,8 @@ object ContributionScanner {
         for (index in contributedBindings.indices) {
             val binding = contributedBindings[index]
             val dependencies = contributedDependencies[index]
-            val providedBinding = providedBindings.getValue(binding)
+            // A requested entry has no dependencies, and one without a binding is reported by the validator.
+            val providedBinding = providedBindings[binding] ?: continue
             val providedBindingDependencies = providedBinding.dependencies
                 ?: ArrayList<BindingDeclaration>(dependencies.size).also { providedBinding.dependencies = it }
             for ((dependencyIndex, providerType) in dependencies) {
