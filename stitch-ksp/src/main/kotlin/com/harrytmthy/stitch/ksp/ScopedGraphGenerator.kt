@@ -259,7 +259,10 @@ object ScopedGraphGenerator {
         binding: ValidatedBinding,
     ): CodeBlock {
         val dependencyArgs = binding.dependencies
-            ?.map { requestAccess(currentScope, it.binding, it.providerType) }
+            ?.map {
+                val access = requestAccess(currentScope, it.binding, it.providerType)
+                if (it.parameterName != null) CodeBlock.of("%N = %L", it.parameterName, access) else access
+            }
             .orEmpty()
 
         return when (binding.kind) {

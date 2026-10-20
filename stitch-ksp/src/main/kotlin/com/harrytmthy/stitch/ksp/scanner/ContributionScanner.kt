@@ -93,7 +93,7 @@ object ContributionScanner {
 
         // Step 5: Scan binding contributions
         val contributedBindings = ArrayList<BindingDeclaration>()
-        val contributedDependencies = ArrayList<List<Pair<Int, String?>>>() // Flattened indices, NOT bindingId
+        val contributedDependencies = ArrayList<List<ContributedDependency>>()
         scanBindingContributions(
             bindingContributions = bindingContributions,
             providedBindings = providedBindings,
@@ -123,18 +123,21 @@ object ContributionScanner {
         for (index in contributedBindings.indices) {
             val binding = contributedBindings[index]
             val dependencies = contributedDependencies[index]
-            val providedBinding = providedBindings.getValue(binding)
+            // A requested entry has no dependencies, and a defaulted one may have no binding.
+            val providedBinding = providedBindings[binding] ?: continue
             val providedBindingDependencies = providedBinding.dependencies
                 ?: ArrayList<BindingDeclaration>(dependencies.size).also { providedBinding.dependencies = it }
-            for ((dependencyIndex, providerType) in dependencies) {
-                val bindingDependency = contributedBindings[dependencyIndex]
+            for (dependency in dependencies) {
+                val bindingDependency = contributedBindings[dependency.index]
                 providedBindingDependencies.add(
-                    if (providerType != null) {
+                    if (dependency.providerType != null || dependency.parameterName != null) {
                         BindingDeclaration(
                             type = bindingDependency.type,
                             qualifier = bindingDependency.qualifier,
                             location = bindingDependency.location,
-                            providerType = providerType,
+                            providerType = dependency.providerType,
+                            parameterName = dependency.parameterName,
+                            hasDefault = dependency.hasDefault,
                         )
                     } else {
                         bindingDependency
@@ -208,7 +211,7 @@ object ContributionScanner {
         providedBindings: HashMap<Binding, ProvidedBinding>,
         requestedBindings: HashMap<String, ArrayList<RequestedBinding>>,
         contributedBindings: ArrayList<BindingDeclaration>,
-        contributedDependencies: ArrayList<List<Pair<Int, String?>>>,
+        contributedDependencies: ArrayList<List<ContributedDependency>>,
         customScopeByCanonicalName: Map<String, Scope.Custom>,
         logger: StitchErrorLogger,
     ) {
@@ -233,11 +236,19 @@ object ContributionScanner {
                 // Contributions compiled before Provider support lack this argument,
                 // and every dependency they declare is a direct request.
                 val dependencyProviderTypes = bindingAnnotation.arguments.getOrNull(11)?.value as List<String>?
+                // Contributions compiled before default value support lack these arguments,
+                // and every dependency they declare is required.
+                val dependencyNames = bindingAnnotation.arguments.getOrNull(12)?.value as List<String>?
+                val dependencyDefaults = bindingAnnotation.arguments.getOrNull(13)?.value as List<Boolean>?
                 val binding = BindingDeclaration(type, qualifier, location)
                 contributedBindings.add(binding)
                 contributedDependencies += dependsOn.mapIndexed { position, id ->
-                    // Converts bindingId to contributedBindings's index
-                    lastBindingIndex + id to dependencyProviderTypes?.get(position)?.ifEmpty { null }
+                    ContributedDependency(
+                        index = lastBindingIndex + id, // Converts bindingId to contributedBindings's index
+                        providerType = dependencyProviderTypes?.get(position)?.ifEmpty { null },
+                        parameterName = dependencyNames?.getOrNull(position),
+                        hasDefault = dependencyDefaults?.getOrNull(position) == true,
+                    )
                 }
                 if (kind != BindingKind.REQUESTED) {
                     providedBindings[binding]?.let {
@@ -312,3 +323,10 @@ object ContributionScanner {
         )
     }
 }
+
+private class ContributedDependency(
+    val index: Int, // Flattened index, NOT bindingId
+    val providerType: String?,
+    val parameterName: String?,
+    val hasDefault: Boolean,
+)

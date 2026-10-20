@@ -207,6 +207,65 @@ class BindingGraphValidatorTest {
         validator.validate() // should not throw
     }
 
+    @Test
+    fun validate_shouldOmitDefaultedDependency_whenItIsNeverProvided() {
+        val logger = provided("Logger")
+        val config = provided("Config", scope = Scope.Singleton)
+        val service = provided("Service", scope = Scope.Singleton)
+        val presenter = provided("Presenter")
+
+        presenter.dependencies = arrayListOf(
+            parameterOf(config, "config", hasDefault = true),
+            parameterOf(logger, "logger", hasDefault = true),
+            parameterOf(service, "service", hasDefault = false),
+        )
+
+        val validator = BindingGraphValidator(
+            scanResult = scanResult(config, service, presenter),
+            scopeAncestors = scopeAncestors(),
+        )
+
+        val dependencies = validator.validate().bindingPool.getValue(presenter).dependencies!!
+
+        assertEquals(listOf("Config", "Service"), dependencies.map { it.binding.type })
+        assertEquals(listOf(null, "service"), dependencies.map { it.parameterName })
+    }
+
+    @Test
+    fun validate_shouldFail_whenDefaultedDependencyResolvesToDeeperScope() {
+        val activity = customScope("activity", depth = 2)
+        val repository = provided("Repository", scope = activity)
+        val presenter = provided("Presenter", scope = Scope.Singleton)
+
+        presenter.dependencies = arrayListOf(parameterOf(repository, "repository", hasDefault = true))
+
+        val validator = BindingGraphValidator(
+            scanResult = scanResult(repository, presenter),
+            scopeAncestors = scopeAncestors(activity),
+        )
+
+        assertFailsWith<StitchProcessingException> {
+            validator.validate()
+        }
+    }
+
+    @Test
+    fun validate_shouldFail_whenDefaultedDependencyClosesCycle() {
+        val a = provided("A", scope = Scope.Singleton)
+        val b = provided("B", scope = Scope.Singleton, dependencies = listOf(a))
+
+        a.dependencies = arrayListOf(parameterOf(b, "b", hasDefault = true))
+
+        val validator = BindingGraphValidator(
+            scanResult = scanResult(a, b),
+            scopeAncestors = scopeAncestors(),
+        )
+
+        assertFailsWith<StitchProcessingException> {
+            validator.validate()
+        }
+    }
+
     private fun scanResult(vararg bindings: ProvidedBinding): ContributionScanResult {
         val providedBindings = LinkedHashMap<Binding, ProvidedBinding>()
         bindings.forEach { providedBindings[it] = it }
@@ -238,6 +297,9 @@ class BindingGraphValidatorTest {
 
     private fun providerOf(binding: ProvidedBinding): BindingDeclaration =
         BindingDeclaration(binding.type, binding.qualifier, binding.location, providerType = "com.harrytmthy.stitch.api.Provider")
+
+    private fun parameterOf(binding: ProvidedBinding, name: String, hasDefault: Boolean): BindingDeclaration =
+        BindingDeclaration(binding.type, binding.qualifier, binding.location, parameterName = name, hasDefault = hasDefault)
 
     private fun customScope(name: String, depth: Int): Scope.Custom =
         Scope.Custom(

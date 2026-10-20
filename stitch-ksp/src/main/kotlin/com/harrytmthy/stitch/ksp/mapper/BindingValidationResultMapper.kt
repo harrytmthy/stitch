@@ -54,8 +54,15 @@ object BindingValidationResultMapper {
         }
         for ((providedBinding, _) in bindingResolutions) {
             val binding = bindingPool.getValue(providedBinding)
-            binding.dependencies = providedBinding.dependencies?.map {
-                ValidatedDependency(bindingPool.getValue(it), it.providerType)
+            // An omitted argument requires every argument after it to be named.
+            var omitted = false
+            binding.dependencies = providedBinding.dependencies?.mapNotNull {
+                val dependency = bindingPool[it]
+                if (dependency == null) {
+                    omitted = true
+                    return@mapNotNull null
+                }
+                ValidatedDependency(dependency, it.providerType, it.parameterName?.takeIf { omitted })
             }
         }
         return BindingValidationResult(bindingPool, bindingsByScope)

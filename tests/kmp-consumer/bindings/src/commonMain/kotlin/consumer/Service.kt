@@ -76,3 +76,10 @@ class ContributedProviderTarget {
     @Inject
     lateinit var service: Provider<Service>
 }
+
+class ContributedLogger(val name: String)
+
+class ContributedDefaults @Inject constructor(
+    val logger: ContributedLogger = ContributedLogger("contributed"),
+    val service: Service = Service(),
+)

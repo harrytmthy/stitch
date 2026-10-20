@@ -47,6 +47,8 @@ open class BindingDeclaration(
     qualifier: Qualifier?,
     val location: String,
     val providerType: String? = null,
+    val parameterName: String? = null,
+    val hasDefault: Boolean = false,
 ) : Binding(type, qualifier)
 
 /**
@@ -101,7 +103,11 @@ class ValidatedBinding(
     var dependencies: List<ValidatedDependency>? = null
 }
 
-class ValidatedDependency(val binding: ValidatedBinding, val providerType: String?)
+class ValidatedDependency(
+    val binding: ValidatedBinding,
+    val providerType: String?,
+    val parameterName: String?,
+)
 
 sealed class Qualifier {
 

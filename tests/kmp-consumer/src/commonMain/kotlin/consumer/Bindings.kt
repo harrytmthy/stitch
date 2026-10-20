@@ -16,6 +16,7 @@
 
 package consumer
 
+import com.harrytmthy.stitch.annotations.Binds
 import com.harrytmthy.stitch.annotations.Inject
 import com.harrytmthy.stitch.annotations.Named
 import com.harrytmthy.stitch.annotations.Provides
@@ -146,6 +147,27 @@ class ProviderTarget {
     @Inject
     lateinit var session: Provider<SessionService>
 }
+
+class MissingLogger(val name: String)
+
+interface DefaultedApi
+
+@Singleton
+@Binds(aliases = [DefaultedApi::class])
+class DefaultedHolder @Inject constructor(
+    val logger: MissingLogger = MissingLogger("constructor"),
+    val service: Service,
+    @Named("remote") val remote: Service = Service(),
+    val lazyLogger: Provider<MissingLogger> = Provider { MissingLogger("provider") },
+) : DefaultedApi
+
+class DefaultedClient(val logger: MissingLogger, val service: Service)
+
+@Provides
+fun provideDefaultedClient(
+    logger: MissingLogger = MissingLogger("provides"),
+    service: Service,
+): DefaultedClient = DefaultedClient(logger, service)
 
 @StitchRoot
 object AppGraph

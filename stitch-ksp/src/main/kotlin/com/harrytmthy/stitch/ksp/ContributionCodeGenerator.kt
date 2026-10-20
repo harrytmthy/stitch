@@ -140,6 +140,15 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                         .map { CodeBlock.of("%S", it.providerType.orEmpty()) }
                         .joinToCode(", ")
                     add("dependencyProviderTypes = [%L],\n", dependencyProviderTypes)
+                    // Names are recorded for every parameter of a binding with a defaulted one, or for none.
+                    val namedDependencies = binding.dependencies
+                        ?.takeIf { it.firstOrNull()?.parameterName != null }
+                        .orEmpty()
+                    val dependencyNames = namedDependencies
+                        .map { CodeBlock.of("%S", it.parameterName) }
+                        .joinToCode(", ")
+                    add("dependencyNames = [%L],\n", dependencyNames)
+                    add("dependencyDefaults = [%L],\n", namedDependencies.joinToString(", ") { it.hasDefault.toString() })
                 } else {
                     add("scope = \"\",\n")
                     add("nullable = false,\n")
@@ -150,6 +159,8 @@ class ContributionCodeGenerator(private val codeGenerator: CodeGenerator) {
                     add("providerClassName = \"\",\n")
                     add("dependsOn = [],\n")
                     add("dependencyProviderTypes = [],\n")
+                    add("dependencyNames = [],\n")
+                    add("dependencyDefaults = [],\n")
                 }
                 unindent()
                 add("),\n")

@@ -155,4 +155,21 @@ class ConsumerTest {
         assertFailsWith<IllegalArgumentException> { graph.get<RetriedService>() }
         assertSame(graph.get<RetriedService>(), graph.get<RetriedService>())
     }
+
+    @Test
+    fun defaultParameterValues() {
+        val graph = StitchSingletonGraph()
+        val holder = graph.get<DefaultedHolder>()
+        assertEquals("constructor", holder.logger.name)
+        assertSame(graph.get<Service>(), holder.service)
+        assertSame(graph.get<Service>(named("remote")), holder.remote)
+        assertEquals("provider", holder.lazyLogger.get().name)
+        assertSame(holder, graph.get<DefaultedApi>())
+        val client = graph.get<DefaultedClient>()
+        assertEquals("provides", client.logger.name)
+        assertSame(graph.get<Service>(), client.service)
+        val contributed = graph.get<ContributedDefaults>()
+        assertEquals("contributed", contributed.logger.name)
+        assertSame(graph.get<Service>(), contributed.service)
+    }
 }

@@ -70,6 +70,8 @@ annotation class ContributedBinding(
     val providerClassName: String,
     val dependsOn: IntArray,
     val dependencyProviderTypes: Array<String>,
+    val dependencyNames: Array<String>,
+    val dependencyDefaults: BooleanArray,
 )
 
 /**

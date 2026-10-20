@@ -56,8 +56,9 @@ class BindingGraphValidator(
                 binding.dependencies?.size ?: 0,
             )
             binding.dependencies?.forEach { dependencyDeclaration ->
+                // Kotlin supplies the default value of a parameter that has no binding.
                 val dependency = scanResult.providedBindings[dependencyDeclaration]
-                    ?: missingBindingError(dependencyDeclaration)
+                    ?: if (dependencyDeclaration.hasDefault) return@forEach else missingBindingError(dependencyDeclaration)
                 // A Provider defers construction, so it neither closes a cycle nor places this
                 // binding. Its scope is checked once every binding is resolved.
                 if (dependencyDeclaration.providerType == null) {
@@ -147,7 +148,7 @@ class BindingGraphValidator(
         val allowedScopes = scopeAncestors.getValue(owningScope)
         binding.dependencies?.forEach { dependencyDeclaration ->
             if (dependencyDeclaration.providerType != null) {
-                val dependency = scanResult.providedBindings.getValue(dependencyDeclaration)
+                val dependency = scanResult.providedBindings[dependencyDeclaration] ?: return@forEach
                 val dependencyOwningScope = bindingResolutions.getValue(dependency).owningScope
                 if (dependencyOwningScope !in allowedScopes) {
                     providerScopeError(binding, owningScope, dependency, dependencyOwningScope, allowedScopes)

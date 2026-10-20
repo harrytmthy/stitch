@@ -436,6 +436,8 @@ class LocalAnnotationScanner(
 
     private fun collectDependencies() {
         for ((providedBinding, parameters) in parametersByBinding) {
+            // Names let the generated call omit a defaulted argument that has no binding.
+            val named = parameters.any { it.hasDefault }
             for (parameter in parameters) {
                 val resolvedType = parameter.type.resolve()
                 val providerType = resolvedType.providerType()
@@ -443,7 +445,14 @@ class LocalAnnotationScanner(
                 val type = requestedType.declaration.qualifiedName(parameter)
                 val qualifier = getQualifierFromSymbol(parameter)
                 val location = parameter.filePathAndLineNumber!!
-                val binding = BindingDeclaration(type, qualifier, location, providerType)
+                val binding = BindingDeclaration(
+                    type = type,
+                    qualifier = qualifier,
+                    location = location,
+                    providerType = providerType,
+                    parameterName = if (named) parameter.name!!.asString() else null,
+                    hasDefault = parameter.hasDefault,
+                )
                 val dependencies = providedBinding.dependencies
                     ?: ArrayList<BindingDeclaration>(parameters.size).also { providedBinding.dependencies = it }
                 dependencies.add(binding)
