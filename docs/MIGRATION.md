@@ -102,8 +102,8 @@ interface HomeFragmentComponent
 In Stitch, the scope annotations remain, but graph dependencies come from `@DependsOn` instead of manual component wiring:
 
 ```kotlin
-import io.github.harrytmthy.stitch.annotations.DependsOn
-import io.github.harrytmthy.stitch.annotations.Scope
+import com.harrytmthy.stitch.annotations.DependsOn
+import com.harrytmthy.stitch.annotations.Scope
 
 @Scope
 @Retention(AnnotationRetention.BINARY)
@@ -136,7 +136,7 @@ abstract class AppModule {
 }
 
 // ========= Stitch =========
-import io.github.harrytmthy.stitch.annotations.Binds
+import com.harrytmthy.stitch.annotations.Binds
 
 abstract class AppModule {
 
@@ -167,9 +167,9 @@ object AppModule {
 }
 
 // ========= Stitch =========
-import io.github.harrytmthy.stitch.annotations.Binds
-import io.github.harrytmthy.stitch.annotations.Provides
-import io.github.harrytmthy.stitch.annotations.Singleton
+import com.harrytmthy.stitch.annotations.Binds
+import com.harrytmthy.stitch.annotations.Provides
+import com.harrytmthy.stitch.annotations.Singleton
 
 object AppModule {
 
@@ -188,9 +188,9 @@ object AppModule {
 Or flatten it into a top-level declaration when you want less boilerplate:
 
 ```kotlin
-import io.github.harrytmthy.stitch.annotations.Binds
-import io.github.harrytmthy.stitch.annotations.Provides
-import io.github.harrytmthy.stitch.annotations.Singleton
+import com.harrytmthy.stitch.annotations.Binds
+import com.harrytmthy.stitch.annotations.Provides
+import com.harrytmthy.stitch.annotations.Singleton
 
 @Singleton
 @Provides
@@ -213,8 +213,8 @@ class HomeViewModel @Inject constructor(private val logger: Logger) : ViewModel(
 You can also merge constructor injection with alias definition:
 
 ```kotlin
-import io.github.harrytmthy.stitch.annotations.Binds
-import io.github.harrytmthy.stitch.annotations.Singleton
+import com.harrytmthy.stitch.annotations.Binds
+import com.harrytmthy.stitch.annotations.Singleton
 
 @Singleton
 @Binds(aliases = [Logger::class])
@@ -264,7 +264,7 @@ annotation class ActivityScope
 Stitch supports both `@Named` and custom marker qualifiers, so most Dagger qualifier definitions can be kept as-is:
 
 ```kotlin
-import io.github.harrytmthy.stitch.annotations.Qualifier
+import com.harrytmthy.stitch.annotations.Qualifier
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -344,6 +344,24 @@ class StagingHomeService @Inject constructor() : HomeService
 class ProductionHomeService @Inject constructor() : HomeService
 ```
 
+#### Providers
+
+`javax.inject.Provider` keeps working, so constructors and fields that request providers need no changes:
+
+```kotlin
+// ========= Dagger 2 =========
+class HomeViewModel @Inject constructor(
+    private val repository: Provider<HomeRepository>,
+) : ViewModel()
+
+// ========= Stitch =========
+class HomeViewModel @Inject constructor(
+    private val repository: Provider<HomeRepository>,
+) : ViewModel()
+```
+
+In shared Kotlin Multiplatform code, use `com.harrytmthy.stitch.api.Provider` instead. Each `get()` follows the binding's scope, so a singleton or scoped binding returns its cached instance, while an unscoped binding creates a new one.
+
 ### From Hilt
 
 Hilt is still Dagger underneath, but it adds platform conveniences such as predefined components, `@InstallIn`, and `@AndroidEntryPoint`.
@@ -361,8 +379,8 @@ class HomePresenter @Inject constructor()
 class HomeViewModel @Inject constructor()
 
 // ========= Stitch =========
-import io.github.harrytmthy.stitch.annotations.DependsOn
-import io.github.harrytmthy.stitch.annotations.Scope
+import com.harrytmthy.stitch.annotations.DependsOn
+import com.harrytmthy.stitch.annotations.Scope
 
 @Scope
 @Retention(AnnotationRetention.BINARY)
@@ -402,9 +420,9 @@ abstract class NetworkModule {
 }
 
 // ========= Stitch =========
-import io.github.harrytmthy.stitch.annotations.Binds
-import io.github.harrytmthy.stitch.annotations.Provides
-import io.github.harrytmthy.stitch.annotations.Singleton
+import com.harrytmthy.stitch.annotations.Binds
+import com.harrytmthy.stitch.annotations.Provides
+import com.harrytmthy.stitch.annotations.Singleton
 
 abstract class NetworkModule {
 
@@ -457,14 +475,13 @@ StitchInjector.init(StitchSingletonGraph())
 
 ### Features Not Yet Available
 
-These are common Dagger 2 / Hilt features that are not in Stitch v1.0 yet:
+These are common Dagger 2 / Hilt features that are not in Stitch yet:
 
 | Feature                | Dagger 2 / Hilt                   | Planned in Stitch |
 |------------------------|-----------------------------------|:-----------------:|
-| Multibindings          | `@IntoSet`, `@IntoMap`, `@MapKey` |       v1.1        |
-| Assisted injection     | `@Assisted`, `@AssistedFactory`   |       v1.1        |
-| Optional bindings      | `@BindsOptionalOf`                |       v1.1        |
-| Provider wrapping      | `Provider<T>`                     |       v1.1        |
+| Multibindings          | `@IntoSet`, `@IntoMap`, `@MapKey` |        Yes        |
+| Assisted injection     | `@Assisted`, `@AssistedFactory`   |        Yes        |
+| Optional bindings      | `@BindsOptionalOf`                |         -         |
 | Reusable scope         | `@Reusable`                       |         -         |
 | Multiple scope parents | Multiple component dependencies   |         -         |
 
@@ -501,9 +518,9 @@ startKoin {
 }
 
 // ========= Stitch =========
-import io.github.harrytmthy.stitch.api.bind
-import io.github.harrytmthy.stitch.api.module
-import io.github.harrytmthy.stitch.api.scope
+import com.harrytmthy.stitch.api.bind
+import com.harrytmthy.stitch.api.module
+import com.harrytmthy.stitch.api.scope
 
 val activityScope = scope("activity")
 
@@ -621,9 +638,9 @@ class LoggerImpl @Inject constructor() : Logger
 Or keep a provider layout when that is closer to your existing code:
 
 ```kotlin
-import io.github.harrytmthy.stitch.annotations.Binds
-import io.github.harrytmthy.stitch.annotations.Provides
-import io.github.harrytmthy.stitch.annotations.Singleton
+import com.harrytmthy.stitch.annotations.Binds
+import com.harrytmthy.stitch.annotations.Provides
+import com.harrytmthy.stitch.annotations.Singleton
 
 object AppModule {
 
@@ -651,7 +668,7 @@ import org.koin.core.annotation.Scope
 class HomeViewModel @Inject constructor(...)
 
 // ========= Stitch =========
-import io.github.harrytmthy.stitch.annotations.Scope
+import com.harrytmthy.stitch.annotations.Scope
 
 @Scope("MainActivity")
 class HomeViewModel @Inject constructor(...)
@@ -671,7 +688,7 @@ class HomeActivity : AppCompatActivity() {
 }
 
 // ========= Stitch =========
-import io.github.harrytmthy.stitch.api.get
+import com.harrytmthy.stitch.api.get
 
 class HomeActivity : AppCompatActivity() {
 
@@ -706,9 +723,9 @@ import org.koin.core.annotation.Named
 class ProdConfig : Config
 
 // ========= Stitch =========
-import io.github.harrytmthy.stitch.annotations.Binds
-import io.github.harrytmthy.stitch.annotations.Named
-import io.github.harrytmthy.stitch.annotations.Singleton
+import com.harrytmthy.stitch.annotations.Binds
+import com.harrytmthy.stitch.annotations.Named
+import com.harrytmthy.stitch.annotations.Singleton
 
 @Singleton
 @Named("prod")
@@ -726,7 +743,7 @@ If you are moving from **Koin**, start with the runtime registration path first.
 
 If your project currently mixes both, Stitch is designed to replace that split gradually.
 
-For v1.0, please keep this boundary in mind:
+Please keep this boundary in mind:
 - Use `StitchInjector` and generated graphs for the precompiled path
 - Use `Stitch` for the runtime registration path
 

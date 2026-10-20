@@ -204,6 +204,16 @@ val fragmentInjector = activityInjector.createInjectorForChildScope("fragment")
 fragmentInjector.inject(this)
 ```
 
+To defer resolution, request `Provider<T>` instead of `T`. On JVM and Android, `javax.inject.Provider`
+works the same way:
+
+```kotlin
+@Activity
+class HomeViewModel @Inject constructor(
+    private val repository: Provider<HomeRepository>, // Resolved on each get()
+) : ViewModel()
+```
+
 Unlike Dagger 2, there is no `@Module` or `@Component`. Graphs are generated in the same module as
 the `@StitchRoot`-annotated class.
 
