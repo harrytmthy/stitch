@@ -18,9 +18,9 @@ plugins {
 }
 
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.0.3")
-    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.3")
-    ksp("io.github.harrytmthy:stitch-ksp:1.0.3")
+    implementation("io.github.harrytmthy:stitch:1.1.0-rc01")
+    compileOnly("io.github.harrytmthy:stitch-annotations:1.1.0-rc01")
+    ksp("io.github.harrytmthy:stitch-ksp:1.1.0-rc01")
 }
 ```
 
@@ -44,13 +44,13 @@ StitchInjector.init(StitchSingletonGraph())
 ```kotlin
 plugins {
     id("com.google.devtools.ksp") version "2.3.12"
-    id("io.github.harrytmthy.stitch") version "1.0.3"
+    id("io.github.harrytmthy.stitch") version "1.1.0-rc01"
 }
 
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.0.3")
-    compileOnly("io.github.harrytmthy:stitch-annotations:1.0.3")
-    ksp("io.github.harrytmthy:stitch-ksp:1.0.3")
+    implementation("io.github.harrytmthy:stitch:1.1.0-rc01")
+    compileOnly("io.github.harrytmthy:stitch-annotations:1.1.0-rc01")
+    ksp("io.github.harrytmthy:stitch-ksp:1.1.0-rc01")
 }
 ```
 

@@ -24,7 +24,7 @@ import org.gradle.kotlin.dsl.configure
 class PublishingConventionPlugin : Plugin<Project> {
 
     override fun apply(target: Project) {
-        val version = "1.0.3"
+        val version = "1.1.0-rc01"
         val versionSuffix = target.providers.gradleProperty("versionSuffix").getOrElse("")
         target.version = "$version$versionSuffix"
 
