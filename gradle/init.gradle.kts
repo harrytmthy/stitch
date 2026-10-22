@@ -14,8 +14,8 @@ rootProject {
     subprojects {
         apply<com.diffplug.gradle.spotless.SpotlessPlugin>()
         extensions.configure<com.diffplug.gradle.spotless.SpotlessExtension> {
-            when (path) {
-                ":app" -> {
+            when {
+                path.startsWith(":sample") -> {
                     kotlin {
                         target("**/StitchVsKoinBenchmark.kt")
                         targetExclude("**/build/**/*.kt")

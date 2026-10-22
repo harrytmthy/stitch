@@ -61,5 +61,9 @@ gradlePlugin {
             id = libs.plugins.stitch.publishing.get().pluginId
             implementationClass = "PublishingConventionPlugin"
         }
+        register("stitchSampleApp") {
+            id = libs.plugins.stitch.sample.app.get().pluginId
+            implementationClass = "SampleAppConventionPlugin"
+        }
     }
 }
