@@ -190,6 +190,9 @@ object ScopedGraphGenerator {
     private fun TypeSpec.Builder.addBindingAccessors(plan: InjectorPlan) {
         for (binding in plan.ownedBindings) {
             addFunction(buildBindingAccessor(plan, binding))
+            if (binding.requiresDclHolder()) {
+                addFunction(buildLockedAccessor(plan, binding))
+            }
         }
     }
 
@@ -223,15 +226,25 @@ object ScopedGraphGenerator {
 
         val holderName = accessorName(binding)
         val dclHolderClass = DclHolder::class.asClassName()
-        val bindingClass = ClassName.bestGuess(binding.type)
-        val bindingType = bindingClass.copy(nullable = binding.nullable)
+        val bindingType = ClassName.bestGuess(binding.type).copy(nullable = binding.nullable)
 
         return CodeBlock.builder().apply {
             addStatement("val cached = %N.reference", holderName)
             beginControlFlow("if (cached !== %T.Uninitialized)", dclHolderClass)
             addStatement("return cached as %T", bindingType)
             endControlFlow()
+            // The locked path lives in its own function, so this fast path stays small enough to be inlined.
+            addStatement("return %N()", lockedAccessorName(binding))
+        }.build()
+    }
 
+    private fun buildLockedAccessor(plan: InjectorPlan, binding: ValidatedBinding): FunSpec {
+        val holderName = accessorName(binding)
+        val dclHolderClass = DclHolder::class.asClassName()
+        val bindingClass = ClassName.bestGuess(binding.type)
+        val bindingType = bindingClass.copy(nullable = binding.nullable)
+
+        val body = CodeBlock.builder().apply {
             beginControlFlow("synchronized(%N)", holderName)
             addStatement("val locked = %N.reference", holderName)
             beginControlFlow("if (locked !== %T.Uninitialized)", dclHolderClass)
@@ -252,7 +265,16 @@ object ScopedGraphGenerator {
             endControlFlow()
             endControlFlow()
         }.build()
+
+        return FunSpec.builder(lockedAccessorName(binding))
+            .addModifiers(KModifier.PRIVATE)
+            .returns(bindingType)
+            .addCode(body)
+            .build()
     }
+
+    // Accessor names never start with an underscore, so this name cannot collide with one.
+    private fun lockedAccessorName(binding: ValidatedBinding): String = "_" + accessorName(binding)
 
     private fun createBindingExpression(
         currentScope: Scope,
@@ -344,12 +366,31 @@ object ScopedGraphGenerator {
 
     private fun TypeSpec.Builder.addTypedInjectFunctions(plan: InjectorPlan) {
         for ((requesterFqn, fields) in plan.requestedBindings) {
-            addFunction(
-                FunSpec.builder("inject")
-                    .addParameter("target", ClassName.bestGuess(requesterFqn))
-                    .addCode(buildTypedInjectBody(plan.scope, fields))
-                    .build(),
-            )
+            val targetType = ClassName.bestGuess(requesterFqn)
+            // ART limits how much it inlines into one method, so large targets are injected in chunks.
+            val chunks = fields.chunked(25)
+            if (chunks.size == 1) {
+                addFunction(
+                    FunSpec.builder("inject")
+                        .addParameter("target", targetType)
+                        .addCode(buildTypedInjectBody(plan.scope, fields))
+                        .build(),
+                )
+                continue
+            }
+            val body = CodeBlock.builder()
+            chunks.forEachIndexed { index, chunk ->
+                val chunkName = "__inject${targetType.simpleName}$index"
+                body.addStatement("%N(target)", chunkName)
+                addFunction(
+                    FunSpec.builder(chunkName)
+                        .addModifiers(KModifier.PRIVATE)
+                        .addParameter("target", targetType)
+                        .addCode(buildTypedInjectBody(plan.scope, chunk))
+                        .build(),
+                )
+            }
+            addFunction(FunSpec.builder("inject").addParameter("target", targetType).addCode(body.build()).build())
         }
     }
 
