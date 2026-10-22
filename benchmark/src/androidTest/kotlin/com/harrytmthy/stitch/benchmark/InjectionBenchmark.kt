@@ -24,8 +24,10 @@ import com.harrytmthy.stitch.api.Stitch
 import com.harrytmthy.stitch.benchmark.fixture.DaggerDaggerFixtureComponent
 import com.harrytmthy.stitch.benchmark.fixture.FactoryInjectionTarget
 import com.harrytmthy.stitch.benchmark.fixture.InjectionTarget
+import com.harrytmthy.stitch.benchmark.fixture.MetroFixtureGraph
 import com.harrytmthy.stitch.benchmark.fixture.koinFixtureModule
 import com.harrytmthy.stitch.benchmark.fixture.stitchRuntimeFixtureModule
+import dev.zacsweers.metro.createGraph
 import io.github.harrytmthy.stitch.generated.StitchSingletonGraph
 import org.junit.Rule
 import org.junit.Test
@@ -35,17 +37,21 @@ import org.koin.dsl.koinApplication
 
 /**
  * Performance benchmark comparing injection time across Stitch (precompiled + runtime),
- * Dagger, and Koin.
+ * Dagger, Koin and Metro.
+ *
+ * The precompiled `*SingletonInject` methods inject into a fresh graph on every iteration, while
+ * the runtime path and Koin reuse a warm container. Compare the `*WarmSingletonInject` methods
+ * with the runtime path and Koin.
  *
  * Run on a physical device:
  * ```
- * ./gradlew :benchmark:connectedDebugAndroidTest
+ * ./gradlew :benchmark:connectedReleaseAndroidTest
  * ```
  *
  * Results are written to `/sdcard/Download/benchmark/`.
  */
 @RunWith(JUnit4::class)
-class StitchVsDaggerVsKoinBenchmark {
+class InjectionBenchmark {
 
     @OptIn(ExperimentalBenchmarkConfigApi::class)
     @get:Rule
@@ -99,6 +105,17 @@ class StitchVsDaggerVsKoinBenchmark {
     }
 
     @Test
+    fun metroSingletonInject() {
+        val target = InjectionTarget()
+        benchmarkRule.measureRepeated {
+            val graph = runWithMeasurementDisabled {
+                createGraph<MetroFixtureGraph>()
+            }
+            graph.inject(target)
+        }
+    }
+
+    @Test
     fun stitchPrecompiledFactoryInject() {
         val target = FactoryInjectionTarget()
         benchmarkRule.measureRepeated {
@@ -138,5 +155,46 @@ class StitchVsDaggerVsKoinBenchmark {
             target.injectWithKoin(koinApp.koin)
         }
         koinApp.close()
+    }
+
+    @Test
+    fun metroFactoryInject() {
+        val target = FactoryInjectionTarget()
+        benchmarkRule.measureRepeated {
+            val graph = runWithMeasurementDisabled {
+                createGraph<MetroFixtureGraph>()
+            }
+            graph.inject(target)
+        }
+    }
+
+    @Test
+    fun stitchPrecompiledWarmSingletonInject() {
+        val singletonGraph = StitchSingletonGraph()
+        val target = InjectionTarget()
+        singletonGraph.inject(target)
+        benchmarkRule.measureRepeated {
+            singletonGraph.inject(target)
+        }
+    }
+
+    @Test
+    fun daggerWarmSingletonInject() {
+        val fixtureComponent = DaggerDaggerFixtureComponent.create()
+        val target = InjectionTarget()
+        fixtureComponent.inject(target)
+        benchmarkRule.measureRepeated {
+            fixtureComponent.inject(target)
+        }
+    }
+
+    @Test
+    fun metroWarmSingletonInject() {
+        val graph = createGraph<MetroFixtureGraph>()
+        val target = InjectionTarget()
+        graph.inject(target)
+        benchmarkRule.measureRepeated {
+            graph.inject(target)
+        }
     }
 }

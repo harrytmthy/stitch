@@ -17,6 +17,15 @@
 plugins {
     alias(libs.plugins.stitch.android.library)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.metro)
+}
+
+// Annotation-only interop lets Metro use the same javax fixture classes, without Dagger's
+// generated factories or Dagger runtime interop.
+metro {
+    interop {
+        includeJavax()
+    }
 }
 
 val fixtureCount = (findProperty("fixture") as? String)?.toIntOrNull() ?: 10
@@ -158,6 +167,27 @@ abstract class GenerateFixturesTask : DefaultTask() {
             appendLine("interface DaggerFixtureComponent {")
             appendLine("    fun inject(target: InjectionTarget)")
             appendLine("    fun inject(target: FactoryInjectionTarget)")
+            appendLine("}")
+        })
+
+        // Metro wiring: the same constructors, scopes, aliases and injection targets
+        dir.resolve("MetroFixture.kt").writeText(buildString {
+            appendLine("package $pkg")
+            appendLine()
+            appendLine("import dev.zacsweers.metro.Binds")
+            appendLine("import dev.zacsweers.metro.DependencyGraph")
+            appendLine("import javax.inject.Singleton")
+            appendLine()
+            appendLine("@Singleton")
+            appendLine("@DependencyGraph")
+            appendLine("interface MetroFixtureGraph {")
+            appendLine("    fun inject(target: InjectionTarget)")
+            appendLine("    fun inject(target: FactoryInjectionTarget)")
+            for (i in 1..n) {
+                appendLine()
+                appendLine("    @Binds")
+                appendLine("    fun bindService$i(impl: Service${i}Singleton): Service$i")
+            }
             appendLine("}")
         })
 
