@@ -16,6 +16,7 @@ kotlinpoet = "2.4.0"
 kotlinAtomicfu = "0.33.0"
 ksp = "2.3.12"
 mavenPublishPlugin = "0.32.0"
+metro = "1.4.5"
 stitch = "1.0.0"
 
 [libraries]
@@ -57,6 +58,7 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 koin-compiler = { id = "io.insert-koin.compiler.plugin", version.ref = "koinCompiler" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublishPlugin" }
+metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
 stitch = { id = "io.github.harrytmthy.stitch", version.ref = "stitch" }
 
 # Convention Plugins

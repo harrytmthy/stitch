@@ -44,7 +44,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "Stitch"
 include(":app")
-include(":benchmark")
+// Metro's Gradle plugin needs a JDK 21+ Gradle daemon, so builds on older JDKs skip the benchmark.
+if (JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_21)) {
+    include(":benchmark")
+}
 include(":core")
 include(":feature:home")
 include(":stitch")
