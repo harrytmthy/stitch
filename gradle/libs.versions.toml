@@ -65,3 +65,4 @@ stitch = { id = "io.github.harrytmthy.stitch", version.ref = "stitch" }
 stitch-android-library = { id = "stitch.android.library" }
 stitch-multiplatform = { id = "stitch.multiplatform" }
 stitch-publishing = { id = "stitch.publishing" }
+stitch-sample-app = { id = "stitch.sample.app" }

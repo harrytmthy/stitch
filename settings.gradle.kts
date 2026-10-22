@@ -43,10 +43,12 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Stitch"
-include(":app")
-// Metro's Gradle plugin needs a JDK 21+ Gradle daemon, so builds on older JDKs skip the benchmark.
+// Metro's Gradle plugin needs a JDK 21+ Gradle daemon, so builds on older JDKs skip the benchmark and samples.
 if (JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_21)) {
     include(":benchmark")
+    include(":sample:shared", ":sample:none", ":sample:stitch", ":sample:dagger", ":sample:koin", ":sample:metro")
+    project(":sample").projectDir = file("samples")
+    project(":sample").children.forEach { it.projectDir = file("samples/${it.name}") }
 }
 include(":core")
 include(":feature:home")
@@ -54,7 +56,6 @@ include(":stitch")
 include(":stitch-annotations")
 include(":stitch-ksp")
 
-project(":app").projectDir = file("samples/app")
 project(":core").projectDir = file("samples/core")
 project(":feature").projectDir = file("samples/feature")
 project(":feature:home").projectDir = file("samples/feature/home")

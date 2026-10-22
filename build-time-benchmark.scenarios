@@ -1,51 +1,66 @@
-# Build Time Benchmark: Per-flavor clean builds
+# Build Time Benchmark: Per-sample clean builds
 #
-# Usage (run from project root with ANDROID_HOME set):
+# Usage (run from project root with ANDROID_HOME set, on JDK 21 or newer):
 #   export ANDROID_HOME=/Users/harry.tumalewa/Library/Android/sdk
+#
+#   # Publish the current Stitch, so it is consumed like the other frameworks:
+#   ./gradlew :stitch:publishToMavenLocal :stitch-annotations:publishToMavenLocal :stitch-ksp:publishToMavenLocal \
+#     --init-script tests/kmp-consumer/local-publication.init.gradle.kts --no-configuration-cache -PversionSuffix=-local
 #
 #   # Run all scenarios:
 #   /opt/homebrew/bin/gradle-profiler --benchmark --scenario-file build-time-benchmark.scenarios
 
 clean_build_none {
     title = "Clean Build (none)"
-    tasks = [":app:assembleNoneDebug"]
+    tasks = [":sample:none:assembleDebug"]
     cleanup-tasks = ["clean"]
     clear-project-cache-before = SCENARIO
     clear-transform-cache-before = SCENARIO
-    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true"]
+    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true", "-PversionSuffix=-local"]
     warm-ups = 12
     iterations = 10
 }
 
 clean_build_koin {
     title = "Clean Build (koin)"
-    tasks = [":app:assembleKoinDebug"]
+    tasks = [":sample:koin:assembleDebug"]
     cleanup-tasks = ["clean"]
     clear-project-cache-before = SCENARIO
     clear-transform-cache-before = SCENARIO
-    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true"]
+    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true", "-PversionSuffix=-local"]
     warm-ups = 12
     iterations = 10
 }
 
 clean_build_dagger {
     title = "Clean Build (dagger)"
-    tasks = [":app:assembleDaggerDebug"]
+    tasks = [":sample:dagger:assembleDebug"]
     cleanup-tasks = ["clean"]
     clear-project-cache-before = SCENARIO
     clear-transform-cache-before = SCENARIO
-    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true"]
+    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true", "-PversionSuffix=-local"]
     warm-ups = 12
     iterations = 10
 }
 
 clean_build_stitch {
     title = "Clean Build (stitch)"
-    tasks = [":app:assembleStitchDebug"]
+    tasks = [":sample:stitch:assembleDebug"]
     cleanup-tasks = ["clean"]
     clear-project-cache-before = SCENARIO
     clear-transform-cache-before = SCENARIO
-    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true"]
+    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true", "-PversionSuffix=-local"]
+    warm-ups = 12
+    iterations = 10
+}
+
+clean_build_metro {
+    title = "Clean Build (metro)"
+    tasks = [":sample:metro:assembleDebug"]
+    cleanup-tasks = ["clean"]
+    clear-project-cache-before = SCENARIO
+    clear-transform-cache-before = SCENARIO
+    gradle-args = ["--no-build-cache", "--no-configuration-cache", "-Pfixture=200", "-PexcludeOtherModules=true", "-PversionSuffix=-local"]
     warm-ups = 12
     iterations = 10
 }
