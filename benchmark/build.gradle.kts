@@ -79,20 +79,14 @@ abstract class GenerateFixturesTask : DefaultTask() {
             appendLine("import org.koin.core.Koin")
             appendLine()
             appendLine("class InjectionTarget {")
-            for (i in 1..n) {
-                appendLine("    @Inject lateinit var service$i: Service$i")
-            }
+            appendLine("    @Inject lateinit var service$n: Service$n")
             appendLine()
             appendLine("    fun injectWithKoin(koin: Koin) {")
-            for (i in 1..n) {
-                appendLine("        service$i = koin.get()")
-            }
+            appendLine("        service$n = koin.get()")
             appendLine("    }")
             appendLine()
             appendLine("    fun injectWithStitch() {")
-            for (i in 1..n) {
-                appendLine("        service$i = Stitch.get()")
-            }
+            appendLine("        service$n = Stitch.get()")
             appendLine("    }")
             appendLine("}")
         })

@@ -16,22 +16,23 @@ Today, dependency injection tools often force a tradeoff:
 - Using **Dagger 2 + Koin** means carrying two mental models and the combined trade-offs.
 
 Stitch brings both models into one library without the combined trade-offs, while delivering
-**~20× faster injection than Koin** and **10-20% faster injection than Dagger 2**.
+**~400× faster injection than Koin** and **1.3-2.7× faster injection than Dagger 2** when dependencies are already
+initialized.
 
 ## At a Glance
 
-| Capability                         |       Stitch        | Dagger 2  |   Koin    |
-|------------------------------------|:-------------------:|:---------:|:---------:|
-| Runtime binding registration       |          ✅          |     ❌     |     ✅     |
-| Parent-child scope dependencies    |          ✅          |     ✅     |     ❌     |
-| Kotlin Multiplatform support       |          ✅          |     ❌     |     ✅     |
-| Amount of rituals (boilerplate)    |      ✅ Lowest       | ❌ Highest |   ✅ Low   |
-| Injection performance              |      ✅ Fastest      |  ✅ Fast   | ❌ Slowest |
-| APK size impact on larger graphs   |      ✅ Lowest       |   ✅ Low   | ❌ Highest |
-| Build-time impact on larger graphs | ✅ Lower than Dagger | ❌ Highest | ✅ Lowest  |
+| Capability                         |       Stitch        | Dagger 2  |   Koin    |   Metro   |
+|------------------------------------|:-------------------:|:---------:|:---------:|:---------:|
+| Runtime binding registration       |          ✅          |     ❌     |     ✅     |     ❌     |
+| Parent-child scope dependencies    |          ✅          |     ✅     |     ❌     |     ✅     |
+| Kotlin Multiplatform support       |          ✅          |     ❌     |     ✅     |     ✅     |
+| Amount of rituals (boilerplate)    |      ✅ Lowest       | ❌ Highest |   ✅ Low   |   ✅ Low   |
+| Warm injection performance         |      ✅ Fastest      |  ✅ Fast   | ❌ Slowest |  ✅ Fast   |
+| APK size impact on larger graphs   |      ✅ Lowest       |   ✅ Low   | ❌ Highest |  ❌ High   |
+| Build-time impact on larger graphs | ✅ Lower than Dagger | ❌ Highest | ✅ Lowest  |   ✅ Low   |
 
 **Notes:**
-- "Larger graphs" refers to projects with 100-200+ registered bindings.
+- "Larger graphs" refers to the 500-binding benchmark.
 - See [Performance Benchmarks](#performance-benchmarks) for the measurement details.
 
 ## Installation
@@ -223,47 +224,71 @@ Stitch was benchmarked across three dimensions:
 
 ### Injection performance
 
-Stitch is **1.10-1.20× faster than Dagger 2** and **19-22× faster than Koin**.
+#### Cold injection
 
-![Injection Performance](docs/charts/injection-performance-chart.png)
+Measures the first resolution of a binding backed by an N-deep dependency chain. Stitch is **1.16-1.33× faster than
+Dagger 2** and **64-76× faster than Koin** at every size. Metro is slightly faster at 10 bindings, but Stitch overtakes
+it from 25.
 
-| Bindings | Stitch           | Dagger 2                     | Koin                        |
-|----------|------------------|------------------------------|-----------------------------|
-| 10       | **363.41 ns**    | 429.67 ns *(1.18× slower)*   | 6,934.35 ns *(19× slower)*  |
-| 25       | **814.54 ns**    | 898.73 ns *(1.10× slower)*   | 17,511.96 ns *(21× slower)* |
-| 50       | **1,634.60 ns**  | 1,806.24 ns *(1.10× slower)* | 35,772.29 ns *(22× slower)* |
-| 100      | **3,640.85 ns**  | 4,384.39 ns *(1.20× slower)* | 73,161.62 ns *(20× slower)* |
+![Cold Injection Performance](docs/charts/cold-injection-performance-chart.png)
+
+*Note: Koin is omitted from the chart for readability.*
+
+| Bindings | Stitch          | Dagger 2                        | Koin                            | Metro                           |
+|----------|-----------------|---------------------------------|---------------------------------|---------------------------------|
+| 10       | **279.79 ns**   | 335.39 ns<br>*(1.20× slower)*   | 17,922.77 ns<br>*(64× slower)*  | 262.25 ns<br>*(0.94× slower)*   |
+| 25       | **643.51 ns**   | 744.79 ns<br>*(1.16× slower)*   | 43,218.67 ns<br>*(67× slower)*  | 706.53 ns<br>*(1.10× slower)*   |
+| 50       | **1,141.22 ns** | 1,457.90 ns<br>*(1.28× slower)* | 86,800.44 ns<br>*(76× slower)*  | 1,381.31 ns<br>*(1.21× slower)* |
+| 100      | **2,734.82 ns** | 3,642.17 ns<br>*(1.33× slower)* | 187,182.74 ns<br>*(68× slower)* | 4,606.65 ns<br>*(1.68× slower)* |
+
+#### Warm injection
+
+Measures injection after the required bindings have been initialized. Stitch is **1.3-2.7× faster than Dagger 2**
+and **over 380× faster than Koin** at every size.
+
+![Warm Injection Performance](docs/charts/warm-injection-performance-chart.png)
+
+*Note: Koin is omitted from the chart for readability.*
+
+| Bindings | Stitch      | Dagger 2                    | Koin                         | Metro                       |
+|----------|-------------|-----------------------------|------------------------------|-----------------------------|
+| 10       | **1.63 ns** | 2.11 ns<br>*(1.30× slower)* | 624.53 ns<br>*(383× slower)* | 3.88 ns<br>*(2.38× slower)* |
+| 25       | **1.55 ns** | 2.12 ns<br>*(1.37× slower)* | 625.91 ns<br>*(404× slower)* | 4.17 ns<br>*(2.69× slower)* |
+| 50       | **1.62 ns** | 2.08 ns<br>*(1.28× slower)* | 651.30 ns<br>*(401× slower)* | 4.21 ns<br>*(2.59× slower)* |
+| 100      | **1.61 ns** | 4.29 ns<br>*(2.67× slower)* | 659.45 ns<br>*(410× slower)* | 4.18 ns<br>*(2.60× slower)* |
 
 ### APK size impact
 
-Stitch stays **5-10× below Koin** across all graph sizes. Dagger has a smaller APK footprint on
-small graphs, but Stitch crosses below Dagger at ~200 bindings.
+Stitch stays **4-10× below Koin** across all graph sizes. Dagger 2 has a smaller APK footprint up to 250 bindings,
+but Stitch crosses below Dagger by 500.
 
 ![APK Size Impact](docs/charts/apk-size-impact-chart.png)
 
-| Bindings | Stitch       | Dagger 2                    | Koin                     |
-|----------|--------------|-----------------------------|--------------------------|
-| 10       | **+35.5 KB** | +14.4 KB *(0.41× larger)*   | +370.4 KB *(10× larger)* |
-| 50       | **+43.4 KB** | +31.6 KB *(0.73× larger)*   | +375.3 KB *(9× larger)*  |
-| 100      | **+53.1 KB** | +46.1 KB *(0.87× larger)*   | +382.4 KB *(7× larger)*  |
-| 200      | **+78.2 KB** | +84.0 KB *(1.07× larger)*   | +398.1 KB *(5× larger)*  |
+| Bindings | Stitch        | Dagger 2                      | Koin                        | Metro                         |
+|----------|---------------|-------------------------------|-----------------------------|-------------------------------|
+| 10       | **+38.9 KB**  | +15.3 KB<br>*(0.39× larger)*  | +372.0 KB<br>*(10× larger)* | +38.9 KB<br>*(1.00× larger)*  |
+| 50       | **+43.5 KB**  | +25.9 KB<br>*(0.59× larger)*  | +378.5 KB<br>*(9× larger)*  | +60.2 KB<br>*(1.38× larger)*  |
+| 100      | **+51.3 KB**  | +33.4 KB<br>*(0.65× larger)*  | +383.6 KB<br>*(7× larger)*  | +86.2 KB<br>*(1.68× larger)*  |
+| 250      | **+75.7 KB**  | +66.7 KB<br>*(0.88× larger)*  | +404.6 KB<br>*(5× larger)*  | +160.0 KB<br>*(2.11× larger)* |
+| 500      | **+115.3 KB** | +127.7 KB<br>*(1.11× larger)* | +435.5 KB<br>*(4× larger)*  | +286.3 KB<br>*(2.48× larger)* |
 
 ### Build-time impact
 
-Stitch has a larger build-time overhead than Dagger on small graphs, but crosses below Dagger at
-~100 bindings and scales better from there. Koin has the smallest overhead.
+Stitch has lower build-time impact than Dagger 2 at every measured graph size. Koin and Metro have lower impact than
+Stitch.
 
 ![Build-time Impact](docs/charts/build-time-impact-chart.png)
 
-| Bindings | Stitch           | Dagger 2                      | Koin                        |
-|----------|------------------|-------------------------------|-----------------------------|
-| 10       | **+878.42 ms**   | +377.69 ms *(0.43× larger)*   | +91.03 ms *(0.10× larger)*  |
-| 50       | **+907.34 ms**   | +817.78 ms *(0.90× larger)*   | +162.14 ms *(0.18× larger)* |
-| 100      | **+1,095.39 ms** | +1,164.09 ms *(1.06× larger)* | +79.53 ms *(0.07× larger)*  |
-| 200      | **+1,330.23 ms** | +1,754.03 ms *(1.32× larger)* | +19.10 ms *(0.01× larger)*  |
+| Bindings | Stitch           | Dagger 2                         | Koin                           | Metro                            |
+|----------|------------------|----------------------------------|--------------------------------|----------------------------------|
+| 10       | **+218.24 ms**   | +369.44 ms<br>*(1.69× larger)*   | +200.04 ms<br>*(0.92× larger)* | +90.69 ms<br>*(0.42× larger)*    |
+| 50       | **+377.32 ms**   | +591.72 ms<br>*(1.57× larger)*   | +235.41 ms<br>*(0.62× larger)* | +230.82 ms<br>*(0.61× larger)*   |
+| 100      | **+564.80 ms**   | +921.82 ms<br>*(1.63× larger)*   | +225.29 ms<br>*(0.40× larger)* | +394.38 ms<br>*(0.70× larger)*   |
+| 250      | **+1,152.27 ms** | +1,532.42 ms<br>*(1.33× larger)* | +334.59 ms<br>*(0.29× larger)* | +789.89 ms<br>*(0.69× larger)*   |
+| 500      | **+2,068.91 ms** | +2,247.15 ms<br>*(1.09× larger)* | +549.03 ms<br>*(0.27× larger)* | +1,261.47 ms<br>*(0.61× larger)* |
 
-Stitch scales better than Dagger as graph size grows, while remaining far ahead of Koin in injection
-performance and APK size impact.
+The raw measurements of each release are in [docs/benchmarks](docs/benchmarks). See the injection benchmark's
+[methodology](benchmark/README.md) and [full results](benchmark/RESULTS.md).
 
 ## Migrating to Stitch
 

@@ -39,9 +39,9 @@ import org.koin.dsl.koinApplication
  * Performance benchmark comparing injection time across Stitch (precompiled + runtime),
  * Dagger, Koin and Metro.
  *
- * The precompiled `*SingletonInject` methods inject into a fresh graph on every iteration, while
- * the runtime path and Koin reuse a warm container. Compare the `*WarmSingletonInject` methods
- * with the runtime path and Koin.
+ * Cold singleton benchmarks measure first resolution from a new graph or container.
+ * Warm singleton benchmarks measure resolution after bindings are initialized.
+ * Graph and container setup are excluded from measurement.
  *
  * Run on a physical device:
  * ```
@@ -75,12 +75,16 @@ class InjectionBenchmark {
 
     @Test
     fun stitchRuntimeSingletonInject() {
-        Stitch.register(stitchRuntimeFixtureModule)
         val target = InjectionTarget()
         benchmarkRule.measureRepeated {
+            runWithMeasurementDisabled {
+                Stitch.register(stitchRuntimeFixtureModule)
+            }
             target.injectWithStitch()
+            runWithMeasurementDisabled {
+                Stitch.reset()
+            }
         }
-        Stitch.reset()
     }
 
     @Test
@@ -96,12 +100,16 @@ class InjectionBenchmark {
 
     @Test
     fun koinSingletonInject() {
-        val koinApp = koinApplication { modules(koinFixtureModule) }
         val target = InjectionTarget()
         benchmarkRule.measureRepeated {
+            val koinApp = runWithMeasurementDisabled {
+                koinApplication { modules(koinFixtureModule) }
+            }
             target.injectWithKoin(koinApp.koin)
+            runWithMeasurementDisabled {
+                koinApp.close()
+            }
         }
-        koinApp.close()
     }
 
     @Test
@@ -179,6 +187,16 @@ class InjectionBenchmark {
     }
 
     @Test
+    fun stitchRuntimeWarmSingletonInject() {
+        Stitch.register(stitchRuntimeFixtureModule)
+        val target = InjectionTarget()
+        benchmarkRule.measureRepeated {
+            target.injectWithStitch()
+        }
+        Stitch.reset()
+    }
+
+    @Test
     fun daggerWarmSingletonInject() {
         val fixtureComponent = DaggerDaggerFixtureComponent.create()
         val target = InjectionTarget()
@@ -186,6 +204,16 @@ class InjectionBenchmark {
         benchmarkRule.measureRepeated {
             fixtureComponent.inject(target)
         }
+    }
+
+    @Test
+    fun koinWarmSingletonInject() {
+        val koinApp = koinApplication { modules(koinFixtureModule) }
+        val target = InjectionTarget()
+        benchmarkRule.measureRepeated {
+            target.injectWithKoin(koinApp.koin)
+        }
+        koinApp.close()
     }
 
     @Test
