@@ -23,13 +23,9 @@ ksp {
     arg("stitch.moduleName", "App")
 }
 
-// Stitch is consumed as a published artifact at this build's version, like the other frameworks.
-evaluationDependsOn(":stitch")
-val stitchVersion = project(":stitch").version
-
 dependencies {
-    implementation("io.github.harrytmthy:stitch:$stitchVersion")
-    compileOnly("io.github.harrytmthy:stitch-annotations:$stitchVersion")
+    implementation(project(":stitch"))
+    compileOnly(project(":stitch-annotations"))
     compileOnly(libs.javax.inject)
-    ksp("io.github.harrytmthy:stitch-ksp:$stitchVersion")
+    ksp(project(":stitch-ksp"))
 }

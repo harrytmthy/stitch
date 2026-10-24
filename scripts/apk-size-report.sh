@@ -8,28 +8,7 @@ FIXTURE=${1:-10}
 OUT_DIR="build/apk-size-report"
 
 # ---------------------------------------------------------------------------
-# Step 1: Publish the current Stitch, so it is consumed like the other frameworks
-# ---------------------------------------------------------------------------
-
-echo "=== Publishing the current Stitch to Maven local ==="
-echo ""
-
-./gradlew \
-  :stitch:publishToMavenLocal \
-  :stitch-annotations:publishToMavenLocal \
-  :stitch-ksp:publishToMavenLocal \
-  --init-script tests/kmp-consumer/local-publication.init.gradle.kts \
-  --no-configuration-cache \
-  -PversionSuffix=-local
-
-if [ $? -ne 0 ]; then
-  echo ""
-  echo "ERROR: Publishing Stitch failed. Aborting report."
-  exit 1
-fi
-
-# ---------------------------------------------------------------------------
-# Step 2: Build all samples
+# Step 1: Build all samples
 # ---------------------------------------------------------------------------
 
 echo "=== Building all samples (${FIXTURE} fixtures) ==="
@@ -44,7 +23,6 @@ echo ""
   --stacktrace \
   --no-configuration-cache \
   -PexcludeOtherModules=true \
-  -PversionSuffix=-local \
   -Pfixture="$FIXTURE"
 
 if [ $? -ne 0 ]; then
@@ -54,7 +32,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Step 3: Measure and report
+# Step 2: Measure and report
 # ---------------------------------------------------------------------------
 
 echo ""
