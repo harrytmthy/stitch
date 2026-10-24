@@ -30,8 +30,8 @@ Each benchmark runs 20 warmups and 100 measurements. A measurement may batch mul
 independent process runs. Fixture sizes run in order, one suite at a time. To avoid thermal throttling, battery and skin
 must both be at or below 35°C before measurement.
 
-- Fresh-graph singleton creates a new precompiled graph outside the timed block, then times the first injection. This is
-  not cold-process startup.
-- Warm singleton injects N fields into a target using an already-warm graph. The precompiled graphs are primed once
-  before measuring. The runtime path and Koin warm up during the harness warmup.
+- Cold singleton resolves one binding backed by an N-deep dependency chain using a new graph or container. Graph and
+  container setup are excluded from measurement. This is not cold-process startup.
+- Warm singleton injects one binding, backed by an N-deep chain, into a target using an already-warm graph. The
+  precompiled graphs are primed once before measuring. The runtime path and Koin warm up during the harness warmup.
 - Factory injects one root whose dependency chain constructs N objects. Graph setup is outside timing.
