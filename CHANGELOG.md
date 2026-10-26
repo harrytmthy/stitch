@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-10-27
+
+### Added
+
+- **Provider wrapping:** Generated graphs can inject `Provider<T>` to defer resolution until `get()` is called, and accept `javax.inject.Provider` on JVM and Android. A provider can break a dependency cycle, and requesting a singleton or scoped binding during its own initialization throws `IllegalStateException`. ([#217](https://github.com/harrytmthy/stitch/issues/217))
+
+### Changed
+
+- **Qualified runtime bindings:** Bindings of the same type with different qualifiers now initialize under separate locks, so concurrent first access to acyclic dependency chains no longer blocks. ([#221](https://github.com/harrytmthy/stitch/issues/221))
+- **Missing-binding diagnostics:** A dependency of a contributor module that no module provides is now reported as a missing binding, with the location of the request. ([#244](https://github.com/harrytmthy/stitch/issues/244))
+- **Benchmarks:** Added Metro to every benchmark, with one sample module per framework and separate cold and warm injection measurements. The benchmarks build the current Stitch source without publishing it first. The README shows the 1.1.0 results, and the raw results of each release are kept under `docs/benchmarks`. ([#250](https://github.com/harrytmthy/stitch/issues/250), [#253](https://github.com/harrytmthy/stitch/issues/253), [#255](https://github.com/harrytmthy/stitch/issues/255), [#257](https://github.com/harrytmthy/stitch/issues/257))
+- **CI checks:** Independent CI checks keep running after an earlier check fails. ([#227](https://github.com/harrytmthy/stitch/issues/227))
+
+### Performance
+
+- **Faster warm injection:** Generated graphs keep each accessor's cached read separate from its locked initialization, so ART can inline the cached read when injecting into an already-initialized graph. ([#249](https://github.com/harrytmthy/stitch/issues/249))
+
+### Docs
+
+- **Stale docs:** The migration and multi-module guides now use the correct package names, and the README and migration guide show `Provider<T>`. The `ScopeRef.createScope()` KDoc now states that new scopes start open. ([#247](https://github.com/harrytmthy/stitch/issues/247))
+
 ## [1.1.0-rc01] - 2026-10-20
 
 ### Added

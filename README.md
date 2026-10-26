@@ -41,7 +41,7 @@ initialized.
 
 ```kotlin
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.1.0-rc01")
+    implementation("io.github.harrytmthy:stitch:1.1.0")
 }
 ```
 
@@ -49,9 +49,9 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("io.github.harrytmthy:stitch:1.1.0-rc01")
-    compileOnly("io.github.harrytmthy:stitch-annotations:1.1.0-rc01")
-    ksp("io.github.harrytmthy:stitch-ksp:1.1.0-rc01")
+    implementation("io.github.harrytmthy:stitch:1.1.0")
+    compileOnly("io.github.harrytmthy:stitch-annotations:1.1.0")
+    ksp("io.github.harrytmthy:stitch-ksp:1.1.0")
 }
 ```
 
